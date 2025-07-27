@@ -64,8 +64,9 @@ try:
     from google.adk.agents import LiveRequestQueue
     from google.genai import types as genai_types
     DEEP_RESEARCH_AVAILABLE = True
+    logger.info("Deep Research Agent loaded successfully!")
 except ImportError as e:
-    print(f"Deep Research Agent not available: {e}")
+    logger.error(f"Deep Research Agent not available: {e}")
     DEEP_RESEARCH_AVAILABLE = False
 
 # Initialize FastAPI app
@@ -163,11 +164,10 @@ class BrowserTaskRequest(BaseModel):
 
 
 class DeepResearchRequest(BaseModel):
-    appName: str
+    message: str  # The actual message text
     userId: str
     sessionId: str
-    newMessage: Dict[str, Any]
-    streaming: bool = True
+    appName: Optional[str] = "deep_research_app"  # Keep for compatibility
 
 
 
@@ -195,9 +195,6 @@ class BrowserUseCreateWithURLRequest(BaseModel):
 UPLOAD_DIR = "/tmp/claude_uploads"
 os.makedirs(UPLOAD_DIR, exist_ok=True)
 uploaded_files: Dict[str, str] = {}
-
-# Deep Research Sessions Storage
-deep_research_sessions: Dict[str, Dict] = {}
 
 # App constants for deep research
 APP_NAME = "deep_research_app"
@@ -240,6 +237,7 @@ async def create_browser_agent(task: str, session_id: str):
 		stealth=True,
 		headless=False,
 		viewport={"width": 1280, "height": 900},
+		wait_between_actions=0.3,
 	)
 
 	browser_session = BrowserSession(
@@ -342,6 +340,7 @@ async def run_browser_use_agent(task: str):
 			stealth=True,  # <-- Stealth mode enabled
 			headless=False,  # Headful for Human in the Loop
 			viewport={"width": 1280, "height": 900},
+			wait_between_actions=0.3,
 		)
 		
 		browserless_token = os.getenv('BROWSERLESS_API_TOKEN')
@@ -686,39 +685,14 @@ async def analyze_files(request: FileAnalysisRequest):
 @app.post("/api/apps/{app_name}/users/{user_id}/sessions")
 async def create_deep_research_session(app_name: str, user_id: str):
     """Create a new deep research session."""
-    if not DEEP_RESEARCH_AVAILABLE:
-        # Return a mock session for compatibility
-        session_id = f"session_{datetime.now().timestamp()}_{user_id}"
-        return {
-            "id": session_id,
-            "appName": app_name,
-            "userId": user_id,
-            "created": datetime.now().isoformat()
-        }
-    
-    # Original deep research implementation
-    try:
-        session_id = f"session_{datetime.now().timestamp()}_{user_id}"
-        
-        # Store session info
-        deep_research_sessions[session_id] = {
-            "id": session_id,
-            "appName": app_name,
-            "userId": user_id,
-            "created": datetime.now().isoformat(),
-            "runner": None,
-            "session": None
-        }
-        
-        return {
-            "id": session_id,
-            "appName": app_name,
-            "userId": user_id,
-            "created": datetime.now().isoformat()
-        }
-        
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e))
+    # Always return a session ID - ADK will handle actual session creation
+    session_id = f"session_{datetime.now().timestamp()}_{user_id}"
+    return {
+        "id": session_id,
+        "appName": app_name,
+        "userId": user_id,
+        "created": datetime.now().isoformat()
+    }
 
 
 @app.get("/api/docs")
@@ -745,17 +719,10 @@ async def deep_research_sse(request: DeepResearchRequest):
     if not DEEP_RESEARCH_AVAILABLE:
         # Fallback to regular Claude chat with enhanced research prompt
         try:
-            # Extract message text from deep research format
-            message_text = ""
-            if "parts" in request.newMessage and request.newMessage["parts"]:
-                for part in request.newMessage["parts"]:
-                    if "text" in part:
-                        message_text += part["text"]
-            
             # Create enhanced research prompt
             research_prompt = f"""Conduct deep research on the following topic. Use web search extensively to gather comprehensive information from multiple sources. Provide a detailed analysis with citations.
 
-Topic: {message_text}
+Topic: {request.message}
 
 Please:
 1. Search for relevant information from multiple authoritative sources
@@ -805,50 +772,44 @@ Please:
     
     # Original deep research implementation with ADK agents
     try:
-        # Get or create session
-        session_info = deep_research_sessions.get(request.sessionId)
-        if not session_info:
-            raise HTTPException(status_code=404, detail="Session not found")
+        logger.info(f"Deep research request received - sessionId: {request.sessionId}, userId: {request.userId}")
         
-        # Create runner and session if not exists
-        if not session_info.get("runner") or not session_info.get("session"):
-            runner = InMemoryRunner(
-                app_name=APP_NAME,
-                agent=deep_research_root_agent,
-            )
-            
-            session = await runner.session_service.create_session(
-                app_name=APP_NAME,
-                user_id=request.userId,
-            )
-            
-            session_info["runner"] = runner
-            session_info["session"] = session
+        # Import required classes
+        from google.adk.runners import Runner
+        from google.adk.sessions import InMemorySessionService
         
-        runner = session_info["runner"]
-        session = session_info["session"]
+        # Create session service
+        session_service = InMemorySessionService()
         
-        # Extract message text from request
-        message_text = ""
-        if "parts" in request.newMessage and request.newMessage["parts"]:
-            for part in request.newMessage["parts"]:
-                if "text" in part:
-                    message_text += part["text"]
-        
-        # Create message for agent
-        message = genai_types.Content(
-            role="user",
-            parts=[genai_types.Part(text=message_text)]
+        # Create session with the provided session ID
+        await session_service.create_session(
+            app_name=request.appName or APP_NAME,
+            user_id=request.userId,
+            session_id=request.sessionId
         )
         
-        # Add message to session
-        session.history.append(message)
+        # Create runner with the session service
+        runner = Runner(
+            agent=deep_research_root_agent,
+            app_name=request.appName or APP_NAME,
+            session_service=session_service
+        )
+        
+        # Create message for agent directly from the request
+        message = genai_types.Content(
+            role="user",
+            parts=[genai_types.Part(text=request.message)]
+        )
         
         # Stream response
         async def event_stream():
             try:
                 # Run the agent and stream events
-                async for event in runner.run_async(session=session):
+                async for event in runner.run_async(
+                    user_id=request.userId,
+                    session_id=request.sessionId,
+                    new_message=message
+                ):
                     # Convert event to format expected by frontend
                     event_data = {
                         "content": None,
@@ -883,7 +844,13 @@ Please:
                             event_data["actions"]["artifactDelta"] = event.actions.artifact_delta
                     
                     # Add session state information
-                    if hasattr(session, 'state') and session.state:
+                    # Get the session from the session service
+                    session = await session_service.get_session(
+                        app_name=request.appName or APP_NAME,
+                        user_id=request.userId,
+                        session_id=request.sessionId
+                    )
+                    if session and hasattr(session, 'state') and session.state:
                         # Add research plan if available
                         if "research_plan" in session.state:
                             event_data["actions"]["stateDelta"]["research_plan"] = session.state["research_plan"]

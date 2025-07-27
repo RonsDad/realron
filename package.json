@@ -5,7 +5,7 @@
   "scripts": {
     "build": "next build",
     "dev": "next dev",
-    "dev:backend": "cd backend && source ../venv/bin/activate && python3 api.py",
+    "dev:backend": "cd backend && source ../venv/bin/activate && pip install -e ./agent-starter-pack && python3 api.py",
     "dev:all": "node kill-ports.js && concurrently \"npm run dev\" \"npm run dev:backend\"",
     "kill-ports": "node kill-ports.js",
     "lint": "next lint",

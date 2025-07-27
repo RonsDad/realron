@@ -13,7 +13,6 @@ import { MedicationManagerInterface } from "@/components/medication-manager-inte
 import { CareTeamPanel } from "@/components/care-team-panel"
 import { ComputerUseAgent } from "@/components/computer-use-agent"
 import { RetractableSidebar } from "@/components/retractable-sidebar"
-import { useUserProfile } from "@/hooks/use-user-profile"
 import { useComputerAgent } from "@/hooks/use-computer-agent"
 import { claudeAPI, parseSSEStream, type ChatMessage } from "@/lib/api"
 import type { Message } from "@/lib/types"
@@ -33,7 +32,6 @@ export default function HealthCopilot() {
   const [reasoningTokens, setReasoningTokens] = useState(0)
   const messagesEndRef = useRef<HTMLDivElement>(null)
 
-  const { userProfile } = useUserProfile()
   const { agentState, startAgent, stopAgent } = useComputerAgent()
 
   useEffect(() => {
@@ -73,48 +71,162 @@ export default function HealthCopilot() {
       }
 
       try {
-        // Convert messages to API format
-        const apiMessages: ChatMessage[] = messages.map(msg => ({
-          role: msg.role as "user" | "assistant",
-          content: msg.content
-        }))
-        apiMessages.push({ role: "user", content: inputValue })
+        console.log("=== SENDING MESSAGE ===")
+        console.log("Deep Research Mode:", isDeepResearch)
+        console.log("Message:", inputValue)
+        
+        // Check if using deep research mode
+        if (isDeepResearch) {
+          console.log(">>> USING DEEP RESEARCH AGENT <<<")
+          // Use deep research endpoint
+          const userId = "user_" + Math.random().toString(36).substr(2, 9)
+          
+          // Create a session first
+          console.log("Creating deep research session...")
+          const sessionId = await claudeAPI.createDeepResearchSession(userId)
+          console.log("Session created with ID:", sessionId)
+          
+          // Create assistant message placeholder
+          const assistantMessage: Message = {
+            role: "assistant",
+            content: "",
+            timestamp: new Date(),
+          }
+          setMessages(prev => [...prev, assistantMessage])
+          
+          // Stream from deep research endpoint
+          console.log("Calling deepResearch with:", {
+            sessionId,
+            userId,
+            messageCount: messages.length + 1
+          })
+          
+          const stream = await claudeAPI.deepResearch(
+            inputValue,  // ONLY the message the user just typed
+            sessionId,
+            userId
+          )
+          
+          console.log("Deep research stream received:", stream)
+          
+          let fullContent = ""
+          let fullReasoning = ""
+          console.log("Starting deep research SSE stream...")
+          
+          const reader = stream.getReader()
+          const decoder = new TextDecoder()
+          let buffer = ''
+          
+          try {
+            while (true) {
+              const { done, value } = await reader.read()
+              if (done) break
+              
+              buffer += decoder.decode(value, { stream: true })
+              const lines = buffer.split('\n')
+              buffer = lines.pop() || ''
+              
+              for (const line of lines) {
+                if (line.startsWith('data: ')) {
+                  const data = line.slice(6).trim()
+                  if (data && data !== '[DONE]') {
+                    try {
+                      const event = JSON.parse(data)
+                      
+                      // Extract content from deep research format
+                      if (event.content?.parts) {
+                        for (const part of event.content.parts) {
+                          if (part.text) {
+                            // The text might be a string representation of Python objects
+                            // Look for actual text content within triple quotes
+                            const textMatch = part.text.match(/text="""([\s\S]*?)"""/);
+                            if (textMatch && textMatch[1]) {
+                              // Found actual text content in triple quotes
+                              fullContent = textMatch[1].trim()
+                            } else if (!part.text.startsWith('parts=')) {
+                              // Regular text content
+                              fullContent += part.text
+                            }
+                            setCurrentStreamingMessage(fullContent)
+                          }
+                        }
+                      }
+                      
+                      // Handle state delta updates (research plan, final report, etc)
+                      if (event.actions?.stateDelta) {
+                        if (event.actions.stateDelta.research_plan) {
+                          // Update with research plan
+                          fullContent = event.actions.stateDelta.research_plan
+                          setCurrentStreamingMessage(fullContent)
+                        }
+                        if (event.actions.stateDelta.final_report_with_citations) {
+                          // Replace content with final report when available
+                          fullContent = event.actions.stateDelta.final_report_with_citations
+                          setCurrentStreamingMessage(fullContent)
+                        }
+                      }
+                      
+                      // Update the assistant message
+                      setMessages(prev => {
+                        const newMessages = [...prev]
+                        if (newMessages.length > 0 && newMessages[newMessages.length - 1].role === "assistant") {
+                          newMessages[newMessages.length - 1] = {
+                            ...newMessages[newMessages.length - 1],
+                            content: fullContent,
+                            reasoning: fullReasoning,
+                            reasoningTokens: reasoningTokens
+                          }
+                        }
+                        return newMessages
+                      })
+                    } catch (e) {
+                      console.error('Failed to parse SSE data:', e)
+                    }
+                  }
+                }
+              }
+            }
+          } finally {
+            reader.releaseLock()
+          }
+        } else {
+          console.log(">>> USING REGULAR CLAUDE CHAT <<<")
+          // Use regular Claude chat endpoint
+          // Convert messages to API format
+          const apiMessages: ChatMessage[] = messages.map(msg => ({
+            role: msg.role as "user" | "assistant",
+            content: msg.content
+          }))
+          apiMessages.push({ role: "user", content: inputValue })
 
-        // Determine which tools to enable based on context
-        const tools: string[] = ["web_search", "text_editor", "browser_use"]
-        if (inputValue.toLowerCase().includes("bash") || inputValue.toLowerCase().includes("command")) {
-          tools.push("bash")
-        }
+          // Determine which tools to enable based on context
+          const tools: string[] = ["web_search", "text_editor", "browser_use"]
+          if (inputValue.toLowerCase().includes("bash") || inputValue.toLowerCase().includes("command")) {
+            tools.push("bash")
+          }
 
-        // Create assistant message placeholder
-        const assistantMessage: Message = {
-          role: "assistant",
-          content: "",
-          timestamp: new Date(),
-        }
-        setMessages(prev => [...prev, assistantMessage])
+          // Create assistant message placeholder
+          const assistantMessage: Message = {
+            role: "assistant",
+            content: "",
+            timestamp: new Date(),
+          }
+          setMessages(prev => [...prev, assistantMessage])
 
-        // Stream the response with interleaved thinking
-        const stream = await claudeAPI.chatStream({
-          messages: apiMessages,
-          temperature: 1.0,
-          max_tokens: 32000,
-          tools: tools,
-          enable_caching: true,
-          cache_ttl: "5m",
-          enable_thinking: true,
-          thinking_budget: 20000,
-          enable_citations: true,
-          stream: true,
-          system_prompt: `You are Ron AI, an advanced healthcare advocacy AI assistant powered by Claude Sonnet 4. 
+          // Stream the response with interleaved thinking
+          const stream = await claudeAPI.chatStream({
+            messages: apiMessages,
+            temperature: 1.0,
+            max_tokens: 32000,
+            tools: tools,
+            enable_caching: true,
+            cache_ttl: "5m",
+            enable_thinking: true,
+            thinking_budget: 20000,
+            enable_citations: true,
+            stream: true,
+            system_prompt: `You are Ron AI, an advanced healthcare advocacy AI assistant powered by Claude Sonnet 4. 
 You help users navigate their healthcare journey with clarity and confidence.
-
-Current user profile:
-- Name: ${userProfile.name}
-- Age: ${userProfile.age}
-- Conditions: ${userProfile.conditions?.join(", ") || "None"}
-- Medications: ${userProfile.medications?.join(", ") || "None"}
-- Insurance: ${userProfile.insurance}
 
 When helping with healthcare tasks:
 1. Be empathetic and supportive
@@ -124,63 +236,64 @@ When helping with healthcare tasks:
 5. If doing deep research, be thorough and cite sources
 
 ${isDeepResearch ? "DEEP RESEARCH MODE: Perform comprehensive research with multiple sources and detailed analysis." : ""}`
-        })
+          })
 
-        let fullContent = ""
-        let fullReasoning = ""
-        console.log("Starting to parse SSE stream...")
-        for await (const event of parseSSEStream(stream)) {
-          console.log("Received event:", JSON.stringify(event))
-          
-          // Handle content deltas (text)
-          if (event.type === 'content_block_delta' && event.delta?.type === 'text_delta') {
-            fullContent += event.delta.text || ""
-            setCurrentStreamingMessage(fullContent)
-          }
-          // Handle thinking deltas
-          else if (event.type === 'content_block_delta' && event.delta?.type === 'thinking_delta') {
-            fullReasoning += event.delta.text || ""
-            setCurrentReasoning(fullReasoning)
-          }
-          // Handle tool use start
-          else if (event.type === 'content_block_start' && event.content_block?.type === 'tool_use') {
-            console.log(`Tool started: ${event.content_block.name}`)
-            fullContent += `\n\n🔧 Using ${event.content_block.name} tool...`
-            setCurrentStreamingMessage(fullContent)
-          }
-          // Handle tool results
-          else if (event.type === 'tool_result') {
-            console.log(`Tool ${event.tool_name} completed:`, event.result)
-            const resultText = typeof event.result === 'string' ? event.result : JSON.stringify(event.result, null, 2)
-            fullContent += `\n\n✅ Tool result: ${resultText}`
-            setCurrentStreamingMessage(fullContent)
-          }
-          // Handle tool errors
-          else if (event.type === 'tool_error') {
-            console.error(`Tool ${event.tool_name} error:`, event.error)
-            fullContent += `\n\n❌ Tool error: ${event.error}`
-            setCurrentStreamingMessage(fullContent)
-          }
-          // Handle message completion
-          else if (event.type === 'message_stop' || event.type === 'message_delta') {
-            if (event.usage) {
-              setReasoningTokens(event.usage.reasoning_tokens || 0)
+          let fullContent = ""
+          let fullReasoning = ""
+          console.log("Starting to parse SSE stream...")
+          for await (const event of parseSSEStream(stream)) {
+            console.log("Received event:", JSON.stringify(event))
+            
+            // Handle content deltas (text)
+            if (event.type === 'content_block_delta' && event.delta?.type === 'text_delta') {
+              fullContent += event.delta.text || ""
+              setCurrentStreamingMessage(fullContent)
             }
-          }
-          
-          // Update the assistant message
-          setMessages(prev => {
-            const newMessages = [...prev]
-            if (newMessages.length > 0 && newMessages[newMessages.length - 1].role === "assistant") {
-              newMessages[newMessages.length - 1] = {
-                ...newMessages[newMessages.length - 1],
-                content: fullContent,
-                reasoning: fullReasoning,
-                reasoningTokens: reasoningTokens
+            // Handle thinking deltas
+            else if (event.type === 'content_block_delta' && event.delta?.type === 'thinking_delta') {
+              fullReasoning += event.delta.text || ""
+              setCurrentReasoning(fullReasoning)
+            }
+            // Handle tool use start
+            else if (event.type === 'content_block_start' && event.content_block?.type === 'tool_use') {
+              console.log(`Tool started: ${event.content_block.name}`)
+              fullContent += `\n\n🔧 Using ${event.content_block.name} tool...`
+              setCurrentStreamingMessage(fullContent)
+            }
+            // Handle tool results
+            else if (event.type === 'tool_result') {
+              console.log(`Tool ${event.tool_name} completed:`, event.result)
+              const resultText = typeof event.result === 'string' ? event.result : JSON.stringify(event.result, null, 2)
+              fullContent += `\n\n✅ Tool result: ${resultText}`
+              setCurrentStreamingMessage(fullContent)
+            }
+            // Handle tool errors
+            else if (event.type === 'tool_error') {
+              console.error(`Tool ${event.tool_name} error:`, event.error)
+              fullContent += `\n\n❌ Tool error: ${event.error}`
+              setCurrentStreamingMessage(fullContent)
+            }
+            // Handle message completion
+            else if (event.type === 'message_stop' || event.type === 'message_delta') {
+              if (event.usage) {
+                setReasoningTokens(event.usage.reasoning_tokens || 0)
               }
             }
-            return newMessages
-          })
+            
+            // Update the assistant message
+            setMessages(prev => {
+              const newMessages = [...prev]
+              if (newMessages.length > 0 && newMessages[newMessages.length - 1].role === "assistant") {
+                newMessages[newMessages.length - 1] = {
+                  ...newMessages[newMessages.length - 1],
+                  content: fullContent,
+                  reasoning: fullReasoning,
+                  reasoningTokens: reasoningTokens
+                }
+              }
+              return newMessages
+            })
+          }
         }
 
       } catch (error) {
@@ -308,7 +421,11 @@ ${isDeepResearch ? "DEEP RESEARCH MODE: Perform comprehensive research with mult
                   <div className="space-y-6">
                     {isProcessing && (
                       <AgentStatusIndicator 
-                        currentAgent={{ type: "general", name: "Claude Sonnet 4", description: "Processing your request..." }} 
+                        currentAgent={{ 
+                          type: isDeepResearch ? "research" : "general", 
+                          name: isDeepResearch ? "Deep Research Agent" : "Claude Sonnet 4", 
+                          description: isDeepResearch ? "Conducting comprehensive research..." : "Processing your request..." 
+                        }} 
                         status="processing" 
                       />
                     )}
@@ -327,6 +444,44 @@ ${isDeepResearch ? "DEEP RESEARCH MODE: Perform comprehensive research with mult
                           content={msg.content}
                           timestamp={msg.timestamp}
                         />
+                        {/* Show approval buttons for research plans */}
+                        {msg.role === "assistant" && 
+                         isDeepResearch && 
+                         msg.content.includes("[RESEARCH]") && 
+                         msg.content.includes("plan") &&
+                         i === messages.length - 1 && 
+                         !isProcessing && (
+                          <div className="flex gap-3 mt-4 ml-12">
+                            <Button
+                              variant="default"
+                              size="sm"
+                              onClick={() => {
+                                // Directly handle the approval
+                                const savedInput = inputValue
+                                setInputValue("Looks good, run it")
+                                handleSendMessage()
+                                setInputValue(savedInput)
+                              }}
+                              className="bg-primary hover:bg-primary/90"
+                            >
+                              ✓ Approve & Run Research
+                            </Button>
+                            <Button
+                              variant="outline"
+                              size="sm"
+                              onClick={() => {
+                                // Directly handle the rejection
+                                const savedInput = inputValue
+                                setInputValue("No, please revise the plan")
+                                handleSendMessage()
+                                setInputValue(savedInput)
+                              }}
+                              className="border-border hover:bg-accent"
+                            >
+                              ✗ Revise Plan
+                            </Button>
+                          </div>
+                        )}
                       </div>
                     ))}
 
@@ -337,7 +492,7 @@ ${isDeepResearch ? "DEEP RESEARCH MODE: Perform comprehensive research with mult
               </div>
             </main>
 
-            <div className="fixed bottom-0 left-0 right-0 p-2 animate-slide-up-footer z-20">
+            <div className="fixed bottom-0 left-0 right-0 p-2 animate-slide-up-footer z-50">
               <div className="max-w-4xl mx-auto">
                 <div className="relative bg-card/95 backdrop-blur-xl rounded-xl p-2 shadow-2xl shadow-primary/5 border border-border">
                   <div className="flex items-center gap-2">
@@ -411,7 +566,10 @@ ${isDeepResearch ? "DEEP RESEARCH MODE: Perform comprehensive research with mult
                         <Switch
                           id="deep-research"
                           checked={isDeepResearch}
-                          onCheckedChange={setIsDeepResearch}
+                          onCheckedChange={(checked) => {
+                            console.log("DEEP RESEARCH TOGGLE CHANGED TO:", checked)
+                            setIsDeepResearch(checked)
+                          }}
                           className="data-[state=checked]:bg-primary scale-75"
                         />
                       </div>
@@ -492,7 +650,11 @@ ${isDeepResearch ? "DEEP RESEARCH MODE: Perform comprehensive research with mult
                 <div className="space-y-12">
                   {isProcessing && (
                     <AgentStatusIndicator 
-                      currentAgent={{ type: "general", name: "Claude Sonnet 4", description: "Processing your request..." }} 
+                      currentAgent={{ 
+                        type: isDeepResearch ? "research" : "general", 
+                        name: isDeepResearch ? "Deep Research Agent" : "Claude Sonnet 4", 
+                        description: isDeepResearch ? "Conducting comprehensive research..." : "Processing your request..." 
+                      }} 
                       status="processing" 
                     />
                   )}
@@ -511,6 +673,44 @@ ${isDeepResearch ? "DEEP RESEARCH MODE: Perform comprehensive research with mult
                         content={msg.content}
                         timestamp={msg.timestamp}
                       />
+                      {/* Show approval buttons for research plans */}
+                      {msg.role === "assistant" && 
+                       isDeepResearch && 
+                       msg.content.includes("[RESEARCH]") && 
+                       msg.content.includes("plan") &&
+                       i === messages.length - 1 && 
+                       !isProcessing && (
+                        <div className="flex gap-4 mt-6 ml-16">
+                          <Button
+                            variant="default"
+                            size="default"
+                            onClick={() => {
+                              // Directly handle the approval
+                              const savedInput = inputValue
+                              setInputValue("Looks good, run it")
+                              handleSendMessage()
+                              setInputValue(savedInput)
+                            }}
+                            className="bg-primary hover:bg-primary/90"
+                          >
+                            ✓ Approve & Run Research
+                          </Button>
+                          <Button
+                            variant="outline"
+                            size="default"
+                            onClick={() => {
+                              // Directly handle the rejection
+                              const savedInput = inputValue
+                              setInputValue("No, please revise the plan")
+                              handleSendMessage()
+                              setInputValue(savedInput)
+                            }}
+                            className="border-border hover:bg-accent"
+                          >
+                            ✗ Revise Plan
+                          </Button>
+                        </div>
+                      )}
                     </div>
                   ))}
 
@@ -522,7 +722,7 @@ ${isDeepResearch ? "DEEP RESEARCH MODE: Perform comprehensive research with mult
           </main>
 
           <div
-            className={`fixed bottom-0 p-6 transition-all duration-300 animate-slide-up-footer z-20 ${
+            className={`fixed bottom-0 p-6 transition-all duration-300 animate-slide-up-footer z-50 ${
               agentState.isActive ? "left-0 right-1/2" : "left-0 right-0"
             } ${isOpen ? "ml-80" : "ml-0"}`}
           >
@@ -599,7 +799,10 @@ ${isDeepResearch ? "DEEP RESEARCH MODE: Perform comprehensive research with mult
                       <Switch
                         id="deep-research"
                         checked={isDeepResearch}
-                        onCheckedChange={setIsDeepResearch}
+                        onCheckedChange={(checked) => {
+                          console.log("DEEP RESEARCH TOGGLE CHANGED TO (DESKTOP):", checked)
+                          setIsDeepResearch(checked)
+                        }}
                         className="data-[state=checked]:bg-primary shadow-xl"
                       />
                     </div>

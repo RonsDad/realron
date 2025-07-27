@@ -101,24 +101,54 @@ export class ClaudeAPI {
     return response.json()
   }
 
-  async deepResearch(messages: ChatMessage[], sessionId: string, userId: string) {
+  async createDeepResearchSession(userId: string) {
+    const appName = 'deep_research_app'
+    console.log('Creating deep research session for user:', userId)
+    
+    const response = await fetch(`${this.baseURL}/api/apps/${appName}/users/${userId}/sessions`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      }
+    })
+    
+    if (!response.ok) {
+      throw new Error(`Failed to create session: ${response.status} ${response.statusText}`)
+    }
+    
+    const session = await response.json()
+    console.log('Session created:', session)
+    return session.id
+  }
+
+  async deepResearch(userMessage: string, sessionId: string, userId: string) {
+    console.log('=== DEEP RESEARCH API CALL ===')
+    console.log('URL:', `${this.baseURL}/api/run_sse`)
+    console.log('Payload:', {
+      message: userMessage,
+      sessionId,
+      userId
+    })
+    
     const response = await fetch(`${this.baseURL}/api/run_sse`, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
       },
       body: JSON.stringify({
+        message: userMessage,
         sessionId,
-        userId,
-        newMessage: {
-          parts: messages.map(msg => ({ text: msg.content })),
-          role: messages[messages.length - 1].role
-        }
+        userId
       }),
     })
 
+    console.log('Response status:', response.status)
+    console.log('Response ok:', response.ok)
+
     if (!response.ok) {
-      throw new Error(`API error: ${response.status} ${response.statusText}`)
+      const errorText = await response.text()
+      console.error('Deep research API error:', errorText)
+      throw new Error(`API error: ${response.status} ${response.statusText} - ${errorText}`)
     }
 
     return response.body

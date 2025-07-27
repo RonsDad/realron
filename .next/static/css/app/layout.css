@@ -875,6 +875,12 @@ video {
 .ml-1 {
   margin-left: 0.25rem;
 }
+.ml-12 {
+  margin-left: 3rem;
+}
+.ml-16 {
+  margin-left: 4rem;
+}
 .ml-2 {
   margin-left: 0.5rem;
 }

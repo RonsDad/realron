@@ -38,7 +38,8 @@ class BrowserlessHealthcareTool:
 		browser_profile = BrowserProfile(
 			stealth=use_stealth,
 			headless=False,  # For human-in-the-loop workflows
-			viewport={"width": 1280, "height": 900}
+			viewport={"width": 1280, "height": 900},
+			wait_between_actions=0.3
 		)
 		
 		self.browser_session = BrowserSession(

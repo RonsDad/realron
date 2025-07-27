@@ -36,7 +36,8 @@ async def browser_use(task: str, session_id: str = None) -> Dict[str, Any]:
         browser_profile = BrowserProfile(
             stealth=True,
             headless=False,  # For human-in-the-loop
-            viewport={"width": 1280, "height": 900}
+            viewport={"width": 1280, "height": 900},
+            wait_between_actions=0.3
         )
         
         # Create browser session with profile

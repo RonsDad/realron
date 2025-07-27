@@ -55,7 +55,8 @@ class BrowserUseService:
             browser_profile = BrowserProfile(
                 stealth=True,
                 headless=False,  # For human-in-the-loop workflows
-                viewport={"width": 1280, "height": 900}
+                viewport={"width": 1280, "height": 900},
+                wait_between_actions=0.3
             )
             
             # Connect to Browserless using browser-use library with correct stealth endpoint
