@@ -9,3 +9,4 @@ backend/.env
 # Google Cloud credentials
 *.json
 backend/*.json
+backend/aethercare-tqine-5e005e537e8f.json
