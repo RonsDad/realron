@@ -1,6 +1,6 @@
 """
 Healthcare Browser Automation Tool
-Uses browser-use + Browserless for healthcare portal automation
+Uses centralized browser_use_service for healthcare portal automation
 Returns either task results or LiveURL for human handoff
 """
 
@@ -8,140 +8,64 @@ import asyncio
 import os
 from typing import Dict, Any, Optional
 from datetime import datetime
-from browser_use import Agent, BrowserSession, BrowserProfile
-from browser_use.llm import ChatOpenAI
+from browser_use import BrowserProfile
+from browser_use_service import browser_use_service
 
 
 class BrowserlessHealthcareTool:
-	"""Healthcare browser automation using Browserless.io with human-in-the-loop capabilities"""
+	"""Healthcare browser automation using centralized browser_use_service"""
 	
 	def __init__(self):
-		self.browserless_token = os.getenv('BROWSERLESS_API_TOKEN')
-		if not self.browserless_token:
-			raise ValueError("BROWSERLESS_API_TOKEN environment variable not set")
-		self.browser_session: Optional[BrowserSession] = None
-		self.cdp_session = None
-		self.recording_active = False
+		self.session_id: Optional[str] = None
+		self.session_info: Optional[Dict[str, Any]] = None
 		self.tracing_enabled = False
 		self.tracing_callbacks = []
 
-	async def create_browser_session(self, use_stealth: bool = True, use_proxy: bool = True) -> BrowserSession:
-		"""Create browser session with proper Browserless endpoint"""
-		# Build standardized Browserless URL
-		params = [f"token={self.browserless_token}"]
-		if use_proxy:
-			params.extend(["proxy=residential", "proxyCountry=US", "proxySticky=true"])
-		
-		cdp_url = f"wss://production-sfo.browserless.io?{'&'.join(params)}"
-		
+	async def create_browser_session(self, use_stealth: bool = True, use_proxy: bool = True) -> Dict[str, Any]:
+		"""Create browser session using centralized service"""
 		# Create browser profile
 		browser_profile = BrowserProfile(
 			stealth=use_stealth,
 			headless=False,  # For human-in-the-loop workflows
 			viewport={"width": 1280, "height": 900},
-			wait_between_actions=0.3
+			wait_between_actions=0.1,
+			interactive=False,  # Reduced from 0.3 for faster actions
 		)
 		
-		self.browser_session = BrowserSession(
-			cdp_url=cdp_url,
-			browser_profile=browser_profile
+		# Create session through centralized service
+		result = await browser_use_service.create_live_url_session(
+			timeout_ms=900000,  # 15 minutes
+			browser_profile=browser_profile,
+			interactive=False  # Agent stays in control
 		)
-		return self.browser_session
-
-	async def setup_cdp_session(self, page) -> None:
-		"""Create CDP session with proper error handling"""
-		try:
-			# Correct Playwright CDP session creation
-			self.cdp_session = await page.context.new_cdp_session(page)
-		except Exception as e:
-			raise RuntimeError(f"Failed to create CDP session: {e}")
-
-	async def start_recording(self) -> None:
-		"""Start video recording via CDP"""
-		if not self.cdp_session:
-			raise RuntimeError("CDP session not initialized")
-		try:
-			await self.cdp_session.send("Browserless.startRecording")
-			self.recording_active = True
-		except Exception as e:
-			raise RuntimeError(f"Failed to start recording: {e}")
-
-	async def stop_recording(self, save_path: str = "recording.webm") -> str:
-		"""Stop recording and save video file"""
-		if not self.cdp_session or not self.recording_active:
-			raise RuntimeError("Recording not active")
-		try:
-			response = await self.cdp_session.send("Browserless.stopRecording")
-			with open(save_path, "wb") as f:
-				f.write(response["value"])
-			self.recording_active = False
-			return save_path
-		except Exception as e:
-			raise RuntimeError(f"Failed to stop recording: {e}")
-
-	async def generate_live_url(self, timeout_ms: int = 600000) -> str:
-		"""Generate LiveURL for human handoff"""
-		if not self.cdp_session:
-			raise RuntimeError("CDP session not initialized")
-		try:
-			response = await self.cdp_session.send('Browserless.liveURL', {"timeout": timeout_ms})
-			return response["liveURL"]
-		except Exception as e:
-			raise RuntimeError(f"Failed to generate LiveURL: {e}")
-
-	async def wait_for_live_complete(self) -> None:
-		"""Wait for human to complete LiveURL session"""
-		if not self.cdp_session:
-			raise RuntimeError("CDP session not initialized")
 		
-		future = asyncio.Future()
-		
-		def handle_live_complete(event):
-			future.set_result(True)
-		
-		self.cdp_session.on('Browserless.liveComplete', handle_live_complete)
-		await future
+		self.session_id = result['session_id']
+		self.session_info = result
+		return result
 
-	async def setup_captcha_handling(self) -> None:
-		"""Set up captcha detection and solving"""
-		if not self.cdp_session:
-			raise RuntimeError("CDP session not initialized")
-		
-		def handle_captcha_found(event):
-			print('Captcha detected! Attempting to solve...')
-			asyncio.create_task(self.solve_captcha())
-		
-		self.cdp_session.on('Browserless.captchaFound', handle_captcha_found)
+	async def get_live_url(self) -> str:
+		"""Get LiveURL from the current session"""
+		if not self.session_id:
+			raise RuntimeError("No active session")
+		return self.session_info.get('live_url', '')
 
-	async def solve_captcha(self, appear_timeout: int = 20000) -> Dict[str, Any]:
-		"""Solve detected captcha"""
-		if not self.cdp_session:
-			raise RuntimeError("CDP session not initialized")
-		try:
-			response = await self.cdp_session.send('Browserless.solveCaptcha', {
-				"appearTimeout": appear_timeout
-			})
-			return {
-				"solved": response.get("solved", False),
-				"error": response.get("error")
-			}
-		except Exception as e:
-			return {"solved": False, "error": str(e)}
+	async def execute_task(self, task: str) -> Any:
+		"""Execute a task in the current session"""
+		if not self.session_id:
+			raise RuntimeError("No active session")
+		return await browser_use_service.execute_browser_task(self.session_id, task)
 
-	async def create_new_tab(self, url: Optional[str] = None) -> None:
-		"""Create new tab for multi-tab support"""
-		if not self.browser_session:
-			raise RuntimeError("Browser session not initialized")
-		try:
-			if url:
-				await self.browser_session.new_tab(url)
-			else:
-				# Use browser context directly
-				new_page = await self.browser_session.browser_context.new_page()
-				if url:
-					await new_page.goto(url)
-		except Exception as e:
-			raise RuntimeError(f"Failed to create new tab: {e}")
+	async def enable_user_control(self) -> Dict[str, Any]:
+		"""Enable user interaction with the browser"""
+		if not self.session_id:
+			raise RuntimeError("No active session")
+		return await browser_use_service.enable_user_control(self.session_id)
+
+	async def relinquish_user_control(self) -> Dict[str, Any]:
+		"""Return control to the agent"""
+		if not self.session_id:
+			raise RuntimeError("No active session")
+		return await browser_use_service.relinquish_user_control(self.session_id)
 
 	def enable_tracing(self, callback_func=None):
 		"""Enable browserless-specific tracing"""
@@ -171,72 +95,53 @@ class BrowserlessHealthcareTool:
 	async def cleanup(self) -> None:
 		"""Clean up resources"""
 		try:
-			if self.recording_active and self.cdp_session:
-				await self.stop_recording()
-			if self.cdp_session:
-				await self.cdp_session.detach()
-			if self.browser_session:
-				await self.browser_session.close()
+			if self.session_id:
+				await browser_use_service.close_session(self.session_id)
+				self.session_id = None
+				self.session_info = None
 		except Exception as e:
 			print(f"Cleanup error: {e}")
 
 
 # Legacy function for backward compatibility
 async def execute_healthcare_browser_task(
-	task_description: str, 
+	task_description: str,
 	require_human_handoff: bool = False,
 	enable_recording: bool = False
 ) -> Dict[str, Any]:
-	"""Execute healthcare browser automation task with enhanced features"""
+	"""Execute healthcare browser automation task using centralized service"""
 	tool = BrowserlessHealthcareTool()
 	
 	try:
-		# Create browser session
-		browser_session = await tool.create_browser_session()
-		await browser_session.start()
+		# Create browser session through centralized service
+		session_result = await tool.create_browser_session()
 		
-		# Get current page and set up CDP
-		page = await browser_session.get_current_page()
-		await tool.setup_cdp_session(page)
-		
-		# Set up captcha handling
-		await tool.setup_captcha_handling()
-		
-		# Start recording if requested
-		if enable_recording:
-			await tool.start_recording()
-		
-		result_data = {"success": True}
+		result_data = {
+			"success": True,
+			"session_id": session_result['session_id'],
+			"live_url": session_result['live_url']
+		}
 		
 		if require_human_handoff:
-			# Generate LiveURL and wait for human completion
-			live_url = await tool.generate_live_url()
-			result_data["live_url"] = live_url
-			print(f"Human handoff required. LiveURL: {live_url}")
-			await tool.wait_for_live_complete()
-			result_data["human_session_completed"] = True
+			# Enable user control for human handoff
+			print(f"Human handoff required. LiveURL: {session_result['live_url']}")
+			await tool.enable_user_control()
+			result_data["human_session_enabled"] = True
+			result_data["message"] = "Human control enabled. User can interact with the browser."
 		else:
-			# Run agent automation
-			openai_api_key = os.getenv('OPENAI_API_KEY')
-			if not openai_api_key:
-				raise ValueError("OPENAI_API_KEY environment variable is required")
-			agent = Agent(
-				task=task_description,
-				llm=ChatOpenAI(model="gpt-4.1", api_key=openai_api_key),
-				browser_session=browser_session
-			)
-			
-			agent_result = await agent.run()
+			# Run agent automation through centralized service
+			agent_result = await tool.execute_task(task_description)
 			result_data["result"] = agent_result
 		
-		# Stop recording if active
+		# Note: Recording is handled by the centralized service if configured
 		if enable_recording:
-			recording_path = await tool.stop_recording()
-			result_data["recording_path"] = recording_path
+			result_data["recording_note"] = "Recording is managed by the centralized browser service"
 		
 		return result_data
 		
 	except Exception as e:
 		return {"success": False, "error": str(e)}
 	finally:
-		await tool.cleanup()
+		# Only cleanup if not requiring human handoff
+		if not require_human_handoff:
+			await tool.cleanup()

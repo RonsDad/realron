@@ -59,7 +59,7 @@ class BrowserToolHandler:
                 
                 # Use the existing browser-use service to create a session with URL
                 from browser_use_service import create_browser_session_with_url
-                result = await create_browser_session_with_url(url, timeout_ms=600000)
+                result = await create_browser_session_with_url(url, timeout_ms=900000)  # 15 minutes
                 
                 return {
                     "success": True,
@@ -69,7 +69,7 @@ class BrowserToolHandler:
                     "instructions": (
                         "The browser is now open at the specified URL. "
                         "Users can see and interact with it through the browser window in the interface. "
-                        "The browser session will remain active for up to 10 minutes."
+                        "The browser session will remain active for up to 15 minutes."
                     )
                 }
                 
@@ -83,7 +83,7 @@ class BrowserToolHandler:
                     }
                 
                 from browser_use_service import create_browser_session_with_url
-                result = await create_browser_session_with_url(url, timeout_ms=600000)
+                result = await create_browser_session_with_url(url, timeout_ms=900000)  # 15 minutes
                 
                 return {
                     "success": True,

@@ -118,7 +118,7 @@ class ChatRequest(BaseModel):
     messages: List[ChatMessage]
     system_prompt: Optional[str] = None
     temperature: float = Field(0.0, ge=0.0, le=1.0)
-    max_tokens: int = Field(4096, gt=0)
+    max_tokens: int = Field(32000, gt=0)  # Increased for complex browser tasks
     enable_caching: bool = True
     cache_ttl: str = Field("5m", pattern="^(5m|1h)$")
     enable_thinking: bool = True
@@ -174,7 +174,7 @@ class DeepResearchRequest(BaseModel):
 
 # Browser-Use specific request models
 class BrowserUseCreateSessionRequest(BaseModel):
-    timeout_ms: int = Field(600000, gt=0)  # 10 minutes default
+    timeout_ms: int = Field(900000, gt=0)  # 15 minutes default
 
 
 class BrowserUseNavigateRequest(BaseModel):
@@ -188,7 +188,7 @@ class BrowserUseTaskRequest(BaseModel):
 
 class BrowserUseCreateWithURLRequest(BaseModel):
     url: str
-    timeout_ms: int = Field(600000, gt=0)  # 10 minutes default
+    timeout_ms: int = Field(900000, gt=0)  # 15 minutes default
 
 
 # File storage (in production, use proper storage like S3)
@@ -226,59 +226,46 @@ class ConnectionManager:
 
 ws_manager = ConnectionManager()
 
-# Browser agent creation and management functions
+# Browser agent creation and management functions - NOW USES CENTRALIZED SERVICE
 async def create_browser_agent(task: str, session_id: str):
-	browserless_token = os.getenv('BROWSERLESS_API_TOKEN')
-	if not browserless_token:
-		logging.error("BROWSERLESS_API_TOKEN environment variable is required")
-		raise ValueError("BROWSERLESS_API_TOKEN environment variable is required")
-
-	profile = BrowserProfile(
-		stealth=True,
-		headless=False,
-		viewport={"width": 1280, "height": 900},
-		wait_between_actions=0.3,
-	)
-
-	browser_session = BrowserSession(
-		cdp_url=f"wss://production-sfo.browserless.io/chrome/stealth?token={browserless_token}",
-		browser_profile=profile,
-	)
-	openai_api_key = os.getenv('OPENAI_API_KEY')
-	if not openai_api_key:
-		raise ValueError("OPENAI_API_KEY environment variable is required")
-	llm = ChatOpenAI(model="gpt-4.1", api_key=openai_api_key)
-	agent = Agent(
-		task=task,
-		llm=llm,
-		browser_session=browser_session
-	)
+	"""Create browser agent using centralized browser_use_service"""
 	try:
-		await browser_session.start()
-		page = await browser_session.get_current_page()
-		cdp = await page.context.new_cdp_session(page)
-		await cdp.send("Browserless.startRecording")
-		response = await cdp.send('Browserless.liveURL', {"timeout": 600000})
-		live_url = response["liveURL"]
-
-		def on_live_complete():
-			asyncio.create_task(ws_manager.broadcast(session_id, json.dumps({"event": "live_complete"})))
-		cdp.on('Browserless.liveComplete', on_live_complete)
-
+		# Create browser profile
+		profile = BrowserProfile(
+			stealth=True,
+			headless=False,
+			viewport={"width": 1280, "height": 900},
+			wait_between_actions=0.1,  # Reduced from 0.3 for faster actions
+		)
+		
+		# Use centralized service to create session
+		session_result = await browser_use_service.create_live_url_session(
+			timeout_ms=900000,  # 15 minutes
+			browser_profile=profile,
+			interactive=False  # Agent stays in control
+		)
+		
+		new_session_id = session_result['session_id']
+		live_url = session_result['live_url']
+		
+		# Store in local tracking for WebSocket compatibility
 		browser_sessions[session_id] = {
-			"agent": agent,
-			"browser_session": browser_session,
-			"cdp": cdp,
+			"service_session_id": new_session_id,
 			"live_url": live_url,
 			"recording": True,
 			"human_in_control": False,
 			"agent_running": False,
+			"task": task,  # Store task for later use
 		}
+		
 		await ws_manager.broadcast(session_id, json.dumps({"event": "session_started", "live_url": live_url}))
+		
+		# Execute the task
+		await browser_use_service.execute_browser_task(new_session_id, task)
+		
 		return live_url
 	except Exception as e:
 		logging.error(f"Error creating browser agent for session {session_id}: {e}")
-		await browser_session.close()
 		raise
 
 async def stop_recording_and_close(session_id: str):
@@ -286,27 +273,32 @@ async def stop_recording_and_close(session_id: str):
 	if not session:
 		logging.warning(f"Session {session_id} not found for stop_recording_and_close")
 		return None
-	cdp = session["cdp"]
-	browser_session = session["browser_session"]
-	video_path = f"recording_{session_id}.webm"
-	try:
-		response = await cdp.send("Browserless.stopRecording")
-		value = response.value
-		data = value if isinstance(value, bytes) else value.encode("latin1")
-		with open(video_path, "wb") as f:
-			f.write(data)
-		await ws_manager.broadcast(session_id, json.dumps({"event": "session_stopped", "video_path": video_path}))
-		return video_path
-	except Exception as e:
-		logging.error(f"Error stopping recording or saving video for session {session_id}: {e}")
-		return None
-	finally:
-		await browser_session.close()
-		del browser_sessions[session_id]
+	
+	service_session_id = session.get("service_session_id")
+	if service_session_id:
+		try:
+			# Close through centralized service
+			await browser_use_service.close_session(service_session_id)
+			await ws_manager.broadcast(session_id, json.dumps({"event": "session_stopped"}))
+		except Exception as e:
+			logging.error(f"Error closing session {session_id}: {e}")
+		finally:
+			del browser_sessions[session_id]
+	
+	return None  # Recording handled by service
 
 async def run_agent_safe(session, session_id):
+	"""Run agent using centralized browser service"""
 	try:
-		await session["agent"].run()
+		service_session_id = session.get("service_session_id")
+		if not service_session_id:
+			raise ValueError(f"No service session ID found for session {session_id}")
+		
+		# Get the task from session or use a default
+		task = session.get("task", "Continue with the current task")
+		
+		# Execute task through centralized service
+		await browser_use_service.execute_browser_task(service_session_id, task)
 		await ws_manager.broadcast(session_id, json.dumps({"event": "agent_run_complete"}))
 	except Exception as e:
 		logging.error(f"Error running agent for session {session_id}: {e}")
@@ -315,52 +307,37 @@ async def run_agent_safe(session, session_id):
 		session["agent_running"] = False
 
 async def run_browser_use_agent(task: str):
-	"""Run the browser-use agent with the given task"""
+	"""Run the browser-use agent with the given task using centralized service"""
 	try:
-		from browser_use import Agent, BrowserSession
-		from browser_use.llm import ChatAnthropic
-		from browser_use import BrowserProfile
-
-		extend_system_message = (
-			"You're Ron AI's browser-use agent. Your job is to help patients access services and empower their healthcare journey. "
-			"Behave like a human while navigating the web: use natural mouse movements, realistic typing, and avoid robotic patterns. "
-			"Use strategies to find the data you need, solve CAPTCHAs when encountered, and always be ready for Human in the Loop: "
-			"if a human takes over, pause and resume when control is returned. Your tasks may include: "
-			"finding medication co-pay cards, GoodRx or equivalent, navigating denials, scheduling appointments, finding providers, "
-			"and other web-based workflows. If you encounter a CAPTCHA or a complex form, wait for human input if needed."
-		)
-
-		openai_api_key = os.getenv('OPENAI_API_KEY')
-		if not openai_api_key:
-			raise ValueError("OPENAI_API_KEY environment variable is required")
-		model = ChatOpenAI(model='gpt-4.1', api_key=openai_api_key)
-
-		# Explicitly enable stealth mode
-		profile = BrowserProfile(
-			stealth=True,  # <-- Stealth mode enabled
-			headless=False,  # Headful for Human in the Loop
-			viewport={"width": 1280, "height": 900},
-			wait_between_actions=0.3,
-		)
+		# Check for existing sessions first
+		active_sessions = await browser_use_service.list_active_sessions()
 		
-		browserless_token = os.getenv('BROWSERLESS_API_TOKEN')
-		if not browserless_token:
-			raise ValueError("BROWSERLESS_API_TOKEN environment variable is required")
+		if active_sessions['total_sessions'] > 0:
+			# Use existing session
+			session_id = list(active_sessions['sessions'].keys())[0]
+			logger.info(f"Using existing browser session: {session_id}")
+			result = await browser_use_service.execute_browser_task(session_id, task)
+		else:
+			# Create new session
+			profile = BrowserProfile(
+				stealth=True,
+				headless=False,
+				viewport={"width": 1280, "height": 900},
+				wait_between_actions=0.1,
+			)
 			
-		browser_session = BrowserSession(
-			cdp_url=f"wss://production-sfo.browserless.io/chrome/stealth?token={browserless_token}",
-			browser_profile=profile,
-		)
-
-		agent = Agent(
-			task=task,
-			llm=model,
-			browser_session=browser_session,
-			extend_system_message=extend_system_message,
-		)
-
-		logger.info(f"Starting browser-use agent with task: {task}")
-		result = await agent.run()
+			session_result = await browser_use_service.create_live_url_session(
+				timeout_ms=900000,
+				browser_profile=profile,
+				interactive=False
+			)
+			
+			session_id = session_result['session_id']
+			logger.info(f"Created new browser session: {session_id}")
+			
+			# Execute task
+			result = await browser_use_service.execute_browser_task(session_id, task)
+		
 		logger.info("Browser-use agent completed successfully")
 		return result
 
@@ -736,7 +713,7 @@ Please:
                 async for event in claude_agent.execute_with_tools(
                     messages=[{"role": "user", "content": research_prompt}],
                     temperature=0.0,
-                    max_tokens=4096,
+                    max_tokens=32000,  # Increased for complex browser tasks
                     enable_caching=True,
                     cache_ttl="5m",
                     enable_thinking=True,

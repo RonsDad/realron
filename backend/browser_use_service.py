@@ -31,7 +31,7 @@ class BrowserUseService:
         self.active_sessions: Dict[str, BrowserSession] = {}
         self.session_metadata: Dict[str, Dict[str, Any]] = {}
         
-    async def create_live_url_session(self, timeout_ms: int = 600000) -> Dict[str, Any]:
+    async def create_live_url_session(self, timeout_ms: int = 900000, browser_profile=None, interactive: bool = False) -> Dict[str, Any]:  # 15 minutes
         """
         Create a browser-use session with Browserless and generate LiveURL for iframe embedding.
         Based on the provided code example.
@@ -44,36 +44,52 @@ class BrowserUseService:
         if not browserless_token:
             raise ValueError("BROWSERLESS_API_TOKEN environment variable is required")
         
+        # ENFORCE ONLY ONE SESSION - Close all existing sessions first
+        if len(self.active_sessions) > 0:
+            logger.warning(f"Closing {len(self.active_sessions)} existing sessions to maintain single session")
+            await self.close_all_sessions()
+        
         # Generate session ID
         session_id = f"browser_use_session_{datetime.now().timestamp()}"
         
         try:
             logger.info(f"Creating browser-use session {session_id} with Browserless")
             
-            # Create browser profile for consistent agent behavior  
+            # Use provided browser profile or create default one
             from browser_use import BrowserProfile
-            browser_profile = BrowserProfile(
-                stealth=True,
-                headless=False,  # For human-in-the-loop workflows
-                viewport={"width": 1280, "height": 900},
-                wait_between_actions=0.3
-            )
+            if browser_profile is None:
+                browser_profile = BrowserProfile(
+                    stealth=True,
+                    headless=False,  # For human-in-the-loop workflows
+                    viewport={"width": 1280, "height": 900},
+                    wait_between_actions=0.1  # Reduced from 0.3 for faster actions
+                )
             
-            # Connect to Browserless using browser-use library with correct stealth endpoint
+            # First connect via Playwright for CDP support
+            from playwright.async_api import async_playwright
+            playwright = await async_playwright().start()
+            browser = await playwright.chromium.connect_over_cdp(
+                f"wss://production-sfo.browserless.io/chrome/stealth?token={browserless_token}&timeout={timeout_ms}"
+            )
+            context = browser.contexts[0] if browser.contexts else await browser.new_context()
+            playwright_page = context.pages[0] if context.pages else await context.new_page()
+            
+            # Now create browser-use session with the Playwright page
             browser_session = BrowserSession(
-                cdp_url=f"wss://production-sfo.browserless.io/chrome/stealth?token={browserless_token}",
+                page=playwright_page,
                 browser_profile=browser_profile
             )
             
             # Start the session
             await browser_session.start()
             
-            # Get current page
+            # Get current page (for browser-use agent)
             page = await browser_session.get_current_page()
             
             # Create CDP session for LiveURL generation using Playwright's CDP
             try:
-                cdp = await page.context.new_cdp_session(page)
+                # Use the Playwright page we created earlier
+                cdp = await context.new_cdp_session(playwright_page)
             except Exception as e:
                 logger.error(f"Failed to create CDP session: {str(e)}")
                 raise ValueError(f"Failed to establish CDP connection to browserless: {str(e)}")
@@ -82,7 +98,8 @@ class BrowserUseService:
             logger.info(f"Generating non-interactive LiveURL for session {session_id}")
             try:
                 response = await cdp.send('Browserless.liveURL', {
-                    "timeout": timeout_ms
+                    "timeout": timeout_ms,
+                    "interactive": interactive  # Use the passed parameter (should be False)
                 })
             except Exception as e:
                 logger.error(f"Failed to generate LiveURL: {str(e)}")
@@ -95,35 +112,45 @@ class BrowserUseService:
             
             # Store session and metadata
             self.active_sessions[session_id] = browser_session
+            session_number = len(self.active_sessions)  # 1, 2, or 3
             self.session_metadata[session_id] = {
                 'session_id': session_id,
+                'session_number': session_number,
+                'display_name': f"Browser Session {session_number}",
                 'live_url': live_url,
                 'live_url_id': live_url_id,
                 'timeout_ms': timeout_ms,
                 'created_at': datetime.now().isoformat(),
                 'status': 'active',
                 'interactive': False,  # Track interactivity state
-                'cdp_session': cdp
+                'cdp_session': cdp,
+                'playwright': playwright,  # Store for cleanup
+                'browser': browser,  # Store for cleanup
+                'context': context  # Store for reference
             }
             
             return {
                 'success': True,
                 'session_id': session_id,
+                'session_number': session_number,
+                'display_name': f"Browser Session {session_number}",
                 'live_url': live_url,
                 'timeout_ms': timeout_ms,
+                'total_active_sessions': len(self.active_sessions),
+                'max_sessions': 3,
                 'iframe_embed': {
                     'src': live_url,
                     'width': '100%',
                     'height': '600px',
                     'style': 'border: none; border-radius: 8px;',
-                    'title': "Ron's Browser Window",
+                    'title': f"Ron's Browser Window - Session {session_number}",
                     'frameborder': '0',
                     'allowfullscreen': True
                 },
                 'instructions': {
                     'usage': 'Embed the live_url in an iframe in your frontend',
-                    'example_html': f'<iframe src="{live_url}" width="100%" height="600px" style="border: none; border-radius: 8px;" title="Ron\'s Browser Window"></iframe>',
-                    'note': 'Users can interact directly with the browser through this URL'
+                    'example_html': f'<iframe src="{live_url}" width="100%" height="600px" style="border: none; border-radius: 8px;" title="Ron\'s Browser Window - Session {session_number}"></iframe>',
+                    'note': f'Users can interact with browser session {session_number} through this URL. Up to 3 concurrent sessions are supported.'
                 },
                 'timestamp': datetime.now().isoformat()
             }
@@ -238,7 +265,9 @@ class BrowserUseService:
         
         return {
             'total_sessions': len(sessions_info),
+            'max_sessions': 3,
             'sessions': sessions_info,
+            'sessions_list': list(sessions_info.values()),  # Array format for easier UI iteration
             'timestamp': datetime.now().isoformat()
         }
     
@@ -260,9 +289,29 @@ class BrowserUseService:
         try:
             logger.info(f"Closing browser-use session {session_id}")
             
-            # Close browser session
+            # Get session objects
             browser_session = self.active_sessions[session_id]
-            await browser_session.close()
+            metadata = self.session_metadata.get(session_id, {})
+            
+            # Close browser-use session
+            try:
+                await browser_session.close()
+            except Exception as e:
+                logger.warning(f"Error closing browser-use session: {e}")
+            
+            # Close Playwright browser
+            if 'browser' in metadata:
+                try:
+                    await metadata['browser'].close()
+                except Exception as e:
+                    logger.warning(f"Error closing Playwright browser: {e}")
+            
+            # Stop Playwright
+            if 'playwright' in metadata:
+                try:
+                    await metadata['playwright'].stop()
+                except Exception as e:
+                    logger.warning(f"Error stopping Playwright: {e}")
             
             # Remove from active sessions and metadata
             del self.active_sessions[session_id]
@@ -325,16 +374,16 @@ class BrowserUseService:
                     'liveURLId': metadata['live_url_id']
                 })
             
-            # Create new interactive LiveURL
+            # Create new non-interactive LiveURL (DISABLED - keeping agent in control)
             response = await cdp.send('Browserless.liveURL', {
                 "timeout": metadata['timeout_ms'],
-                "interactive": True  # User can now control browser
+                "interactive": False  # DISABLED - Agent keeps control
             })
             
             # Update metadata
             metadata['live_url'] = response["liveURL"]
             metadata['live_url_id'] = response.get("liveURLId")
-            metadata['interactive'] = True
+            metadata['interactive'] = False  # Keep as False since LiveURL is non-interactive
             
             logger.info(f"Enabled user control for session {session_id}")
             
@@ -342,8 +391,8 @@ class BrowserUseService:
                 'success': True,
                 'session_id': session_id,
                 'live_url': response["liveURL"],
-                'interactive': True,
-                'message': 'User control enabled'
+                'interactive': False,  # Keep as False since LiveURL is non-interactive
+                'message': 'User control enabled (watch-only mode)'
             }
             
         except Exception as e:
@@ -430,11 +479,8 @@ class BrowserUseService:
             
             logger.info(f"Starting browser-use Agent for task: {task}")
             
-            # Execute the task using the agent with timeout
-            try:
-                result = await asyncio.wait_for(agent.run(), timeout=300.0)  # 5 minute timeout
-            except asyncio.TimeoutError:
-                raise RuntimeError(f"Task execution timed out after 5 minutes")
+            # Execute the task using the agent - let Browserless handle timeout based on paid plan
+            result = await agent.run(max_steps=100)  # Increased max_steps for complex tasks
             
             logger.info(f"Browser-use Agent completed task: {task}")
             
@@ -467,7 +513,7 @@ browser_use_service = BrowserUseService()
 
 
 # Additional utility functions
-async def get_live_url_for_iframe(timeout_ms: int = 600000) -> str:
+async def get_live_url_for_iframe(timeout_ms: int = 900000) -> str:  # 15 minutes
     """
     Convenience function to quickly get a LiveURL for iframe embedding.
     Implements the exact pattern from the provided code example.
@@ -476,7 +522,7 @@ async def get_live_url_for_iframe(timeout_ms: int = 600000) -> str:
     return result['live_url']
 
 
-async def create_browser_session_with_url(url: str, timeout_ms: int = 600000) -> Dict[str, Any]:
+async def create_browser_session_with_url(url: str, timeout_ms: int = 900000) -> Dict[str, Any]:  # 15 minutes
     """
     Create a browser session, navigate to URL, and return LiveURL for iframe embedding.
     Complete workflow for frontend integration.

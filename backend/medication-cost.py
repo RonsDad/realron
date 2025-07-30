@@ -93,6 +93,6 @@ agent = Agent(
 
 async def main():
 
-	await agent.run(max_steps=10)
+	await agent.run(max_steps=100)  # Increased to 100
 
 asyncio.run(main())

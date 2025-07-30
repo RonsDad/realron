@@ -19,7 +19,7 @@ if not google_api_key:
 
 llm = ChatGoogle(model='gemini-2.5-flash', api_key=google_api_key, temperature=0.0)
 
-async def run_agent(task_prompt, max_steps=10):
+async def run_agent(task_prompt, max_steps=100):  # Set to 100 for complex tasks
     """
     Run browser agent with dynamic task prompt
     
@@ -36,7 +36,7 @@ async def run_agent(task_prompt, max_steps=10):
 
 class ClaudeBrowserIntegration:
     async def analyze_healthcare_task(self, task, context):
-        return await run_agent(task, max_steps=15)
+        return await run_agent(task, max_steps=100)  # Set to 100 for complex tasks
         
     async def cleanup(self):
         pass
@@ -45,7 +45,7 @@ async def main():
     # Example usage - replace with your actual task prompt
     task = """{{DYNAMIC_TASK_PROMPT}}"""
     
-    result = await run_agent(task, max_steps=15)
+    result = await run_agent(task, max_steps=100)  # Set to 100 for complex tasks
     return result
 
 if __name__ == "__main__":

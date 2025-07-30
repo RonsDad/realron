@@ -30,7 +30,7 @@ async def handle_tool_use_in_conversation(messages: List[Dict[str, Any]], tools:
         # Call Claude with tools
         response = await claude.complete(
             messages=messages,
-            max_tokens=4096,
+            max_tokens=32000,  # Increased for complex browser tasks
             temperature=1.0,
             enable_thinking=True,
             thinking_budget=20000,

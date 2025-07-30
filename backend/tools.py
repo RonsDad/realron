@@ -37,58 +37,66 @@ async def browser_use(task: str, session_id: str = None) -> Dict[str, Any]:
             stealth=True,
             headless=False,  # For human-in-the-loop
             viewport={"width": 1280, "height": 900},
-            wait_between_actions=0.3
+            wait_between_actions=0.1  # Reduced from 0.3 for faster actions
         )
         
-        # Create browser session with profile
-        browser_session = BrowserSession(
-            cdp_url=f"wss://production-sfo.browserless.io?token={browserless_token}",
-            browser_profile=browser_profile
-        )
+        # Import the centralized browser service to enforce single session
+        from browser_use_service import browser_use_service
         
-        # Create agent with the task
-        openai_api_key = os.getenv('OPENAI_API_KEY')
-        if not openai_api_key:
-            raise ValueError("OPENAI_API_KEY environment variable is required")
-        llm = ChatOpenAI(model="gpt-4.1", api_key=openai_api_key)
-        agent = Agent(
-            task=task,
-            llm=llm,
-            browser_session=browser_session
-        )
+        # Check if we have an existing session to reuse
+        active_sessions = await browser_use_service.list_active_sessions()
         
-        # Start session
-        await browser_session.start()
-        
-        # Get LiveURL for visibility
-        page = await browser_session.get_current_page()
-        # Create CDP session using Playwright's correct method
-        cdp = await page.context.new_cdp_session(page)
-        response = await cdp.send('Browserless.liveURL', {"timeout": 600000})
-        live_url = response["liveURL"]
-        
-        logger.info(f"Browser session started with LiveURL: {live_url}")
-        
-        # Run the agent task
-        result = await agent.run()
-        
-        # Get final state
-        final_url = page.url
-        
-        # Keep browser open for a bit so user can see result
-        await asyncio.sleep(5)
-        
-        # Close session
-        await browser_session.close()
-        
-        return {
-            "success": True,
-            "result": str(result),
-            "session_id": session_id,
-            "live_url": live_url,
-            "final_url": final_url,
-            "task": task
-        }
+        if session_id and session_id in active_sessions.get('sessions', {}):
+            # Use existing session
+            logger.info(f"Reusing existing session: {session_id}")
+            result = await browser_use_service.execute_browser_task(session_id, task)
+            
+            # Add session_id to result if not present
+            if 'session_id' not in result:
+                result['session_id'] = session_id
+                
+            return result
+        else:
+            # Create new session (will enforce single session limit)
+            logger.info("Creating new browser session through centralized service")
+            
+            # The browser_use_service already uses the same profile settings:
+            # ENFORCE ALL THESE PARAMETERS
+            stealth=True
+            headless=False  # for human-in-the-loop
+            viewport={"width": 1280, "height": 900}
+            wait_between_actions=0.1  # Reduced from 0.3 for faster actions
+            interactive=False  # AGENT STAYS IN CONTROL
+            
+            session_result = await browser_use_service.create_live_url_session(
+                timeout_ms=900000,  # 15 minutes - matches Browserless plan
+                browser_profile=browser_profile,  # This already has stealth=True, headless=False, viewport, wait_between_actions
+                interactive=False  # EXPLICITLY FALSE - AGENT STAYS IN CONTROL
+            )
+            new_session_id = session_result['session_id']
+            live_url = session_result['live_url']
+            
+            logger.info(f"Browser session started with LiveURL: {live_url}")
+            
+            # Execute task in the new session
+            # browser_use_service.execute_browser_task already:
+            # - Uses ChatOpenAI(model="gpt-4.1") 
+            # - Runs the agent with the task
+            # - Returns result, live_url, final_url, etc.
+            task_result = await browser_use_service.execute_browser_task(new_session_id, task)
+            
+            # Keep browser open briefly so user can see result
+            await asyncio.sleep(1)  # Reduced from 5 seconds
+            
+            # Ensure we return all expected fields
+            return {
+                "success": task_result.get('success', True),
+                "result": task_result.get('result', ''),
+                "session_id": session_id,  # Use the original requested session_id
+                "live_url": task_result.get('live_url', live_url),
+                "final_url": task_result.get('final_url', ''),
+                "task": task
+            }
         
     except Exception as e:
         logger.error(f"Browser task error: {str(e)}")

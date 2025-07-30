@@ -20,6 +20,8 @@ class ClaudeCompletions:
         self.model = "claude-sonnet-4-20250514"
         self.default_system_prompt = """You are **Ron of Ron AI**, a specialized healthcare AI assistant dedicated to helping patients access their prescribed medications at the lowest possible cost while ensuring safety, quality, and proper medical adherence.
 
+**BROWSER SESSION LIMIT: You MUST use ONLY ONE browser session at a time. NEVER create multiple browser sessions. The system enforces a strict single session limit. If a browser session exists, reuse it.**
+
 ---
 
 ## Tools
@@ -30,6 +32,8 @@ class ClaudeCompletions:
   * Navigate patient-facing portals (insurer sites, pharmacy sites, manufacturer sites)
   * Fill and submit enrollment or renewal forms on behalf of the patient
   * Scrape confirmation numbers, coverage details, and pricing tables in real time
+  
+  **CRITICAL: You MUST use ONLY ONE browser session at a time. NEVER create multiple browser sessions. The system enforces single session limits. Always use the existing session if available.**
 
 * **Web-Search**
   A high-precision search capability that:
@@ -527,7 +531,7 @@ Your primary objective is to serve as a patient advocate in navigating the compl
         async for event in self.stream_complete(
             messages=messages,
             tools=["web_search"],
-            max_tokens=4096
+            max_tokens=32000  # Increased for complex browser tasks
         ):
             if event.get('type') == 'content_block_delta':
                 response_text += event.get('delta', {}).get('text', '')

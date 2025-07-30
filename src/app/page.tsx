@@ -18,6 +18,7 @@ import { claudeAPI, parseSSEStream, type ChatMessage } from "@/lib/api"
 import type { Message } from "@/lib/types"
 import { ReasoningDisplay } from "@/components/reasoning-display"
 import { MessageBubble } from "@/components/message-bubble"
+import { ResearchProgressUnified } from "@/components/research-progress-unified"
 
 export default function HealthCopilot() {
   const [isDeepResearch, setIsDeepResearch] = useState(false)
@@ -30,6 +31,8 @@ export default function HealthCopilot() {
   const [currentStreamingMessage, setCurrentStreamingMessage] = useState("")
   const [currentReasoning, setCurrentReasoning] = useState("")
   const [reasoningTokens, setReasoningTokens] = useState(0)
+  const [deepResearchOutputs, setDeepResearchOutputs] = useState<any>({})
+  const [deepResearchMessages, setDeepResearchMessages] = useState<any[]>([])
   const messagesEndRef = useRef<HTMLDivElement>(null)
 
   const { agentState, startAgent, stopAgent } = useComputerAgent()
@@ -109,6 +112,10 @@ export default function HealthCopilot() {
           
           console.log("Deep research stream received:", stream)
           
+          if (!stream) {
+            throw new Error("Failed to get stream from deep research API")
+          }
+          
           let fullContent = ""
           let fullReasoning = ""
           console.log("Starting deep research SSE stream...")
@@ -154,15 +161,96 @@ export default function HealthCopilot() {
                       
                       // Handle state delta updates (research plan, final report, etc)
                       if (event.actions?.stateDelta) {
-                        if (event.actions.stateDelta.research_plan) {
-                          // Update with research plan
-                          fullContent = event.actions.stateDelta.research_plan
+                        // Update deep research outputs with proper structure
+                        const stateDelta = event.actions.stateDelta
+                        
+                        if (stateDelta.research_plan) {
+                          setDeepResearchOutputs((prev: any) => ({
+                            ...prev,
+                            plan: stateDelta.research_plan
+                          }))
+                          // Don't show plan in message bubble, show in research component
+                          fullContent = "Creating research plan..."
                           setCurrentStreamingMessage(fullContent)
+                          setDeepResearchMessages(prev => [...prev, {
+                            type: 'plan',
+                            content: stateDelta.research_plan,
+                            timestamp: new Date()
+                          }])
                         }
-                        if (event.actions.stateDelta.final_report_with_citations) {
-                          // Replace content with final report when available
-                          fullContent = event.actions.stateDelta.final_report_with_citations
+                        
+                        if (stateDelta.final_report_with_citations) {
+                          setDeepResearchOutputs((prev: any) => ({
+                            ...prev,
+                            finalReport: stateDelta.final_report_with_citations
+                          }))
+                          // Show completion message
+                          fullContent = "Research complete! See the detailed report below."
                           setCurrentStreamingMessage(fullContent)
+                          setDeepResearchMessages(prev => [...prev, {
+                            type: 'final',
+                            content: stateDelta.final_report_with_citations,
+                            timestamp: new Date()
+                          }])
+                        }
+                        
+                        if (stateDelta.section_research_findings) {
+                          setDeepResearchOutputs((prev: any) => ({
+                            ...prev,
+                            findings: stateDelta.section_research_findings
+                          }))
+                          setDeepResearchMessages(prev => [...prev, {
+                            type: 'findings',
+                            content: stateDelta.section_research_findings,
+                            timestamp: new Date()
+                          }])
+                        }
+                        
+                        if (stateDelta.report_sections) {
+                          setDeepResearchOutputs((prev: any) => ({
+                            ...prev,
+                            outline: stateDelta.report_sections
+                          }))
+                          setDeepResearchMessages(prev => [...prev, {
+                            type: 'outline',
+                            content: stateDelta.report_sections,
+                            timestamp: new Date()
+                          }])
+                        }
+                        
+                        if (stateDelta.research_evaluation) {
+                          setDeepResearchOutputs((prev: any) => ({
+                            ...prev,
+                            evaluation: stateDelta.research_evaluation
+                          }))
+                          setDeepResearchMessages(prev => [...prev, {
+                            type: 'evaluation',
+                            content: JSON.stringify(stateDelta.research_evaluation),
+                            timestamp: new Date()
+                          }])
+                        }
+                        
+                        if (stateDelta.sources) {
+                          setDeepResearchOutputs((prev: any) => ({
+                            ...prev,
+                            sources: stateDelta.sources
+                          }))
+                        }
+                      }
+                      
+                      // Track agent author for current agent display
+                      if (event.author && event.author !== 'unknown') {
+                        // Add thought messages for agent thinking
+                        if (event.content?.parts) {
+                          for (const part of event.content.parts) {
+                            if (part.text && !part.text.startsWith('parts=')) {
+                              setDeepResearchMessages(prev => [...prev, {
+                                type: 'thought',
+                                content: part.text,
+                                timestamp: new Date()
+                              }])
+                            }
+                          }
                         }
                       }
                       
@@ -329,8 +417,21 @@ ${isDeepResearch ? "DEEP RESEARCH MODE: Perform comprehensive research with mult
   }
 
   const renderAgentInterface = () => {
-    // This can be enhanced to detect when Claude returns structured data
-    // For now, we'll keep it simple and just show the conversation
+    // Show deep research progress when in deep research mode
+    if (isDeepResearch && Object.keys(deepResearchOutputs).length > 0) {
+      return (
+        <ResearchProgressUnified
+          outputs={deepResearchOutputs}
+          messages={deepResearchMessages}
+          currentAgent={deepResearchMessages.length > 0 ? deepResearchMessages[deepResearchMessages.length - 1].content : undefined}
+          isProcessing={isProcessing}
+          onSendMessage={(message) => {
+            setInputValue(message)
+            handleSendMessage()
+          }}
+        />
+      )
+    }
     return null
   }
 
@@ -422,7 +523,7 @@ ${isDeepResearch ? "DEEP RESEARCH MODE: Perform comprehensive research with mult
                     {isProcessing && (
                       <AgentStatusIndicator 
                         currentAgent={{ 
-                          type: isDeepResearch ? "research" : "general", 
+                          type: "general", 
                           name: isDeepResearch ? "Deep Research Agent" : "Claude Sonnet 4", 
                           description: isDeepResearch ? "Conducting comprehensive research..." : "Processing your request..." 
                         }} 
@@ -484,11 +585,12 @@ ${isDeepResearch ? "DEEP RESEARCH MODE: Perform comprehensive research with mult
                         )}
                       </div>
                     ))}
-
-                    {renderAgentInterface()}
                     <div ref={messagesEndRef} />
                   </div>
                 )}
+                
+                {/* Render Deep Research Interface outside of messages */}
+                {renderAgentInterface()}
               </div>
             </main>
 
@@ -651,7 +753,7 @@ ${isDeepResearch ? "DEEP RESEARCH MODE: Perform comprehensive research with mult
                   {isProcessing && (
                     <AgentStatusIndicator 
                       currentAgent={{ 
-                        type: isDeepResearch ? "research" : "general", 
+                        type: "general", 
                         name: isDeepResearch ? "Deep Research Agent" : "Claude Sonnet 4", 
                         description: isDeepResearch ? "Conducting comprehensive research..." : "Processing your request..." 
                       }} 
@@ -713,11 +815,12 @@ ${isDeepResearch ? "DEEP RESEARCH MODE: Perform comprehensive research with mult
                       )}
                     </div>
                   ))}
-
-                  {renderAgentInterface()}
                   <div ref={messagesEndRef} />
                 </div>
               )}
+              
+              {/* Render Deep Research Interface outside of messages */}
+              {renderAgentInterface()}
             </div>
           </main>
 
