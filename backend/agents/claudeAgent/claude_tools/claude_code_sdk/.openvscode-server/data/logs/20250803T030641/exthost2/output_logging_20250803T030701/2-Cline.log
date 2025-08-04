@@ -1,0 +1,13 @@
+LOG Cline extension activated
+ClineProvider instantiated
+Checking for legacy checkpoints...
+Webview view resolved
+INFO IS_TEST: false
+INFO Executing command in terminal: pwd
+ERROR Error while asking for command output
+INFO IS_TEST: false
+INFO Executing command in terminal: cat /etc/os-release
+ERROR Error while asking for command output
+INFO IS_TEST: false
+INFO Executing command in terminal: uname -a && lsb_release -a 2>/dev/null || cat /etc/os-release
+ERROR Error while asking for command output

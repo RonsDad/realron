@@ -20,7 +20,21 @@ import type { Message } from "@/lib/types"
 import { ThinkingView } from "@/components/thinking-view"
 import { MessageBubble } from "@/components/message-bubble"
 import { ResearchProgressUnified } from "@/components/research-progress-unified"
+import { ToolOutputBubble } from "@/components/tool-output-bubble"
 // import { CommandDropdown } from "@/components/command-dropdown"
+
+interface ThinkingBubble {
+  id: string
+  content: string
+  timestamp: Date
+}
+
+interface ToolOutput {
+  id: string
+  toolName: string
+  content: string
+  timestamp: Date
+}
 
 export default function HealthCopilot() {
   const [isDeepResearch, setIsDeepResearch] = useState(false)
@@ -39,6 +53,9 @@ export default function HealthCopilot() {
   const [deepResearchMessages, setDeepResearchMessages] = useState<any[]>([])
   const [showCommandMenu, setShowCommandMenu] = useState(false)
   const [browserActions, setBrowserActions] = useState<any[]>([])
+  const [thinkingBubbles, setThinkingBubbles] = useState<ThinkingBubble[]>([])
+  const [toolOutputs, setToolOutputs] = useState<ToolOutput[]>([])
+  const [currentThinkingId, setCurrentThinkingId] = useState<string | null>(null)
   const messagesEndRef = useRef<HTMLDivElement>(null)
   const inputRef = useRef<HTMLTextAreaElement>(null)
 
@@ -84,6 +101,10 @@ export default function HealthCopilot() {
       setCurrentStreamingMessage("")
       setCurrentReasoning("")
       setReasoningTokens(0)
+      // Clear previous thinking bubbles and tool outputs when starting new message
+      setThinkingBubbles([])
+      setToolOutputs([])
+      setCurrentThinkingId(null)
 
       try {
         console.log("=== SENDING MESSAGE ===")
@@ -318,7 +339,48 @@ export default function HealthCopilot() {
           apiMessages.push({ role: "user", content: messageToSend })
 
           // Determine which tools to enable based on context
-          const tools: string[] = ["text_editor", "create_browser_session", "browser_use", "perplexity_deep_research", "perplexity_reasoning_pro", "perplexity_sonar_pro"]
+          const tools: string[] = [
+            "text_editor",
+            "create_browser_session",
+            "browser_use",
+            "perplexity_deep_research",
+            "perplexity_reasoning_pro",
+            "perplexity_sonar_pro",
+            // Clinical tool
+            "clinical_operations",
+            // PubMed tools
+            "pubmed_search",
+            "pubmed_fetch_abstracts",
+            "pubmed_fetch_summaries",
+            "pubmed_fetch_related",
+            "pubmed_fetch_citations",
+            "pubmed_search_clinical_trials",
+            "pubmed_mesh_search",
+            // FDA tools
+            "searchDrugLabel",
+            "searchAdverseEffects",
+            "getSpecialPopulations",
+            "getBoxedWarning",
+            "getDrugInteractions",
+            "getAbuse",
+            "getAbuseTable",
+            "getActiveIngredient",
+            "getAdverseReactions",
+            "getClinicalPharmacology",
+            "getContraindications",
+            "getDescription",
+            "getDosageAndAdministration",
+            "getWarnings",
+            "getPregnancy",
+            "getPediatricUse",
+            "getGeriatricUse",
+            "getIndicationsAndUsage",
+            "getMechanismOfAction",
+            "getOverdosage",
+            "getPharmacokinetics",
+            "getControlledSubstance",
+            "getNursingMothers"
+          ]
           if (messageToSend.toLowerCase().includes("bash") || messageToSend.toLowerCase().includes("command")) {
             tools.push("bash")
           }
@@ -343,8 +405,14 @@ export default function HealthCopilot() {
             thinking_budget: 20000,
             enable_citations: true,
             stream: true,
-            system_prompt: `You are Ron AI, an advanced healthcare advocacy AI assistant powered by Claude Sonnet 4. 
+            system_prompt: `You are Ron AI, an advanced healthcare advocacy AI assistant powered by Claude Sonnet 4.
 You help users navigate their healthcare journey with clarity and confidence.
+
+You have access to powerful medical research tools:
+- Clinical Operations: Evidence-based clinical guidance and care coordination
+- PubMed Tools: Search and analyze biomedical literature from the world's largest medical database
+- FDA Drug Tools: Comprehensive drug information including warnings, interactions, and usage guidelines
+- Perplexity Tools: Advanced web search and reasoning capabilities
 
 When helping with healthcare tasks:
 1. Be empathetic and supportive
@@ -352,6 +420,7 @@ When helping with healthcare tasks:
 3. Use your tools when needed to search for information, analyze documents, or help with tasks
 4. Always prioritize user safety and encourage professional medical consultation when appropriate
 5. If doing deep research, be thorough and cite sources
+6. When using medical tools, explain findings in patient-friendly language
 
 ${isDeepResearch ? "DEEP RESEARCH MODE: Perform comprehensive research with multiple sources and detailed analysis." : ""}`
           })
@@ -364,8 +433,7 @@ ${isDeepResearch ? "DEEP RESEARCH MODE: Perform comprehensive research with mult
             
             // Handle content block start for thinking
             if (event.type === 'content_block_start' && event.content_block?.type === 'thinking') {
-              console.log("Thinking block started")
-              // Reset reasoning for new thinking block
+              // Just track that we're in a thinking block
               fullReasoning = ""
               setCurrentReasoning("")
             }
@@ -376,7 +444,8 @@ ${isDeepResearch ? "DEEP RESEARCH MODE: Perform comprehensive research with mult
             }
             // Handle thinking deltas
             else if (event.type === 'content_block_delta' && event.delta?.type === 'thinking_delta') {
-              fullReasoning += event.delta.thinking || ""
+              const deltaText = event.delta.thinking || ""
+              fullReasoning += deltaText
               setCurrentReasoning(fullReasoning)
             }
             // Handle signature deltas
@@ -439,9 +508,12 @@ ${isDeepResearch ? "DEEP RESEARCH MODE: Perform comprehensive research with mult
             else if (event.type === 'tool_result') {
               console.log(`Tool ${event.tool_name} completed:`, event.result)
               
-              // Format tool results nicely
+              // Create tool output bubble
+              const toolId = `tool-${Date.now()}-${event.tool_name}`
+              let toolContent = ''
               let formattedResult = ''
               
+              // Format tool results based on type
               if (event.tool_name === 'browser_use') {
                 const result = typeof event.result === 'string' ? JSON.parse(event.result) : event.result
                 
@@ -467,7 +539,7 @@ ${isDeepResearch ? "DEEP RESEARCH MODE: Perform comprehensive research with mult
                   const actionRegex = /ActionResult\([^)]+\)/g
                   const actionMatches = cleanResult.matchAll(actionRegex)
                   
-                  const newActions = []
+                  const newActions: any[] = []
                   for (const match of actionMatches) {
                     const actionStr = match[0]
                     
@@ -546,7 +618,7 @@ ${isDeepResearch ? "DEEP RESEARCH MODE: Perform comprehensive research with mult
                   } else {
                     // Try to find any meaningful text in the mess
                     const patterns = [
-                      /Here is.*?(?=\n\nAttachments:|$)/s,  // Look for "Here is..." explanations
+                      /Here is.*?(?=\n\nAttachments:|$)/,  // Look for "Here is..." explanations
                       /extracted_content='([^']+)'/,         // Any extracted content
                       /long_term_memory='([^']+)'/,          // Memory content
                     ]
@@ -580,50 +652,39 @@ ${isDeepResearch ? "DEEP RESEARCH MODE: Perform comprehensive research with mult
                 if (result.results && Array.isArray(result.results)) {
                   formattedResult += `\n\nFound ${result.results.length} results`
                 }
-              } else if (event.tool_name === 'perplexity_deep_research' || 
-                         event.tool_name === 'perplexity_reasoning_pro' || 
-                         event.tool_name === 'perplexity_sonar_pro') {
-                // For Perplexity tools, format the response with markdown
-                let icon = '🔬'
-                let title = 'Deep Research'
-                if (event.tool_name === 'perplexity_reasoning_pro') {
-                  icon = '🧠'
-                  title = 'Advanced Reasoning'
-                } else if (event.tool_name === 'perplexity_sonar_pro') {
-                  icon = '📡'
-                  title = 'Sonar Search'
-                }
-                
-                // Parse result to get content and format it
+              } else if (event.tool_name?.startsWith('perplexity_') ||
+                         event.tool_name?.startsWith('pubmed_') ||
+                         event.tool_name?.startsWith('search') ||
+                         event.tool_name?.startsWith('get') ||
+                         event.tool_name === 'clinical_operations') {
+                // Parse result to get content
                 try {
                   const result = typeof event.result === 'string' ? JSON.parse(event.result) : event.result
                   if (result.error) {
-                    formattedResult = `\n\n❌ **${title} failed**: ${result.error}`
+                    toolContent = `Error: ${result.error}`
+                  } else if (result.result) {
+                    toolContent = result.result
                   } else if (result.content) {
-                    // Show the completion in main content
-                    formattedResult = `\n\n${icon} **${title} completed**`
-                    
-                    // Add the full formatted content to Claude's reasoning/thinking
-                    let reasoningContent = `\n\n## ${title} Results\n\n${result.content}`
-                    
-                    // Add citations if available
-                    if (result.citations && result.citations.length > 0) {
-                      reasoningContent += '\n\n### Citations\n'
-                      result.citations.forEach((citation, index) => {
-                        reasoningContent += `${index + 1}. ${citation}\n`
-                      })
-                    }
-                    
-                    // Update the reasoning content
-                    fullReasoning += reasoningContent
-                    setCurrentReasoning(fullReasoning)
+                    toolContent = result.content
+                  } else if (typeof result === 'string') {
+                    toolContent = result
                   } else {
-                    formattedResult = `\n\n${icon} **${title} completed**`
+                    toolContent = JSON.stringify(result, null, 2)
                   }
                 } catch (e) {
-                  // If we can't parse, just show completion
-                  formattedResult = `\n\n${icon} **${title} completed**`
+                  toolContent = typeof event.result === 'string' ? event.result : JSON.stringify(event.result)
                 }
+                
+                // Add tool output bubble
+                setToolOutputs(prev => [...prev, {
+                  id: toolId,
+                  toolName: event.tool_name,
+                  content: toolContent,
+                  timestamp: new Date()
+                }])
+                
+                // Add brief mention in main message
+                formattedResult = `\n\n✅ **Tool completed**`
               } else {
                 // Default formatting for other tools
                 const resultText = typeof event.result === 'string' ? event.result : JSON.stringify(event.result, null, 2)
@@ -816,36 +877,53 @@ ${isDeepResearch ? "DEEP RESEARCH MODE: Perform comprehensive research with mult
                   </div>
                 ) : (
                   <div className="space-y-6">
-                    {isProcessing && (
-                      <>
-                        {currentReasoning && (
-                          <ThinkingView 
-                            reasoning={currentReasoning} 
-                            tokenCount={reasoningTokens}
-                            isStreaming={true}
-                            className="mb-4"
-                          />
-                        )}
-                        <AgentStatusIndicator 
-                          currentAgent={{ 
-                            type: "general", 
-                            name: isDeepResearch ? "Deep Research Agent" : "Claude Sonnet 4", 
-                            description: isDeepResearch ? "Conducting comprehensive research..." : "Processing your request..." 
-                          }} 
-                          status="processing" 
+                    {/* Show thinking during streaming */}
+                    {isProcessing && currentReasoning && (
+                      <div className="animate-slide-up mb-4">
+                        <ThinkingView
+                          reasoning={currentReasoning}
+                          tokenCount={reasoningTokens}
+                          isStreaming={true}
+                          className=""
                         />
-                      </>
+                      </div>
                     )}
-
+                    
+                    {/* Show tool outputs */}
+                    {toolOutputs.map((output) => (
+                      <div key={output.id} className="animate-slide-up mb-4">
+                        <ToolOutputBubble
+                          toolName={output.toolName}
+                          content={output.content}
+                          timestamp={output.timestamp}
+                          className=""
+                        />
+                      </div>
+                    ))}
+                    
+                    {isProcessing && !currentReasoning && toolOutputs.length === 0 && (
+                      <AgentStatusIndicator
+                        currentAgent={{
+                          type: "general",
+                          name: isDeepResearch ? "Deep Research Agent" : "Claude Sonnet 4",
+                          description: isDeepResearch ? "Conducting comprehensive research..." : "Processing your request..."
+                        }}
+                        status="processing"
+                      />
+                    )}
+  
                     {messages.map((msg, i) => (
                       <div key={i} className="animate-slide-up">
+                        {/* Show thinking view for messages with reasoning */}
                         {msg.role === "assistant" && msg.reasoning && (
-                          <ThinkingView 
-                            reasoning={msg.reasoning} 
-                            tokenCount={msg.reasoningTokens || 0}
-                            isStreaming={false}
-                            className="mb-4"
-                          />
+                          <div className="mb-4">
+                            <ThinkingView
+                              reasoning={msg.reasoning}
+                              tokenCount={msg.reasoningTokens}
+                              isStreaming={false}
+                              className=""
+                            />
+                          </div>
                         )}
                         <MessageBubble
                           role={msg.role}
@@ -934,7 +1012,7 @@ ${isDeepResearch ? "DEEP RESEARCH MODE: Perform comprehensive research with mult
                         <Mic className="w-4 h-4 text-white" />
                       </Button>
                       <Button
-                        onClick={handleSendMessage}
+                        onClick={() => handleSendMessage()}
                         size="icon"
                         className="w-8 h-8 hover:bg-primary/90 text-primary-foreground hover:shadow-primary/25 transition-all duration-200 rounded-md bg-primary shadow-xl"
                       >
@@ -1061,36 +1139,53 @@ ${isDeepResearch ? "DEEP RESEARCH MODE: Perform comprehensive research with mult
                 </div>
               ) : (
                 <div className="space-y-12">
-                  {isProcessing && (
-                    <>
-                      {currentReasoning && (
-                        <ThinkingView 
-                          reasoning={currentReasoning} 
-                          tokenCount={reasoningTokens}
-                          isStreaming={true}
-                          className="mb-6"
-                        />
-                      )}
-                      <AgentStatusIndicator 
-                        currentAgent={{ 
-                          type: "general", 
-                          name: isDeepResearch ? "Deep Research Agent" : "Claude Sonnet 4", 
-                          description: isDeepResearch ? "Conducting comprehensive research..." : "Processing your request..." 
-                        }} 
-                        status="processing" 
+                  {/* Show thinking during streaming */}
+                  {isProcessing && currentReasoning && (
+                    <div className="animate-slide-up mb-6">
+                      <ThinkingView
+                        reasoning={currentReasoning}
+                        tokenCount={reasoningTokens}
+                        isStreaming={true}
+                        className=""
                       />
-                    </>
+                    </div>
                   )}
-
+                  
+                  {/* Show tool outputs */}
+                  {toolOutputs.map((output) => (
+                    <div key={output.id} className="animate-slide-up mb-6">
+                      <ToolOutputBubble
+                        toolName={output.toolName}
+                        content={output.content}
+                        timestamp={output.timestamp}
+                        className=""
+                      />
+                    </div>
+                  ))}
+                  
+                  {isProcessing && !currentReasoning && toolOutputs.length === 0 && (
+                    <AgentStatusIndicator
+                      currentAgent={{
+                        type: "general",
+                        name: isDeepResearch ? "Deep Research Agent" : "Claude Sonnet 4",
+                        description: isDeepResearch ? "Conducting comprehensive research..." : "Processing your request..."
+                      }}
+                      status="processing"
+                    />
+                  )}
+  
                   {messages.map((msg, i) => (
                     <div key={i} className="animate-slide-up">
+                      {/* Show thinking view for messages with reasoning */}
                       {msg.role === "assistant" && msg.reasoning && (
-                        <ThinkingView 
-                          reasoning={msg.reasoning} 
-                          tokenCount={msg.reasoningTokens || 0}
-                          isStreaming={false}
-                          className="mb-6"
-                        />
+                        <div className="mb-6">
+                          <ThinkingView
+                            reasoning={msg.reasoning}
+                            tokenCount={msg.reasoningTokens}
+                            isStreaming={false}
+                            className=""
+                          />
+                        </div>
                       )}
                       <MessageBubble
                         role={msg.role}
@@ -1186,7 +1281,7 @@ ${isDeepResearch ? "DEEP RESEARCH MODE: Perform comprehensive research with mult
                       <Mic className="w-5 h-5 text-primary-foreground" />
                     </Button>
                     <Button
-                      onClick={handleSendMessage}
+                      onClick={() => handleSendMessage()}
                       size="icon"
                       className="w-12 h-12 hover:bg-primary/90 text-primary-foreground hover:shadow-primary/25 transition-all duration-200 rounded-md bg-primary shadow-xl"
                     >

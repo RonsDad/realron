@@ -1,0 +1,49 @@
+2025-08-03 03:07:02.190 [info] [main] Log level: Info
+2025-08-03 03:07:02.190 [info] [main] Validating found git in: "git"
+2025-08-03 03:07:02.190 [info] [main] Using git "2.34.1" from "git"
+2025-08-03 03:07:02.190 [info] [Model][doInitialScan] Initial repository scan started
+2025-08-03 03:07:02.190 [info] > git rev-parse --show-toplevel [23ms]
+2025-08-03 03:07:02.190 [info] > git rev-parse --show-toplevel [14ms]
+2025-08-03 03:07:02.191 [info] > git rev-parse --show-toplevel [4ms]
+2025-08-03 03:07:02.198 [info] > git rev-parse --show-toplevel [2ms]
+2025-08-03 03:07:02.199 [info] [Model][doInitialScan] Initial repository scan completed - repositories (0), closed repositories (0), parent repositories (1), unsafe repositories (0)
+2025-08-03 03:07:04.069 [info] > git rev-parse --show-toplevel [3ms]
+2025-08-03 03:07:55.409 [info] > git rev-parse --show-toplevel [3ms]
+2025-08-03 03:07:55.415 [info] > git rev-parse --git-dir --git-common-dir [3ms]
+2025-08-03 03:07:55.427 [info] [Model][openRepository] Opened repository (path): /home/workspace
+2025-08-03 03:07:55.427 [info] [Model][openRepository] Opened repository (real path): /home/workspace
+2025-08-03 03:07:55.438 [info] > git config --get commit.template [5ms]
+2025-08-03 03:07:55.472 [info] > git for-each-ref --format=%(refname)%00%(upstream:short)%00%(objectname)%00%(upstream:track)%00%(upstream:remotename)%00%(upstream:remoteref) refs/heads/Main refs/remotes/Main [35ms]
+2025-08-03 03:07:55.509 [info] > git for-each-ref --sort -committerdate --format %(refname)%00%(objectname)%00%(*objectname) [19ms]
+2025-08-03 03:07:55.983 [info] > git check-ignore -v -z --stdin [6ms]
+2025-08-03 03:07:56.642 [info] > git status -z -uall [1155ms] (cancelled)
+2025-08-03 03:07:56.645 [info] > git check-ignore -v -z --stdin [4ms]
+2025-08-03 03:07:56.743 [info] > git config --get commit.template [6ms]
+2025-08-03 03:07:56.743 [info] > git for-each-ref --format=%(refname)%00%(upstream:short)%00%(objectname)%00%(upstream:track)%00%(upstream:remotename)%00%(upstream:remoteref) refs/heads/Main refs/remotes/Main [13ms]
+2025-08-03 03:07:56.752 [info] > git config --get --local branch.Main.vscode-merge-base [6ms]
+2025-08-03 03:07:56.762 [info] > git for-each-ref --format=%(refname)%00%(upstream:short)%00%(objectname)%00%(upstream:track)%00%(upstream:remotename)%00%(upstream:remoteref) refs/heads/Main refs/remotes/Main [20ms]
+2025-08-03 03:07:57.475 [info] > git for-each-ref --sort -committerdate --format %(refname)%00%(objectname)%00%(*objectname) [703ms]
+2025-08-03 03:07:57.476 [info] > git for-each-ref --format=%(refname)%00%(upstream:short)%00%(objectname)%00%(upstream:track)%00%(upstream:remotename)%00%(upstream:remoteref) refs/heads/origin/Main refs/remotes/origin/Main [721ms]
+2025-08-03 03:07:57.479 [info] > git config --get --local branch.Main.github-pr-owner-number [718ms]
+2025-08-03 03:07:57.480 [warning] [Git][config] git config failed: Failed to execute git
+2025-08-03 03:07:57.489 [info] > git merge-base refs/heads/Main refs/remotes/origin/Main [10ms]
+2025-08-03 03:07:57.504 [info] > git diff --name-status -z --diff-filter=ADMR 57aed3ec8d6b62f4f5fb182272f09dda7cb951af...refs/remotes/origin/Main [11ms]
+2025-08-03 03:07:57.768 [info] > git status -z -uall [998ms] (cancelled)
+2025-08-03 03:07:57.772 [info] > git check-ignore -v -z --stdin [4ms]
+2025-08-03 03:08:04.721 [info] > git check-ignore -v -z --stdin [9ms]
+2025-08-03 03:08:06.934 [info] > git log --format=%H%n%aN%n%aE%n%at%n%ct%n%P%n%D%n%B -z --shortstat --diff-merges=first-parent -n50 --skip=0 --topo-order --decorate=full --stdin [2740ms]
+2025-08-03 03:08:08.759 [info] > git check-ignore -v -z --stdin [18ms]
+2025-08-03 03:08:36.654 [info] > git config --get commit.template [4ms]
+2025-08-03 03:08:36.661 [info] > git for-each-ref --format=%(refname)%00%(upstream:short)%00%(objectname)%00%(upstream:track)%00%(upstream:remotename)%00%(upstream:remoteref) refs/heads/Main refs/remotes/Main [7ms]
+2025-08-03 03:08:36.680 [info] > git for-each-ref --sort -committerdate --format %(refname)%00%(objectname)%00%(*objectname) [14ms]
+2025-08-03 03:08:37.844 [info] > git status -z -uall [1181ms] (cancelled)
+2025-08-03 03:17:26.197 [info] > git check-ignore -v -z --stdin [7ms]
+2025-08-03 03:17:37.787 [info] > git show --textconv :.config/Code/User/settings.json [5ms]
+2025-08-03 03:17:37.793 [info] > git ls-files --stage -- .config/Code/User/settings.json [7ms]
+2025-08-03 03:17:37.797 [info] > git hash-object -t tree /dev/null [5ms]
+2025-08-03 03:17:37.798 [warning] [GitFileSystemProvider][readFile] File not found - git:/home/workspace/.config/Code/User/settings.json.git?%7B%22path%22%3A%22%2Fhome%2Fworkspace%2F.config%2FCode%2FUser%2Fsettings.json%22%2C%22ref%22%3A%22%22%7D
+2025-08-03 03:17:37.808 [info] > git hash-object -t tree /dev/null [11ms]
+2025-08-03 03:17:37.808 [warning] [GitFileSystemProvider][stat] File not found - git:/home/workspace/.config/Code/User/settings.json.git?%7B%22path%22%3A%22%2Fhome%2Fworkspace%2F.config%2FCode%2FUser%2Fsettings.json%22%2C%22ref%22%3A%22%22%7D
+2025-08-03 03:37:08.903 [info] > git log --format=%H%n%aN%n%aE%n%at%n%ct%n%P%n%D%n%B -z --shortstat --diff-merges=first-parent -n50 --skip=0 --topo-order --decorate=full --stdin [2781ms]
+2025-08-03 03:49:55.584 [info] > git check-ignore -v -z --stdin [17ms]
+2025-08-03 04:01:52.782 [info] > git check-ignore -v -z --stdin [10ms]

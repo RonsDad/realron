@@ -1,0 +1,326 @@
+2025-08-03 03:06:48.110 [info] Extension host with pid 30 started
+2025-08-03 03:06:48.175 [info] ExtensionService#_doActivateExtension vscode.emmet, startup: false, activationEvent: 'onLanguage'
+2025-08-03 03:06:48.175 [info] ExtensionService#_doActivateExtension saoudrizwan.claude-dev, startup: false, activationEvent: 'onLanguage'
+2025-08-03 03:06:48.550 [error] PendingMigrationError: navigator is now a global in nodejs, please see https://aka.ms/vscode-extensions/navigator for additional info on this error.
+    at get (file:///home/.openvscode-server/out/vs/workbench/api/node/extensionHostProcess.js:356:6146)
+    at /home/workspace/.openvscode-server/extensions/saoudrizwan.claude-dev-3.20.5-universal/dist/extension.js:255:18860
+    at /home/workspace/.openvscode-server/extensions/saoudrizwan.claude-dev-3.20.5-universal/dist/extension.js:2:358
+    at Vdt.exports (/home/workspace/.openvscode-server/extensions/saoudrizwan.claude-dev-3.20.5-universal/dist/extension.js:430:132)
+    at /home/workspace/.openvscode-server/extensions/saoudrizwan.claude-dev-3.20.5-universal/dist/extension.js:433:11270
+    at /home/workspace/.openvscode-server/extensions/saoudrizwan.claude-dev-3.20.5-universal/dist/extension.js:2:358
+    at /home/workspace/.openvscode-server/extensions/saoudrizwan.claude-dev-3.20.5-universal/dist/extension.js:441:770
+    at /home/workspace/.openvscode-server/extensions/saoudrizwan.claude-dev-3.20.5-universal/dist/extension.js:2:358
+    at /home/workspace/.openvscode-server/extensions/saoudrizwan.claude-dev-3.20.5-universal/dist/extension.js:463:1293
+    at /home/workspace/.openvscode-server/extensions/saoudrizwan.claude-dev-3.20.5-universal/dist/extension.js:2:358
+    at /home/workspace/.openvscode-server/extensions/saoudrizwan.claude-dev-3.20.5-universal/dist/extension.js:539:115
+    at /home/workspace/.openvscode-server/extensions/saoudrizwan.claude-dev-3.20.5-universal/dist/extension.js:2:325
+    at /home/workspace/.openvscode-server/extensions/saoudrizwan.claude-dev-3.20.5-universal/dist/extension.js:539:329
+    at /home/workspace/.openvscode-server/extensions/saoudrizwan.claude-dev-3.20.5-universal/dist/extension.js:2:325
+    at /home/workspace/.openvscode-server/extensions/saoudrizwan.claude-dev-3.20.5-universal/dist/extension.js:554:272
+    at /home/workspace/.openvscode-server/extensions/saoudrizwan.claude-dev-3.20.5-universal/dist/extension.js:2:325
+    at /home/workspace/.openvscode-server/extensions/saoudrizwan.claude-dev-3.20.5-universal/dist/extension.js:4088:2431
+    at /home/workspace/.openvscode-server/extensions/saoudrizwan.claude-dev-3.20.5-universal/dist/extension.js:2:325
+    at Object.<anonymous> (/home/workspace/.openvscode-server/extensions/saoudrizwan.claude-dev-3.20.5-universal/dist/extension.js:4088:3054)
+    at Module._compile (node:internal/modules/cjs/loader:1730:14)
+    at Object..js (node:internal/modules/cjs/loader:1895:10)
+    at Module.load (node:internal/modules/cjs/loader:1465:32)
+    at Function.<anonymous> (node:internal/modules/cjs/loader:1282:12)
+    at e._load (file:///home/.openvscode-server/out/vs/workbench/api/node/extensionHostProcess.js:356:5519)
+    at t._load (file:///home/.openvscode-server/out/vs/workbench/api/node/extensionHostProcess.js:174:22697)
+    at r._load (file:///home/.openvscode-server/out/vs/workbench/api/node/extensionHostProcess.js:166:25633)
+    at TracingChannel.traceSync (node:diagnostics_channel:322:14)
+    at wrapModuleLoad (node:internal/modules/cjs/loader:235:24)
+    at Module.require (node:internal/modules/cjs/loader:1487:12)
+    at require (node:internal/modules/helpers:135:16)
+    at QG.Cb (file:///home/.openvscode-server/out/vs/workbench/api/node/extensionHostProcess.js:205:1253)
+    at process.processTicksAndRejections (node:internal/process/task_queues:105:5)
+2025-08-03 03:06:48.621 [error] PendingMigrationError: navigator is now a global in nodejs, please see https://aka.ms/vscode-extensions/navigator for additional info on this error.
+    at get (file:///home/.openvscode-server/out/vs/workbench/api/node/extensionHostProcess.js:356:6146)
+    at /home/workspace/.openvscode-server/extensions/saoudrizwan.claude-dev-3.20.5-universal/dist/extension.js:589:37185
+    at /home/workspace/.openvscode-server/extensions/saoudrizwan.claude-dev-3.20.5-universal/dist/extension.js:2:325
+    at /home/workspace/.openvscode-server/extensions/saoudrizwan.claude-dev-3.20.5-universal/dist/extension.js:589:61187
+    at /home/workspace/.openvscode-server/extensions/saoudrizwan.claude-dev-3.20.5-universal/dist/extension.js:2:325
+    at /home/workspace/.openvscode-server/extensions/saoudrizwan.claude-dev-3.20.5-universal/dist/extension.js:589:64475
+    at /home/workspace/.openvscode-server/extensions/saoudrizwan.claude-dev-3.20.5-universal/dist/extension.js:2:325
+    at /home/workspace/.openvscode-server/extensions/saoudrizwan.claude-dev-3.20.5-universal/dist/extension.js:595:90108
+    at /home/workspace/.openvscode-server/extensions/saoudrizwan.claude-dev-3.20.5-universal/dist/extension.js:2:325
+    at /home/workspace/.openvscode-server/extensions/saoudrizwan.claude-dev-3.20.5-universal/dist/extension.js:4040:2702
+    at /home/workspace/.openvscode-server/extensions/saoudrizwan.claude-dev-3.20.5-universal/dist/extension.js:2:325
+    at /home/workspace/.openvscode-server/extensions/saoudrizwan.claude-dev-3.20.5-universal/dist/extension.js:4040:6929
+    at /home/workspace/.openvscode-server/extensions/saoudrizwan.claude-dev-3.20.5-universal/dist/extension.js:2:325
+    at /home/workspace/.openvscode-server/extensions/saoudrizwan.claude-dev-3.20.5-universal/dist/extension.js:4066:283338
+    at /home/workspace/.openvscode-server/extensions/saoudrizwan.claude-dev-3.20.5-universal/dist/extension.js:2:325
+    at /home/workspace/.openvscode-server/extensions/saoudrizwan.claude-dev-3.20.5-universal/dist/extension.js:4066:288446
+    at /home/workspace/.openvscode-server/extensions/saoudrizwan.claude-dev-3.20.5-universal/dist/extension.js:2:325
+    at /home/workspace/.openvscode-server/extensions/saoudrizwan.claude-dev-3.20.5-universal/dist/extension.js:4066:289668
+    at /home/workspace/.openvscode-server/extensions/saoudrizwan.claude-dev-3.20.5-universal/dist/extension.js:2:325
+    at /home/workspace/.openvscode-server/extensions/saoudrizwan.claude-dev-3.20.5-universal/dist/extension.js:4088:2544
+    at /home/workspace/.openvscode-server/extensions/saoudrizwan.claude-dev-3.20.5-universal/dist/extension.js:2:325
+    at Object.<anonymous> (/home/workspace/.openvscode-server/extensions/saoudrizwan.claude-dev-3.20.5-universal/dist/extension.js:4088:3054)
+    at Module._compile (node:internal/modules/cjs/loader:1730:14)
+    at Object..js (node:internal/modules/cjs/loader:1895:10)
+    at Module.load (node:internal/modules/cjs/loader:1465:32)
+    at Function.<anonymous> (node:internal/modules/cjs/loader:1282:12)
+    at e._load (file:///home/.openvscode-server/out/vs/workbench/api/node/extensionHostProcess.js:356:5519)
+    at t._load (file:///home/.openvscode-server/out/vs/workbench/api/node/extensionHostProcess.js:174:22697)
+    at r._load (file:///home/.openvscode-server/out/vs/workbench/api/node/extensionHostProcess.js:166:25633)
+    at TracingChannel.traceSync (node:diagnostics_channel:322:14)
+    at wrapModuleLoad (node:internal/modules/cjs/loader:235:24)
+    at Module.require (node:internal/modules/cjs/loader:1487:12)
+    at require (node:internal/modules/helpers:135:16)
+    at QG.Cb (file:///home/.openvscode-server/out/vs/workbench/api/node/extensionHostProcess.js:205:1253)
+    at process.processTicksAndRejections (node:internal/process/task_queues:105:5)
+2025-08-03 03:06:48.633 [error] PendingMigrationError: navigator is now a global in nodejs, please see https://aka.ms/vscode-extensions/navigator for additional info on this error.
+    at get (file:///home/.openvscode-server/out/vs/workbench/api/node/extensionHostProcess.js:356:6146)
+    at /home/workspace/.openvscode-server/extensions/saoudrizwan.claude-dev-3.20.5-universal/dist/extension.js:589:77145
+    at /home/workspace/.openvscode-server/extensions/saoudrizwan.claude-dev-3.20.5-universal/dist/extension.js:2:325
+    at /home/workspace/.openvscode-server/extensions/saoudrizwan.claude-dev-3.20.5-universal/dist/extension.js:589:77464
+    at /home/workspace/.openvscode-server/extensions/saoudrizwan.claude-dev-3.20.5-universal/dist/extension.js:2:325
+    at /home/workspace/.openvscode-server/extensions/saoudrizwan.claude-dev-3.20.5-universal/dist/extension.js:589:77752
+    at /home/workspace/.openvscode-server/extensions/saoudrizwan.claude-dev-3.20.5-universal/dist/extension.js:2:325
+    at /home/workspace/.openvscode-server/extensions/saoudrizwan.claude-dev-3.20.5-universal/dist/extension.js:589:78619
+    at /home/workspace/.openvscode-server/extensions/saoudrizwan.claude-dev-3.20.5-universal/dist/extension.js:2:325
+    at /home/workspace/.openvscode-server/extensions/saoudrizwan.claude-dev-3.20.5-universal/dist/extension.js:591:869
+    at /home/workspace/.openvscode-server/extensions/saoudrizwan.claude-dev-3.20.5-universal/dist/extension.js:2:325
+    at /home/workspace/.openvscode-server/extensions/saoudrizwan.claude-dev-3.20.5-universal/dist/extension.js:594:837
+    at /home/workspace/.openvscode-server/extensions/saoudrizwan.claude-dev-3.20.5-universal/dist/extension.js:2:325
+    at /home/workspace/.openvscode-server/extensions/saoudrizwan.claude-dev-3.20.5-universal/dist/extension.js:594:1987
+    at /home/workspace/.openvscode-server/extensions/saoudrizwan.claude-dev-3.20.5-universal/dist/extension.js:2:325
+    at /home/workspace/.openvscode-server/extensions/saoudrizwan.claude-dev-3.20.5-universal/dist/extension.js:595:4824
+    at /home/workspace/.openvscode-server/extensions/saoudrizwan.claude-dev-3.20.5-universal/dist/extension.js:2:325
+    at /home/workspace/.openvscode-server/extensions/saoudrizwan.claude-dev-3.20.5-universal/dist/extension.js:595:5400
+    at /home/workspace/.openvscode-server/extensions/saoudrizwan.claude-dev-3.20.5-universal/dist/extension.js:2:325
+    at /home/workspace/.openvscode-server/extensions/saoudrizwan.claude-dev-3.20.5-universal/dist/extension.js:595:90114
+    at /home/workspace/.openvscode-server/extensions/saoudrizwan.claude-dev-3.20.5-universal/dist/extension.js:2:325
+    at /home/workspace/.openvscode-server/extensions/saoudrizwan.claude-dev-3.20.5-universal/dist/extension.js:4040:2702
+    at /home/workspace/.openvscode-server/extensions/saoudrizwan.claude-dev-3.20.5-universal/dist/extension.js:2:325
+    at /home/workspace/.openvscode-server/extensions/saoudrizwan.claude-dev-3.20.5-universal/dist/extension.js:4040:6929
+    at /home/workspace/.openvscode-server/extensions/saoudrizwan.claude-dev-3.20.5-universal/dist/extension.js:2:325
+    at /home/workspace/.openvscode-server/extensions/saoudrizwan.claude-dev-3.20.5-universal/dist/extension.js:4066:283338
+    at /home/workspace/.openvscode-server/extensions/saoudrizwan.claude-dev-3.20.5-universal/dist/extension.js:2:325
+    at /home/workspace/.openvscode-server/extensions/saoudrizwan.claude-dev-3.20.5-universal/dist/extension.js:4066:288446
+    at /home/workspace/.openvscode-server/extensions/saoudrizwan.claude-dev-3.20.5-universal/dist/extension.js:2:325
+    at /home/workspace/.openvscode-server/extensions/saoudrizwan.claude-dev-3.20.5-universal/dist/extension.js:4066:289668
+    at /home/workspace/.openvscode-server/extensions/saoudrizwan.claude-dev-3.20.5-universal/dist/extension.js:2:325
+    at /home/workspace/.openvscode-server/extensions/saoudrizwan.claude-dev-3.20.5-universal/dist/extension.js:4088:2544
+    at /home/workspace/.openvscode-server/extensions/saoudrizwan.claude-dev-3.20.5-universal/dist/extension.js:2:325
+    at Object.<anonymous> (/home/workspace/.openvscode-server/extensions/saoudrizwan.claude-dev-3.20.5-universal/dist/extension.js:4088:3054)
+    at Module._compile (node:internal/modules/cjs/loader:1730:14)
+    at Object..js (node:internal/modules/cjs/loader:1895:10)
+    at Module.load (node:internal/modules/cjs/loader:1465:32)
+    at Function.<anonymous> (node:internal/modules/cjs/loader:1282:12)
+    at e._load (file:///home/.openvscode-server/out/vs/workbench/api/node/extensionHostProcess.js:356:5519)
+    at t._load (file:///home/.openvscode-server/out/vs/workbench/api/node/extensionHostProcess.js:174:22697)
+    at r._load (file:///home/.openvscode-server/out/vs/workbench/api/node/extensionHostProcess.js:166:25633)
+    at TracingChannel.traceSync (node:diagnostics_channel:322:14)
+    at wrapModuleLoad (node:internal/modules/cjs/loader:235:24)
+    at Module.require (node:internal/modules/cjs/loader:1487:12)
+    at require (node:internal/modules/helpers:135:16)
+    at QG.Cb (file:///home/.openvscode-server/out/vs/workbench/api/node/extensionHostProcess.js:205:1253)
+    at process.processTicksAndRejections (node:internal/process/task_queues:105:5)
+2025-08-03 03:06:48.642 [error] PendingMigrationError: navigator is now a global in nodejs, please see https://aka.ms/vscode-extensions/navigator for additional info on this error.
+    at get (file:///home/.openvscode-server/out/vs/workbench/api/node/extensionHostProcess.js:356:6146)
+    at FYr (/home/workspace/.openvscode-server/extensions/saoudrizwan.claude-dev-3.20.5-universal/dist/extension.js:595:6322)
+    at new ySt (/home/workspace/.openvscode-server/extensions/saoudrizwan.claude-dev-3.20.5-universal/dist/extension.js:595:49392)
+    at /home/workspace/.openvscode-server/extensions/saoudrizwan.claude-dev-3.20.5-universal/dist/extension.js:595:52852
+    at /home/workspace/.openvscode-server/extensions/saoudrizwan.claude-dev-3.20.5-universal/dist/extension.js:2:325
+    at /home/workspace/.openvscode-server/extensions/saoudrizwan.claude-dev-3.20.5-universal/dist/extension.js:595:89036
+    at /home/workspace/.openvscode-server/extensions/saoudrizwan.claude-dev-3.20.5-universal/dist/extension.js:2:325
+    at /home/workspace/.openvscode-server/extensions/saoudrizwan.claude-dev-3.20.5-universal/dist/extension.js:595:89096
+    at /home/workspace/.openvscode-server/extensions/saoudrizwan.claude-dev-3.20.5-universal/dist/extension.js:2:325
+    at /home/workspace/.openvscode-server/extensions/saoudrizwan.claude-dev-3.20.5-universal/dist/extension.js:595:90125
+    at /home/workspace/.openvscode-server/extensions/saoudrizwan.claude-dev-3.20.5-universal/dist/extension.js:2:325
+    at /home/workspace/.openvscode-server/extensions/saoudrizwan.claude-dev-3.20.5-universal/dist/extension.js:4040:2702
+    at /home/workspace/.openvscode-server/extensions/saoudrizwan.claude-dev-3.20.5-universal/dist/extension.js:2:325
+    at /home/workspace/.openvscode-server/extensions/saoudrizwan.claude-dev-3.20.5-universal/dist/extension.js:4040:6929
+    at /home/workspace/.openvscode-server/extensions/saoudrizwan.claude-dev-3.20.5-universal/dist/extension.js:2:325
+    at /home/workspace/.openvscode-server/extensions/saoudrizwan.claude-dev-3.20.5-universal/dist/extension.js:4066:283338
+    at /home/workspace/.openvscode-server/extensions/saoudrizwan.claude-dev-3.20.5-universal/dist/extension.js:2:325
+    at /home/workspace/.openvscode-server/extensions/saoudrizwan.claude-dev-3.20.5-universal/dist/extension.js:4066:288446
+    at /home/workspace/.openvscode-server/extensions/saoudrizwan.claude-dev-3.20.5-universal/dist/extension.js:2:325
+    at /home/workspace/.openvscode-server/extensions/saoudrizwan.claude-dev-3.20.5-universal/dist/extension.js:4066:289668
+    at /home/workspace/.openvscode-server/extensions/saoudrizwan.claude-dev-3.20.5-universal/dist/extension.js:2:325
+    at /home/workspace/.openvscode-server/extensions/saoudrizwan.claude-dev-3.20.5-universal/dist/extension.js:4088:2544
+    at /home/workspace/.openvscode-server/extensions/saoudrizwan.claude-dev-3.20.5-universal/dist/extension.js:2:325
+    at Object.<anonymous> (/home/workspace/.openvscode-server/extensions/saoudrizwan.claude-dev-3.20.5-universal/dist/extension.js:4088:3054)
+    at Module._compile (node:internal/modules/cjs/loader:1730:14)
+    at Object..js (node:internal/modules/cjs/loader:1895:10)
+    at Module.load (node:internal/modules/cjs/loader:1465:32)
+    at Function.<anonymous> (node:internal/modules/cjs/loader:1282:12)
+    at e._load (file:///home/.openvscode-server/out/vs/workbench/api/node/extensionHostProcess.js:356:5519)
+    at t._load (file:///home/.openvscode-server/out/vs/workbench/api/node/extensionHostProcess.js:174:22697)
+    at r._load (file:///home/.openvscode-server/out/vs/workbench/api/node/extensionHostProcess.js:166:25633)
+    at TracingChannel.traceSync (node:diagnostics_channel:322:14)
+    at wrapModuleLoad (node:internal/modules/cjs/loader:235:24)
+    at Module.require (node:internal/modules/cjs/loader:1487:12)
+    at require (node:internal/modules/helpers:135:16)
+    at QG.Cb (file:///home/.openvscode-server/out/vs/workbench/api/node/extensionHostProcess.js:205:1253)
+    at process.processTicksAndRejections (node:internal/process/task_queues:105:5)
+2025-08-03 03:06:48.675 [error] PendingMigrationError: navigator is now a global in nodejs, please see https://aka.ms/vscode-extensions/navigator for additional info on this error.
+    at get (file:///home/.openvscode-server/out/vs/workbench/api/node/extensionHostProcess.js:356:6146)
+    at Object.<anonymous> (/home/workspace/.openvscode-server/extensions/saoudrizwan.claude-dev-3.20.5-universal/dist/extension.js:955:20315)
+    at /home/workspace/.openvscode-server/extensions/saoudrizwan.claude-dev-3.20.5-universal/dist/extension.js:955:40866
+    at /home/workspace/.openvscode-server/extensions/saoudrizwan.claude-dev-3.20.5-universal/dist/extension.js:2:358
+    at /home/workspace/.openvscode-server/extensions/saoudrizwan.claude-dev-3.20.5-universal/dist/extension.js:955:45226
+    at /home/workspace/.openvscode-server/extensions/saoudrizwan.claude-dev-3.20.5-universal/dist/extension.js:2:358
+    at /home/workspace/.openvscode-server/extensions/saoudrizwan.claude-dev-3.20.5-universal/dist/extension.js:955:64437
+    at /home/workspace/.openvscode-server/extensions/saoudrizwan.claude-dev-3.20.5-universal/dist/extension.js:2:358
+    at /home/workspace/.openvscode-server/extensions/saoudrizwan.claude-dev-3.20.5-universal/dist/extension.js:955:65030
+    at /home/workspace/.openvscode-server/extensions/saoudrizwan.claude-dev-3.20.5-universal/dist/extension.js:2:358
+    at /home/workspace/.openvscode-server/extensions/saoudrizwan.claude-dev-3.20.5-universal/dist/extension.js:955:69477
+    at /home/workspace/.openvscode-server/extensions/saoudrizwan.claude-dev-3.20.5-universal/dist/extension.js:2:358
+    at /home/workspace/.openvscode-server/extensions/saoudrizwan.claude-dev-3.20.5-universal/dist/extension.js:955:84419
+    at /home/workspace/.openvscode-server/extensions/saoudrizwan.claude-dev-3.20.5-universal/dist/extension.js:2:358
+    at /home/workspace/.openvscode-server/extensions/saoudrizwan.claude-dev-3.20.5-universal/dist/extension.js:955:85270
+    at /home/workspace/.openvscode-server/extensions/saoudrizwan.claude-dev-3.20.5-universal/dist/extension.js:2:358
+    at /home/workspace/.openvscode-server/extensions/saoudrizwan.claude-dev-3.20.5-universal/dist/extension.js:995:641731
+    at /home/workspace/.openvscode-server/extensions/saoudrizwan.claude-dev-3.20.5-universal/dist/extension.js:2:358
+    at /home/workspace/.openvscode-server/extensions/saoudrizwan.claude-dev-3.20.5-universal/dist/extension.js:995:645812
+    at /home/workspace/.openvscode-server/extensions/saoudrizwan.claude-dev-3.20.5-universal/dist/extension.js:2:358
+    at /home/workspace/.openvscode-server/extensions/saoudrizwan.claude-dev-3.20.5-universal/dist/extension.js:995:648634
+    at /home/workspace/.openvscode-server/extensions/saoudrizwan.claude-dev-3.20.5-universal/dist/extension.js:2:325
+    at /home/workspace/.openvscode-server/extensions/saoudrizwan.claude-dev-3.20.5-universal/dist/extension.js:995:651500
+    at /home/workspace/.openvscode-server/extensions/saoudrizwan.claude-dev-3.20.5-universal/dist/extension.js:2:325
+    at /home/workspace/.openvscode-server/extensions/saoudrizwan.claude-dev-3.20.5-universal/dist/extension.js:995:652286
+    at /home/workspace/.openvscode-server/extensions/saoudrizwan.claude-dev-3.20.5-universal/dist/extension.js:2:325
+    at /home/workspace/.openvscode-server/extensions/saoudrizwan.claude-dev-3.20.5-universal/dist/extension.js:996:2782
+    at /home/workspace/.openvscode-server/extensions/saoudrizwan.claude-dev-3.20.5-universal/dist/extension.js:2:325
+    at /home/workspace/.openvscode-server/extensions/saoudrizwan.claude-dev-3.20.5-universal/dist/extension.js:996:7504
+    at /home/workspace/.openvscode-server/extensions/saoudrizwan.claude-dev-3.20.5-universal/dist/extension.js:2:325
+    at /home/workspace/.openvscode-server/extensions/saoudrizwan.claude-dev-3.20.5-universal/dist/extension.js:1080:6598
+    at /home/workspace/.openvscode-server/extensions/saoudrizwan.claude-dev-3.20.5-universal/dist/extension.js:2:325
+    at /home/workspace/.openvscode-server/extensions/saoudrizwan.claude-dev-3.20.5-universal/dist/extension.js:1086:810
+    at /home/workspace/.openvscode-server/extensions/saoudrizwan.claude-dev-3.20.5-universal/dist/extension.js:2:325
+    at /home/workspace/.openvscode-server/extensions/saoudrizwan.claude-dev-3.20.5-universal/dist/extension.js:1087:11381
+    at /home/workspace/.openvscode-server/extensions/saoudrizwan.claude-dev-3.20.5-universal/dist/extension.js:2:325
+    at /home/workspace/.openvscode-server/extensions/saoudrizwan.claude-dev-3.20.5-universal/dist/extension.js:1087:11461
+    at /home/workspace/.openvscode-server/extensions/saoudrizwan.claude-dev-3.20.5-universal/dist/extension.js:2:325
+    at /home/workspace/.openvscode-server/extensions/saoudrizwan.claude-dev-3.20.5-universal/dist/extension.js:1087:11527
+    at /home/workspace/.openvscode-server/extensions/saoudrizwan.claude-dev-3.20.5-universal/dist/extension.js:2:325
+    at /home/workspace/.openvscode-server/extensions/saoudrizwan.claude-dev-3.20.5-universal/dist/extension.js:1138:2346
+    at /home/workspace/.openvscode-server/extensions/saoudrizwan.claude-dev-3.20.5-universal/dist/extension.js:2:325
+    at /home/workspace/.openvscode-server/extensions/saoudrizwan.claude-dev-3.20.5-universal/dist/extension.js:4040:20484
+    at /home/workspace/.openvscode-server/extensions/saoudrizwan.claude-dev-3.20.5-universal/dist/extension.js:2:325
+    at /home/workspace/.openvscode-server/extensions/saoudrizwan.claude-dev-3.20.5-universal/dist/extension.js:4066:283392
+    at /home/workspace/.openvscode-server/extensions/saoudrizwan.claude-dev-3.20.5-universal/dist/extension.js:2:325
+    at /home/workspace/.openvscode-server/extensions/saoudrizwan.claude-dev-3.20.5-universal/dist/extension.js:4066:288446
+    at /home/workspace/.openvscode-server/extensions/saoudrizwan.claude-dev-3.20.5-universal/dist/extension.js:2:325
+    at /home/workspace/.openvscode-server/extensions/saoudrizwan.claude-dev-3.20.5-universal/dist/extension.js:4066:289668
+    at /home/workspace/.openvscode-server/extensions/saoudrizwan.claude-dev-3.20.5-universal/dist/extension.js:2:325
+    at /home/workspace/.openvscode-server/extensions/saoudrizwan.claude-dev-3.20.5-universal/dist/extension.js:4088:2544
+    at /home/workspace/.openvscode-server/extensions/saoudrizwan.claude-dev-3.20.5-universal/dist/extension.js:2:325
+    at Object.<anonymous> (/home/workspace/.openvscode-server/extensions/saoudrizwan.claude-dev-3.20.5-universal/dist/extension.js:4088:3054)
+    at Module._compile (node:internal/modules/cjs/loader:1730:14)
+    at Object..js (node:internal/modules/cjs/loader:1895:10)
+    at Module.load (node:internal/modules/cjs/loader:1465:32)
+    at Function.<anonymous> (node:internal/modules/cjs/loader:1282:12)
+    at e._load (file:///home/.openvscode-server/out/vs/workbench/api/node/extensionHostProcess.js:356:5519)
+    at t._load (file:///home/.openvscode-server/out/vs/workbench/api/node/extensionHostProcess.js:174:22697)
+    at r._load (file:///home/.openvscode-server/out/vs/workbench/api/node/extensionHostProcess.js:166:25633)
+    at TracingChannel.traceSync (node:diagnostics_channel:322:14)
+    at wrapModuleLoad (node:internal/modules/cjs/loader:235:24)
+    at Module.require (node:internal/modules/cjs/loader:1487:12)
+    at require (node:internal/modules/helpers:135:16)
+    at QG.Cb (file:///home/.openvscode-server/out/vs/workbench/api/node/extensionHostProcess.js:205:1253)
+    at process.processTicksAndRejections (node:internal/process/task_queues:105:5)
+2025-08-03 03:06:48.810 [error] PendingMigrationError: navigator is now a global in nodejs, please see https://aka.ms/vscode-extensions/navigator for additional info on this error.
+    at get (file:///home/.openvscode-server/out/vs/workbench/api/node/extensionHostProcess.js:356:6146)
+    at /home/workspace/.openvscode-server/extensions/saoudrizwan.claude-dev-3.20.5-universal/dist/extension.js:765:102447
+    at /home/workspace/.openvscode-server/extensions/saoudrizwan.claude-dev-3.20.5-universal/dist/extension.js:2:358
+    at /home/workspace/.openvscode-server/extensions/saoudrizwan.claude-dev-3.20.5-universal/dist/extension.js:773:68059
+    at /home/workspace/.openvscode-server/extensions/saoudrizwan.claude-dev-3.20.5-universal/dist/extension.js:2:358
+    at /home/workspace/.openvscode-server/extensions/saoudrizwan.claude-dev-3.20.5-universal/dist/extension.js:773:69847
+    at /home/workspace/.openvscode-server/extensions/saoudrizwan.claude-dev-3.20.5-universal/dist/extension.js:2:358
+    at /home/workspace/.openvscode-server/extensions/saoudrizwan.claude-dev-3.20.5-universal/dist/extension.js:774:126
+    at /home/workspace/.openvscode-server/extensions/saoudrizwan.claude-dev-3.20.5-universal/dist/extension.js:2:325
+    at /home/workspace/.openvscode-server/extensions/saoudrizwan.claude-dev-3.20.5-universal/dist/extension.js:841:16809
+    at /home/workspace/.openvscode-server/extensions/saoudrizwan.claude-dev-3.20.5-universal/dist/extension.js:2:325
+    at /home/workspace/.openvscode-server/extensions/saoudrizwan.claude-dev-3.20.5-universal/dist/extension.js:4052:95756
+    at /home/workspace/.openvscode-server/extensions/saoudrizwan.claude-dev-3.20.5-universal/dist/extension.js:2:325
+    at /home/workspace/.openvscode-server/extensions/saoudrizwan.claude-dev-3.20.5-universal/dist/extension.js:4066:283656
+    at /home/workspace/.openvscode-server/extensions/saoudrizwan.claude-dev-3.20.5-universal/dist/extension.js:2:325
+    at /home/workspace/.openvscode-server/extensions/saoudrizwan.claude-dev-3.20.5-universal/dist/extension.js:4066:288446
+    at /home/workspace/.openvscode-server/extensions/saoudrizwan.claude-dev-3.20.5-universal/dist/extension.js:2:325
+    at /home/workspace/.openvscode-server/extensions/saoudrizwan.claude-dev-3.20.5-universal/dist/extension.js:4066:289668
+    at /home/workspace/.openvscode-server/extensions/saoudrizwan.claude-dev-3.20.5-universal/dist/extension.js:2:325
+    at /home/workspace/.openvscode-server/extensions/saoudrizwan.claude-dev-3.20.5-universal/dist/extension.js:4088:2544
+    at /home/workspace/.openvscode-server/extensions/saoudrizwan.claude-dev-3.20.5-universal/dist/extension.js:2:325
+    at Object.<anonymous> (/home/workspace/.openvscode-server/extensions/saoudrizwan.claude-dev-3.20.5-universal/dist/extension.js:4088:3054)
+    at Module._compile (node:internal/modules/cjs/loader:1730:14)
+    at Object..js (node:internal/modules/cjs/loader:1895:10)
+    at Module.load (node:internal/modules/cjs/loader:1465:32)
+    at Function.<anonymous> (node:internal/modules/cjs/loader:1282:12)
+    at e._load (file:///home/.openvscode-server/out/vs/workbench/api/node/extensionHostProcess.js:356:5519)
+    at t._load (file:///home/.openvscode-server/out/vs/workbench/api/node/extensionHostProcess.js:174:22697)
+    at r._load (file:///home/.openvscode-server/out/vs/workbench/api/node/extensionHostProcess.js:166:25633)
+    at TracingChannel.traceSync (node:diagnostics_channel:322:14)
+    at wrapModuleLoad (node:internal/modules/cjs/loader:235:24)
+    at Module.require (node:internal/modules/cjs/loader:1487:12)
+    at require (node:internal/modules/helpers:135:16)
+    at QG.Cb (file:///home/.openvscode-server/out/vs/workbench/api/node/extensionHostProcess.js:205:1253)
+    at process.processTicksAndRejections (node:internal/process/task_queues:105:5)
+2025-08-03 03:06:48.989 [info] ExtensionService#_doActivateExtension vscode.git-base, startup: true, activationEvent: '*', root cause: vscode.git
+2025-08-03 03:06:48.990 [info] ExtensionService#_doActivateExtension formulahendry.vscode-node-red, startup: true, activationEvent: '*'
+2025-08-03 03:06:48.990 [info] ExtensionService#_doActivateExtension tombonnike.vscode-status-bar-format-toggle, startup: true, activationEvent: '*'
+2025-08-03 03:06:48.991 [info] ExtensionService#_doActivateExtension vuejs.node-snippets, startup: true, activationEvent: '*'
+2025-08-03 03:06:49.896 [error] Activating extension vuejs.node-snippets failed due to an error:
+2025-08-03 03:06:49.896 [error] Error: /home/workspace/.openvscode-server/extensions/vuejs.node-snippets-1.4.0-universal/src/index_linux.node: cannot open shared object file: No such file or directory
+	at Object..node (node:internal/modules/cjs/loader:1921:18)
+	at Module.load (node:internal/modules/cjs/loader:1465:32)
+	at Function.<anonymous> (node:internal/modules/cjs/loader:1282:12)
+	at e._load (file:///home/.openvscode-server/out/vs/workbench/api/node/extensionHostProcess.js:356:5519)
+	at t._load (file:///home/.openvscode-server/out/vs/workbench/api/node/extensionHostProcess.js:174:22697)
+	at r._load (file:///home/.openvscode-server/out/vs/workbench/api/node/extensionHostProcess.js:166:25633)
+	at TracingChannel.traceSync (node:diagnostics_channel:322:14)
+	at wrapModuleLoad (node:internal/modules/cjs/loader:235:24)
+	at Module.<anonymous> (node:internal/modules/cjs/loader:1487:12)
+	at Module.patchedRequire [as require] (/home/workspace/.openvscode-server/extensions/formulahendry.vscode-node-red-0.2.0-universal/node_modules/diagnostic-channel/dist/src/patchRequire.js:16:46)
+	at require (node:internal/modules/helpers:135:16)
+	at Object.<anonymous> (/home/workspace/.openvscode-server/extensions/vuejs.node-snippets-1.4.0-universal/src/index.js:2:20)
+	at Module._compile (node:internal/modules/cjs/loader:1730:14)
+	at Object..js (node:internal/modules/cjs/loader:1895:10)
+	at Module.load (node:internal/modules/cjs/loader:1465:32)
+	at Function.<anonymous> (node:internal/modules/cjs/loader:1282:12)
+	at e._load (file:///home/.openvscode-server/out/vs/workbench/api/node/extensionHostProcess.js:356:5519)
+	at t._load (file:///home/.openvscode-server/out/vs/workbench/api/node/extensionHostProcess.js:174:22697)
+	at r._load (file:///home/.openvscode-server/out/vs/workbench/api/node/extensionHostProcess.js:166:25633)
+	at TracingChannel.traceSync (node:diagnostics_channel:322:14)
+	at wrapModuleLoad (node:internal/modules/cjs/loader:235:24)
+	at Module.<anonymous> (node:internal/modules/cjs/loader:1487:12)
+	at Module.patchedRequire [as require] (/home/workspace/.openvscode-server/extensions/formulahendry.vscode-node-red-0.2.0-universal/node_modules/diagnostic-channel/dist/src/patchRequire.js:16:46)
+	at require (node:internal/modules/helpers:135:16)
+	at Object.<anonymous> (/home/workspace/.openvscode-server/extensions/vuejs.node-snippets-1.4.0-universal/extension.js:1:34)
+	at Module._compile (node:internal/modules/cjs/loader:1730:14)
+	at Object..js (node:internal/modules/cjs/loader:1895:10)
+	at Module.load (node:internal/modules/cjs/loader:1465:32)
+	at Function.<anonymous> (node:internal/modules/cjs/loader:1282:12)
+	at e._load (file:///home/.openvscode-server/out/vs/workbench/api/node/extensionHostProcess.js:356:5519)
+	at t._load (file:///home/.openvscode-server/out/vs/workbench/api/node/extensionHostProcess.js:174:22697)
+	at r._load (file:///home/.openvscode-server/out/vs/workbench/api/node/extensionHostProcess.js:166:25633)
+	at TracingChannel.traceSync (node:diagnostics_channel:322:14)
+	at wrapModuleLoad (node:internal/modules/cjs/loader:235:24)
+	at Module.<anonymous> (node:internal/modules/cjs/loader:1487:12)
+	at Module.patchedRequire [as require] (/home/workspace/.openvscode-server/extensions/formulahendry.vscode-node-red-0.2.0-universal/node_modules/diagnostic-channel/dist/src/patchRequire.js:16:46)
+	at require (node:internal/modules/helpers:135:16)
+	at QG.Cb (file:///home/.openvscode-server/out/vs/workbench/api/node/extensionHostProcess.js:205:1253)
+2025-08-03 03:06:50.079 [info] ExtensionService#_doActivateExtension vscode.git, startup: true, activationEvent: '*'
+2025-08-03 03:06:50.079 [info] ExtensionService#_doActivateExtension vscode.github, startup: true, activationEvent: '*'
+2025-08-03 03:06:51.538 [info] Eager extensions activated
+2025-08-03 03:06:51.540 [info] ExtensionService#_doActivateExtension vscode.debug-auto-launch, startup: false, activationEvent: 'onStartupFinished'
+2025-08-03 03:06:51.541 [info] ExtensionService#_doActivateExtension vscode.merge-conflict, startup: false, activationEvent: 'onStartupFinished'
+2025-08-03 03:06:51.545 [info] ExtensionService#_doActivateExtension Anthropic.claude-code, startup: false, activationEvent: 'onStartupFinished'
+2025-08-03 03:06:51.549 [info] ExtensionService#_doActivateExtension dbaeumer.vscode-eslint, startup: false, activationEvent: 'onStartupFinished'
+2025-08-03 03:06:51.549 [info] ExtensionService#_doActivateExtension esbenp.prettier-vscode, startup: false, activationEvent: 'onStartupFinished'
+2025-08-03 03:06:51.553 [info] ExtensionService#_doActivateExtension vscode.github-authentication, startup: false, activationEvent: 'onStartupFinished', root cause: GitHub.vscode-pull-request-github
+2025-08-03 03:06:51.553 [info] ExtensionService#_doActivateExtension PKief.material-icon-theme, startup: false, activationEvent: 'onStartupFinished'
+2025-08-03 03:06:51.759 [info] ExtensionService#_doActivateExtension GitHub.vscode-pull-request-github, startup: false, activationEvent: 'onStartupFinished'
+2025-08-03 03:07:00.003 [info] Extension host terminating: received terminate message from renderer
+2025-08-03 03:07:00.021 [error] Error: Channel has been closed
+	at s (file:///home/.openvscode-server/out/vs/workbench/api/node/extensionHostProcess.js:120:2431)
+	at t.appendLine [as logToChannel] (file:///home/.openvscode-server/out/vs/workbench/api/node/extensionHostProcess.js:120:2570)
+	at #e (/home/workspace/.openvscode-server/extensions/saoudrizwan.claude-dev-3.20.5-universal/dist/extension.js:1260:1744)
+	at t.log (/home/workspace/.openvscode-server/extensions/saoudrizwan.claude-dev-3.20.5-universal/dist/extension.js:1260:1574)
+	at Object.nhu (/home/workspace/.openvscode-server/extensions/saoudrizwan.claude-dev-3.20.5-universal/dist/extension.js:4088:2361)
+	at async Promise.all (index 13)
+	at async QG.$ (file:///home/.openvscode-server/out/vs/workbench/api/node/extensionHostProcess.js:117:9890)
+2025-08-03 03:07:00.022 [info] Extension host with pid 30 exiting with code 0

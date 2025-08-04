@@ -53,9 +53,28 @@
   * {
     @apply border-border;
   }
+  html {
+    /* Scale down the entire UI to 90% for a more compact appearance */
+    font-size: 14px; /* Down from default 16px */
+  }
   body {
     @apply bg-background text-foreground;
+    /* Apply a subtle zoom-out effect to the entire app */
+    zoom: 0.9;
+    -moz-transform: scale(0.9);
+    -moz-transform-origin: 0 0;
   }
+  
+  /* Adjust base font sizes for better readability at smaller scale */
+  h1 { @apply text-3xl; }
+  h2 { @apply text-2xl; }
+  h3 { @apply text-xl; }
+  h4 { @apply text-lg; }
+  p { @apply text-sm; }
+  
+  /* Reduce padding and spacing for more compact layout */
+  .card { @apply p-3; }
+  .button { @apply px-3 py-1.5 text-sm; }
 }
 
 @layer utilities {

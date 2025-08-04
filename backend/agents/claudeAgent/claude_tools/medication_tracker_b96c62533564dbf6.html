@@ -1,0 +1,687 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>John's Medication Tracker</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Arial, sans-serif;
+            background-color: #f5f7fa;
+            color: #333;
+            line-height: 1.6;
+            padding: 20px;
+        }
+        
+        .container {
+            max-width: 800px;
+            margin: 0 auto;
+            background: white;
+            border-radius: 16px;
+            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+            overflow: hidden;
+        }
+        
+        .header {
+            background: linear-gradient(135deg, #4f46e5 0%, #6366f1 100%);
+            color: white;
+            padding: 30px 20px;
+            text-align: center;
+        }
+        
+        .header h1 {
+            font-size: 28px;
+            margin-bottom: 10px;
+            font-weight: 600;
+        }
+        
+        .header p {
+            opacity: 0.9;
+            font-size: 16px;
+        }
+        
+        .tabs {
+            display: flex;
+            background: #f8f9fb;
+            border-bottom: 2px solid #e5e7eb;
+            overflow-x: auto;
+        }
+        
+        .tab {
+            flex: 1;
+            padding: 15px 20px;
+            background: none;
+            border: none;
+            cursor: pointer;
+            font-size: 16px;
+            color: #6b7280;
+            transition: all 0.3s ease;
+            white-space: nowrap;
+        }
+        
+        .tab.active {
+            color: #4f46e5;
+            background: white;
+            border-bottom: 2px solid #4f46e5;
+            margin-bottom: -2px;
+        }
+        
+        .tab-content {
+            display: none;
+            padding: 20px;
+            animation: fadeIn 0.3s ease;
+        }
+        
+        .tab-content.active {
+            display: block;
+        }
+        
+        @keyframes fadeIn {
+            from { opacity: 0; }
+            to { opacity: 1; }
+        }
+        
+        .medication-card {
+            background: #f8f9fb;
+            border-radius: 12px;
+            padding: 20px;
+            margin-bottom: 15px;
+            border: 2px solid #e5e7eb;
+            transition: all 0.3s ease;
+        }
+        
+        .medication-card:hover {
+            border-color: #4f46e5;
+            box-shadow: 0 4px 12px rgba(79, 70, 229, 0.15);
+        }
+        
+        .medication-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 15px;
+        }
+        
+        .medication-name {
+            font-size: 20px;
+            font-weight: 600;
+            color: #1f2937;
+        }
+        
+        .medication-dose {
+            font-size: 16px;
+            color: #6b7280;
+            margin-top: 5px;
+        }
+        
+        .schedule-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(100px, 1fr));
+            gap: 10px;
+            margin-top: 15px;
+        }
+        
+        .time-slot {
+            background: white;
+            border: 2px solid #e5e7eb;
+            border-radius: 8px;
+            padding: 12px;
+            text-align: center;
+            cursor: pointer;
+            transition: all 0.3s ease;
+        }
+        
+        .time-slot.taken {
+            background: #10b981;
+            color: white;
+            border-color: #10b981;
+        }
+        
+        .time-slot:hover {
+            border-color: #4f46e5;
+        }
+        
+        .checklist-item {
+            display: flex;
+            align-items: center;
+            padding: 15px;
+            background: #f8f9fb;
+            border-radius: 8px;
+            margin-bottom: 10px;
+            cursor: pointer;
+            transition: all 0.3s ease;
+        }
+        
+        .checklist-item:hover {
+            background: #e5e7eb;
+        }
+        
+        .checkbox {
+            width: 24px;
+            height: 24px;
+            margin-right: 15px;
+            cursor: pointer;
+        }
+        
+        .refill-alert {
+            background: #fef3c7;
+            border: 2px solid #f59e0b;
+            border-radius: 8px;
+            padding: 15px;
+            margin-bottom: 15px;
+            display: flex;
+            align-items: center;
+        }
+        
+        .refill-alert-icon {
+            font-size: 24px;
+            margin-right: 10px;
+        }
+        
+        .side-effect-entry {
+            background: #f8f9fb;
+            border-radius: 8px;
+            padding: 15px;
+            margin-bottom: 10px;
+        }
+        
+        .add-button {
+            background: #4f46e5;
+            color: white;
+            border: none;
+            border-radius: 8px;
+            padding: 12px 24px;
+            font-size: 16px;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            width: 100%;
+            margin-top: 15px;
+        }
+        
+        .add-button:hover {
+            background: #6366f1;
+        }
+        
+        .interaction-warning {
+            background: #fee2e2;
+            border: 2px solid #ef4444;
+            border-radius: 8px;
+            padding: 15px;
+            margin-bottom: 15px;
+            display: flex;
+            align-items: flex-start;
+        }
+        
+        .warning-icon {
+            font-size: 24px;
+            margin-right: 10px;
+            flex-shrink: 0;
+        }
+        
+        .form-group {
+            margin-bottom: 15px;
+        }
+        
+        .form-group label {
+            display: block;
+            margin-bottom: 5px;
+            font-weight: 500;
+            color: #374151;
+        }
+        
+        .form-group input,
+        .form-group textarea {
+            width: 100%;
+            padding: 10px;
+            border: 2px solid #e5e7eb;
+            border-radius: 8px;
+            font-size: 16px;
+            transition: all 0.3s ease;
+        }
+        
+        .form-group input:focus,
+        .form-group textarea:focus {
+            outline: none;
+            border-color: #4f46e5;
+        }
+        
+        .progress-bar {
+            background: #e5e7eb;
+            height: 8px;
+            border-radius: 4px;
+            overflow: hidden;
+            margin-top: 10px;
+        }
+        
+        .progress-fill {
+            background: #10b981;
+            height: 100%;
+            transition: width 0.3s ease;
+        }
+        
+        @media (max-width: 640px) {
+            .header h1 {
+                font-size: 24px;
+            }
+            
+            .tabs {
+                -webkit-overflow-scrolling: touch;
+            }
+            
+            .tab {
+                font-size: 14px;
+                padding: 12px 15px;
+            }
+            
+            .schedule-grid {
+                grid-template-columns: repeat(2, 1fr);
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1>Hi John! 👋</h1>
+            <p>Your Personal Medication Tracker</p>
+        </div>
+        
+        <div class="tabs">
+            <button class="tab active" onclick="showTab('medications')">My Medications</button>
+            <button class="tab" onclick="showTab('checklist')">Today's Checklist</button>
+            <button class="tab" onclick="showTab('refills')">Refill Manager</button>
+            <button class="tab" onclick="showTab('journal')">Side Effects Journal</button>
+        </div>
+        
+        <!-- My Medications Tab -->
+        <div id="medications" class="tab-content active">
+            <h2 style="margin-bottom: 20px; color: #1f2937;">Your Current Medications</h2>
+            
+            <div class="medication-card">
+                <div class="medication-header">
+                    <div>
+                        <div class="medication-name">Metformin</div>
+                        <div class="medication-dose">500mg - For Type 2 Diabetes</div>
+                    </div>
+                </div>
+                
+                <p style="color: #6b7280; margin-bottom: 10px;">
+                    <strong>How to take:</strong> Take with breakfast and dinner to reduce stomach upset
+                </p>
+                
+                <div class="schedule-grid">
+                    <div class="time-slot" onclick="toggleDose(this)">
+                        <div style="font-weight: 600;">Morning</div>
+                        <div style="font-size: 14px;">With breakfast</div>
+                    </div>
+                    <div class="time-slot" onclick="toggleDose(this)">
+                        <div style="font-weight: 600;">Evening</div>
+                        <div style="font-size: 14px;">With dinner</div>
+                    </div>
+                </div>
+                
+                <div style="margin-top: 15px;">
+                    <p style="font-size: 14px; color: #6b7280;">
+                        <strong>Common side effects:</strong> Mild stomach upset, diarrhea (usually improves over time)
+                    </p>
+                </div>
+            </div>
+            
+            <div class="medication-card">
+                <div class="medication-header">
+                    <div>
+                        <div class="medication-name">Glipizide</div>
+                        <div class="medication-dose">5mg - For Type 2 Diabetes</div>
+                    </div>
+                </div>
+                
+                <p style="color: #6b7280; margin-bottom: 10px;">
+                    <strong>How to take:</strong> Take 30 minutes before breakfast
+                </p>
+                
+                <div class="schedule-grid">
+                    <div class="time-slot" onclick="toggleDose(this)">
+                        <div style="font-weight: 600;">Morning</div>
+                        <div style="font-size: 14px;">Before breakfast</div>
+                    </div>
+                </div>
+                
+                <div style="margin-top: 15px;">
+                    <p style="font-size: 14px; color: #6b7280;">
+                        <strong>Common side effects:</strong> Low blood sugar (watch for dizziness, sweating, shakiness)
+                    </p>
+                </div>
+            </div>
+            
+            <div class="interaction-warning">
+                <div class="warning-icon">⚠️</div>
+                <div>
+                    <strong>Important Reminder:</strong> Both medications work to lower blood sugar. Always carry a quick sugar source (like glucose tablets or juice) in case your blood sugar drops too low.
+                </div>
+            </div>
+        </div>
+        
+        <!-- Today's Checklist Tab -->
+        <div id="checklist" class="tab-content">
+            <h2 style="margin-bottom: 20px; color: #1f2937;">Today's Medication Checklist</h2>
+            <p style="color: #6b7280; margin-bottom: 20px;" id="dateDisplay"></p>
+            
+            <div class="checklist-item" onclick="toggleCheckbox(this)">
+                <input type="checkbox" class="checkbox">
+                <div>
+                    <div style="font-weight: 600;">Glipizide 5mg</div>
+                    <div style="color: #6b7280; font-size: 14px;">Take 30 minutes before breakfast</div>
+                </div>
+            </div>
+            
+            <div class="checklist-item" onclick="toggleCheckbox(this)">
+                <input type="checkbox" class="checkbox">
+                <div>
+                    <div style="font-weight: 600;">Metformin 500mg - Morning Dose</div>
+                    <div style="color: #6b7280; font-size: 14px;">Take with breakfast</div>
+                </div>
+            </div>
+            
+            <div class="checklist-item" onclick="toggleCheckbox(this)">
+                <input type="checkbox" class="checkbox">
+                <div>
+                    <div style="font-weight: 600;">Metformin 500mg - Evening Dose</div>
+                    <div style="color: #6b7280; font-size: 14px;">Take with dinner</div>
+                </div>
+            </div>
+            
+            <div style="margin-top: 30px;">
+                <h3 style="margin-bottom: 10px;">Today's Progress</h3>
+                <div class="progress-bar">
+                    <div class="progress-fill" id="progressBar" style="width: 0%"></div>
+                </div>
+                <p style="margin-top: 10px; color: #6b7280;" id="progressText">0 of 3 medications taken</p>
+            </div>
+        </div>
+        
+        <!-- Refill Manager Tab -->
+        <div id="refills" class="tab-content">
+            <h2 style="margin-bottom: 20px; color: #1f2937;">Refill Management</h2>
+            
+            <div class="refill-alert">
+                <div class="refill-alert-icon">📅</div>
+                <div>
+                    <strong>Upcoming Refills:</strong> Your Metformin will need a refill in about 2 weeks.
+                </div>
+            </div>
+            
+            <div class="medication-card">
+                <div class="medication-header">
+                    <div>
+                        <div class="medication-name">Metformin 500mg</div>
+                        <div class="medication-dose">Supply remaining: ~14 days</div>
+                    </div>
+                </div>
+                <p style="color: #6b7280;">Last filled: 2 weeks ago</p>
+                <p style="color: #6b7280;">Pharmacy: Blue Cross Blue Shield Preferred Pharmacy</p>
+                <button class="add-button" style="margin-top: 10px;" onclick="setRefillReminder('Metformin')">Set Refill Reminder</button>
+            </div>
+            
+            <div class="medication-card">
+                <div class="medication-header">
+                    <div>
+                        <div class="medication-name">Glipizide 5mg</div>
+                        <div class="medication-dose">Supply remaining: ~45 days</div>
+                    </div>
+                </div>
+                <p style="color: #6b7280;">Last filled: 2 weeks ago</p>
+                <p style="color: #6b7280;">Pharmacy: Blue Cross Blue Shield Preferred Pharmacy</p>
+                <button class="add-button" style="margin-top: 10px;" onclick="setRefillReminder('Glipizide')">Set Refill Reminder</button>
+            </div>
+            
+            <div style="background: #f0f9ff; border: 2px solid #3b82f6; border-radius: 8px; padding: 15px; margin-top: 20px;">
+                <p style="color: #1e40af;">
+                    <strong>💡 Tip:</strong> With Blue Cross Blue Shield, you may be able to get 90-day supplies through mail order pharmacy for better prices!
+                </p>
+            </div>
+        </div>
+        
+        <!-- Side Effects Journal Tab -->
+        <div id="journal" class="tab-content">
+            <h2 style="margin-bottom: 20px; color: #1f2937;">Side Effects Journal</h2>
+            <p style="color: #6b7280; margin-bottom: 20px;">Track any side effects to discuss with your doctor</p>
+            
+            <div id="journalEntries">
+                <!-- Entries will be added here dynamically -->
+            </div>
+            
+            <form onsubmit="addJournalEntry(event)" style="margin-top: 20px;">
+                <div class="form-group">
+                    <label>Date & Time</label>
+                    <input type="datetime-local" id="entryDateTime" required>
+                </div>
+                
+                <div class="form-group">
+                    <label>Which medication?</label>
+                    <select id="entryMedication" style="width: 100%; padding: 10px; border: 2px solid #e5e7eb; border-radius: 8px; font-size: 16px;">
+                        <option value="">Select medication...</option>
+                        <option value="Metformin 500mg">Metformin 500mg</option>
+                        <option value="Glipizide 5mg">Glipizide 5mg</option>
+                        <option value="Both">Both medications</option>
+                        <option value="Not sure">Not sure</option>
+                    </select>
+                </div>
+                
+                <div class="form-group">
+                    <label>What happened?</label>
+                    <textarea id="entryDescription" rows="3" placeholder="Describe what you experienced..." required></textarea>
+                </div>
+                
+                <button type="submit" class="add-button">Add Entry</button>
+            </form>
+            
+            <div style="background: #f3f4f6; border-radius: 8px; padding: 15px; margin-top: 20px;">
+                <p style="color: #6b7280; font-size: 14px;">
+                    <strong>Remember:</strong> Share this journal with your doctor at your next appointment. They can help adjust your medications if needed.
+                </p>
+            </div>
+        </div>
+    </div>
+    
+    <script>
+        // Set today's date
+        function setTodayDate() {
+            const today = new Date();
+            const dateDisplay = document.getElementById('dateDisplay');
+            const options = { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' };
+            dateDisplay.textContent = today.toLocaleDateString('en-US', options);
+            
+            // Set default datetime for journal entry
+            const dateTimeInput = document.getElementById('entryDateTime');
+            const now = new Date();
+            now.setMinutes(now.getMinutes() - now.getTimezoneOffset());
+            dateTimeInput.value = now.toISOString().slice(0, 16);
+        }
+        
+        // Tab switching
+        function showTab(tabName) {
+            const tabs = document.querySelectorAll('.tab');
+            const contents = document.querySelectorAll('.tab-content');
+            
+            tabs.forEach(tab => tab.classList.remove('active'));
+            contents.forEach(content => content.classList.remove('active'));
+            
+            event.target.classList.add('active');
+            document.getElementById(tabName).classList.add('active');
+        }
+        
+        // Toggle dose taken
+        function toggleDose(element) {
+            element.classList.toggle('taken');
+            if (element.classList.contains('taken')) {
+                showNotification('Great job! Dose marked as taken.');
+            }
+        }
+        
+        // Toggle checkbox and update progress
+        function toggleCheckbox(element) {
+            const checkbox = element.querySelector('.checkbox');
+            checkbox.checked = !checkbox.checked;
+            updateProgress();
+            
+            if (checkbox.checked) {
+                showNotification('Medication taken! Keep up the great work!');
+            }
+        }
+        
+        // Update progress bar
+        function updateProgress() {
+            const checkboxes = document.querySelectorAll('.checklist-item .checkbox');
+            const checked = document.querySelectorAll('.checklist-item .checkbox:checked');
+            const percentage = (checked.length / checkboxes.length) * 100;
+            
+            document.getElementById('progressBar').style.width = percentage + '%';
+            document.getElementById('progressText').textContent = `${checked.length} of ${checkboxes.length} medications taken`;
+            
+            if (checked.length === checkboxes.length) {
+                showNotification('Excellent! You\'ve taken all your medications for today! 🎉');
+            }
+        }
+        
+        // Add journal entry
+        function addJournalEntry(event) {
+            event.preventDefault();
+            
+            const dateTime = document.getElementById('entryDateTime').value;
+            const medication = document.getElementById('entryMedication').value;
+            const description = document.getElementById('entryDescription').value;
+            
+            const entry = document.createElement('div');
+            entry.className = 'side-effect-entry';
+            entry.innerHTML = `
+                <div style="display: flex; justify-content: space-between; margin-bottom: 10px;">
+                    <strong>${new Date(dateTime).toLocaleString()}</strong>
+                    <span style="color: #6b7280;">${medication}</span>
+                </div>
+                <p>${description}</p>
+            `;
+            
+            document.getElementById('journalEntries').insertBefore(entry, document.getElementById('journalEntries').firstChild);
+            
+            // Reset form
+            document.getElementById('entryMedication').value = '';
+            document.getElementById('entryDescription').value = '';
+            
+            // Reset datetime to now
+            const now = new Date();
+            now.setMinutes(now.getMinutes() - now.getTimezoneOffset());
+            document.getElementById('entryDateTime').value = now.toISOString().slice(0, 16);
+            
+            showNotification('Entry added to your journal!');
+            
+            // Save to localStorage
+            saveJournalEntries();
+        }
+        
+        // Save journal entries to localStorage
+        function saveJournalEntries() {
+            const entries = [];
+            document.querySelectorAll('.side-effect-entry').forEach(entry => {
+                entries.push(entry.innerHTML);
+            });
+            localStorage.setItem('johnMedicationJournal', JSON.stringify(entries));
+        }
+        
+        // Load journal entries from localStorage
+        function loadJournalEntries() {
+            const saved = localStorage.getItem('johnMedicationJournal');
+            if (saved) {
+                const entries = JSON.parse(saved);
+                const container = document.getElementById('journalEntries');
+                entries.forEach(entryHTML => {
+                    const entry = document.createElement('div');
+                    entry.className = 'side-effect-entry';
+                    entry.innerHTML = entryHTML;
+                    container.appendChild(entry);
+                });
+            }
+        }
+        
+        // Set refill reminder
+        function setRefillReminder(medication) {
+            const days = prompt(`In how many days would you like to be reminded to refill ${medication}?`, '7');
+            if (days && !isNaN(days)) {
+                showNotification(`Reminder set! We'll remind you to refill ${medication} in ${days} days.`);
+                // In a real app, this would save to a backend or set a notification
+            }
+        }
+        
+        // Show notification
+        function showNotification(message) {
+            // Create notification element
+            const notification = document.createElement('div');
+            notification.style.cssText = `
+                position: fixed;
+                bottom: 20px;
+                right: 20px;
+                background: #10b981;
+                color: white;
+                padding: 15px 20px;
+                border-radius: 8px;
+                box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+                z-index: 1000;
+                animation: slideIn 0.3s ease;
+                max-width: 300px;
+            `;
+            notification.textContent = message;
+            
+            // Add animation keyframes if not already added
+            if (!document.getElementById('notificationStyles')) {
+                const style = document.createElement('style');
+                style.id = 'notificationStyles';
+                style.textContent = `
+                    @keyframes slideIn {
+                        from {
+                            transform: translateX(100%);
+                            opacity: 0;
+                        }
+                        to {
+                            transform: translateX(0);
+                            opacity: 1;
+                        }
+                    }
+                `;
+                document.head.appendChild(style);
+            }
+            
+            document.body.appendChild(notification);
+            
+            // Remove after 3 seconds
+            setTimeout(() => {
+                notification.style.animation = 'slideIn 0.3s ease reverse';
+                setTimeout(() => notification.remove(), 300);
+            }, 3000);
+        }
+        
+        // Initialize on load
+        window.onload = function() {
+            setTodayDate();
+            loadJournalEntries();
+            
+            // Check if returning user
+            if (localStorage.getItem('johnReturningUser')) {
+                showNotification('Welcome back, John! Ready to track your medications?');
+            } else {
+                localStorage.setItem('johnReturningUser', 'true');
+                showNotification('Welcome to your medication tracker, John!');
+            }
+        };
+        
+        // Save progress when leaving the page
+        window.onbeforeunload = function() {
+            saveJournalEntries();
+        };
+    </script>
+</body>
+</html>

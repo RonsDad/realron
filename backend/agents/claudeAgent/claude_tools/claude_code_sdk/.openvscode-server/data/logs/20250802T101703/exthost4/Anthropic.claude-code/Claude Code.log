@@ -1,0 +1,6 @@
+2025-08-02 12:18:11.654 [info] Claude code extension is now active?
+2025-08-02 12:18:11.654 [info] MCP Server running on port 17058 (localhost only)
+2025-08-02 12:20:28.158 [info] New WS connection from: /
+2025-08-02 12:20:28.159 [info] MCP server connected to transport
+2025-08-02 12:20:28.159 [info] [DiagnosticStreamManager] Started streaming diagnostics
+2025-08-02 12:20:28.159 [info] Registered diagnostic client: client_0

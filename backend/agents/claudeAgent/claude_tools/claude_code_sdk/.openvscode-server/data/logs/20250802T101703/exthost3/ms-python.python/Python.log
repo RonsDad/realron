@@ -1,0 +1,32 @@
+2025-08-02 12:01:56.013 [info] Starting Environment refresh
+2025-08-02 12:01:56.013 [info] Searching for interpreters in posix paths locator
+2025-08-02 12:01:56.013 [info] Searching for pyenv environments
+2025-08-02 12:01:56.013 [info] Searching for conda environments
+2025-08-02 12:01:56.014 [info] Searching for global virtual environments
+2025-08-02 12:01:56.014 [info] Searching for custom virtual environments
+2025-08-02 12:01:56.015 [info] pyenv is not installed
+2025-08-02 12:01:56.015 [info] Finished searching for pyenv environments: 5 milliseconds
+2025-08-02 12:01:56.015 [info] Finished searching for custom virtual envs: 4 milliseconds
+2025-08-02 12:01:56.016 [info] > conda info --json
+2025-08-02 12:01:56.016 [info] Finished searching for global virtual envs: 11 milliseconds
+2025-08-02 12:01:56.024 [info] Finished searching for interpreters in posix paths locator: 45 milliseconds
+2025-08-02 12:01:56.024 [info] Environments refresh paths discovered (event): 46 milliseconds
+2025-08-02 12:01:56.025 [info] Environments refresh finished (event): 46 milliseconds
+2025-08-02 12:01:56.025 [info] Environments refresh paths discovered: 47 milliseconds
+2025-08-02 12:01:56.026 [info] Environment refresh took 48 milliseconds
+2025-08-02 12:01:56.034 [info] > python -c "import sys;print(sys.executable)"
+2025-08-02 12:01:56.037 [error] [Error: Command failed: python -c "import sys;print(sys.executable)"
+/bin/sh: 1: python: not found
+
+	at genericNodeError (node:internal/errors:983:15)
+	at wrappedFn (node:internal/errors:537:14)
+	at ChildProcess.exithandler (node:child_process:414:12)
+	at ChildProcess.emit (node:events:530:35)
+	at maybeClose (node:internal/child_process:1101:16)
+	at ChildProcess._handle.onexit (node:internal/child_process:304:5)] {
+  code: 127,
+  killed: false,
+  signal: null,
+  cmd: 'python -c "import sys;print(sys.executable)"'
+}
+2025-08-02 12:01:56.045 [error] Unable to start Jedi language server as a valid interpreter is not selected

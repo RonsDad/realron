@@ -1,0 +1,7 @@
+2025-08-02 12:18:06.202 [warning] /home/workspace/.ssh/config: ENOENT: no such file or directory, open '/home/workspace/.ssh/config'
+2025-08-02 12:18:06.202 [info] [Activation] Extension version: 0.114.3
+2025-08-02 12:18:06.237 [info] [Activation] Looking for git repository
+2025-08-02 12:18:06.237 [info] [Activation] Found 0 repositories during activation
+2025-08-02 12:18:06.237 [info] [Activation] Git repository found, initializing review manager and pr tree view.
+2025-08-02 12:18:10.527 [info] [GitAPI] Registering git provider
+2025-08-02 12:18:10.575 [info] [Activation] Git initialization state changed: state=initialized

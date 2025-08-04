@@ -37,12 +37,12 @@ logging.basicConfig(
 )
 logger = logging.getLogger(__name__)
 
-from claude_completions import ClaudeCompletions
-from browser_live_url_manager import live_url_manager
+from agents.claudeAgent.claude_completions import ClaudeCompletions
+from agents.claudeAgent.claude_tools.browser_use.browser_live_url_manager import live_url_manager
 
 # Import tools
 try:
-    from tools import get_tool_definitions_for_claude, execute_tool
+    from agents.claudeAgent.claude_tools.tools import get_tool_definitions_for_claude, execute_tool
     TOOLS_AVAILABLE = True
 except ImportError as e:
     logger.warning(f"Tools not available: {e}")
@@ -50,25 +50,35 @@ except ImportError as e:
 
 # Optional imports - disable for now to focus on completions
 try:
-    from healthcare_agent_integration import HealthcareAgentIntegration
-    from claude_browser_integration import ClaudeBrowserIntegration
+    from agents.claudeAgent.claude_tools.clinical_agent.healthcare_agent_integration import HealthcareAgentIntegration
+    from agents.claudeAgent.claude_tools.browser_use.claude_browser_integration import ClaudeBrowserIntegration
     ADVANCED_FEATURES = True
 except ImportError:
     ADVANCED_FEATURES = False
 
 # Browser-Use Integration (always available)
 try:
-    from browser_use_service import browser_use_service, BrowserUseService
+    from agents.claudeAgent.claude_tools.browser_use.browser_use_service import browser_use_service, BrowserUseService
     BROWSER_USE_AVAILABLE = True
     logger.info("Browser-Use service imported successfully")
 except ImportError as e:
     BROWSER_USE_AVAILABLE = False
     logger.warning(f"Browser-Use service not available: {e}")
 
+# Claude Code SDK Integration for Tool Generation
+try:
+    from agents.claudeAgent.claude_tools.claude_code_sdk.api_integration import claude_code_api
+    CLAUDE_CODE_SDK_AVAILABLE = True
+    logger.info("Claude Code SDK integration loaded successfully")
+except ImportError as e:
+    CLAUDE_CODE_SDK_AVAILABLE = False
+    logger.warning(f"Claude Code SDK not available: {e}")
+    claude_code_api = None
+
 # Deep Research Agent Integration (optional)
 try:
     # Import using the wrapper which handles all the path and import logic
-    from deep_research_agent import root_agent as deep_research_root_agent
+    from agents.deepResearch.deep_research_agent import root_agent as deep_research_root_agent
     DEEP_RESEARCH_AVAILABLE = True
     
     if DEEP_RESEARCH_AVAILABLE:
@@ -167,8 +177,13 @@ class ChatRequest(BaseModel):
     enable_citations: bool = True
     stream: bool = False
     tools: List[str] = Field(
-        default_factory=lambda: ["bash", "code_execution", "computer", "text_editor", "web_search", "create_browser_session", "browser_use", "perplexity_sonar_pro", "clinical_operations"],
-        description="List of tools to enable. Available tools: bash, code_execution, computer, text_editor, web_search, create_browser_session, browser_use, perplexity_deep_research, perplexity_reasoning_pro, perplexity_sonar_pro, clinical_operations"
+        default_factory=lambda: [
+            "text_editor", "web_search",
+            "create_browser_session", "browser_use",
+            "perplexity_sonar_pro", "perplexity_reasoning_pro", "perplexity_deep_research",
+            "clinical_operations", "pubmed_search", "searchDrugLabel"
+        ],
+        description="List of tools to enable. Available tools: bash, text_editor, web_search, execute_code, create_browser_session, browser_use, reuse_browser_session, check_browser_session, perplexity_deep_research, perplexity_reasoning_pro, perplexity_sonar_pro, clinical_operations, pubmed_search, pubmed_fetch_abstracts, pubmed_fetch_summaries, pubmed_fetch_related, pubmed_fetch_citations, pubmed_search_clinical_trials, pubmed_mesh_search, searchDrugLabel, searchAdverseEffects, getSpecialPopulations, getBoxedWarning, getDrugInteractions, getAbuse, getAbuseTable, getActiveIngredient, getAdverseReactions, getClinicalPharmacology, getContraindications, getDescription, getDosageAndAdministration, getWarnings, getPregnancy, getPediatricUse, getGeriatricUse, getIndicationsAndUsage, getMechanismOfAction, getOverdosage, getPharmacokinetics, getControlledSubstance, getNursingMothers"
     )
 
 
@@ -420,12 +435,51 @@ async def root():
                 "text_editor"
             ],
             "custom_tools": [
+                # Browser tools
                 "create_browser_session",
                 "browser_use",
+                "reuse_browser_session",
+                "check_browser_session",
+                # Perplexity tools
                 "perplexity_deep_research",
                 "perplexity_reasoning_pro",
                 "perplexity_sonar_pro",
-                "clinical_operations"
+                # Clinical and general tools
+                "clinical_operations",
+                "web_search",
+                "execute_code",
+                # PubMed tools
+                "pubmed_search",
+                "pubmed_fetch_abstracts",
+                "pubmed_fetch_summaries",
+                "pubmed_fetch_related",
+                "pubmed_fetch_citations",
+                "pubmed_search_clinical_trials",
+                "pubmed_mesh_search",
+                # FDA tools
+                "searchDrugLabel",
+                "searchAdverseEffects",
+                "getSpecialPopulations",
+                "getBoxedWarning",
+                "getDrugInteractions",
+                "getAbuse",
+                "getAbuseTable",
+                "getActiveIngredient",
+                "getAdverseReactions",
+                "getClinicalPharmacology",
+                "getContraindications",
+                "getDescription",
+                "getDosageAndAdministration",
+                "getWarnings",
+                "getPregnancy",
+                "getPediatricUse",
+                "getGeriatricUse",
+                "getIndicationsAndUsage",
+                "getMechanismOfAction",
+                "getOverdosage",
+                "getPharmacokinetics",
+                "getControlledSubstance",
+                "getNursingMothers"
             ],
             "features": [
                 "prompt_caching",
@@ -462,6 +516,11 @@ async def root():
             "browser_use_sessions": "/browser-use/sessions" if BROWSER_USE_AVAILABLE else None,
             "browser_use_close": "/browser-use/session/{session_id}/close" if BROWSER_USE_AVAILABLE else None,
             "browser_use_close_all": "/browser-use/sessions/close-all" if BROWSER_USE_AVAILABLE else None,
+            "tool_generate": "/tools/generate" if CLAUDE_CODE_SDK_AVAILABLE else None,
+            "tool_generate_stream": "/tools/generate/stream" if CLAUDE_CODE_SDK_AVAILABLE else None,
+            "tool_get": "/tools/{tool_id}" if CLAUDE_CODE_SDK_AVAILABLE else None,
+            "tool_share": "/tools/share/{tool_id}" if CLAUDE_CODE_SDK_AVAILABLE else None,
+            "tool_list": "/tools/patient/{patient_id}" if CLAUDE_CODE_SDK_AVAILABLE else None,
             "start_session": "/start-session",
             "take_control": "/take-control",
             "relinquish_control": "/relinquish-control",
@@ -502,6 +561,7 @@ async def chat(request: ChatRequest):
                 native_tools.append(tool)
             elif TOOLS_AVAILABLE:
                 # Check if it's a custom tool we support
+                # All available custom tools
                 fda_tools = [
                     "searchDrugLabel", "searchAdverseEffects", "getSpecialPopulations",
                     "getBoxedWarning", "getDrugInteractions", "getAbuse", "getAbuseTable",
@@ -512,7 +572,27 @@ async def chat(request: ChatRequest):
                     "getPharmacokinetics", "getControlledSubstance", "getNursingMothers"
                 ]
                 
-                if tool in ["browser", "browser_use", "create_browser_session", "perplexity_deep_research", "perplexity_reasoning_pro", "perplexity_sonar_pro", "clinical_operations"] + fda_tools:
+                pubmed_tools = [
+                    "pubmed_search", "pubmed_fetch_abstracts", "pubmed_fetch_summaries",
+                    "pubmed_fetch_related", "pubmed_fetch_citations", "pubmed_search_clinical_trials",
+                    "pubmed_mesh_search"
+                ]
+                
+                browser_tools = [
+                    "browser", "browser_use", "create_browser_session", "reuse_browser_session", "check_browser_session"
+                ]
+                
+                perplexity_tools = [
+                    "perplexity_deep_research", "perplexity_reasoning_pro", "perplexity_sonar_pro"
+                ]
+                
+                other_tools = [
+                    "clinical_operations", "web_search", "execute_code"
+                ]
+                
+                all_custom_tools = browser_tools + perplexity_tools + other_tools + fda_tools + pubmed_tools
+                
+                if tool in all_custom_tools:
                     # Get tool definitions
                     tool_defs = get_tool_definitions_for_claude()
                     # Handle browser tool aliases
@@ -587,7 +667,7 @@ async def chat(request: ChatRequest):
         # Non-streaming response
         if enabled_tools:
             # Use complete_with_tools when we have custom tools
-            from claude_tool_handler import handle_tool_use_in_conversation
+            from agents.claudeAgent.claude_tools.claude_tool_handler import handle_tool_use_in_conversation
             
             all_tools = []
             # Add native tools
@@ -1063,6 +1143,12 @@ Please:
         raise HTTPException(status_code=500, detail=f"Deep Research Agent error: {str(e)}")
 
 
+# Claude Code SDK Tool Generation Endpoints
+# Include Claude Code SDK API router if available
+if CLAUDE_CODE_SDK_AVAILABLE and claude_code_api:
+    app.include_router(claude_code_api)
+
+
 @app.get("/health")
 async def health_check():
     """Health check endpoint."""
@@ -1074,7 +1160,8 @@ async def health_check():
         "api_key_configured": bool(os.getenv("ANTHROPIC_API_KEY")),
         "browserless_token_configured": bool(os.getenv("BROWSERLESS_API_TOKEN")),
         "browser_use_available": BROWSER_USE_AVAILABLE,
-        "deep_research_available": DEEP_RESEARCH_AVAILABLE
+        "deep_research_available": DEEP_RESEARCH_AVAILABLE,
+        "claude_code_sdk_available": CLAUDE_CODE_SDK_AVAILABLE
     }
 
 
@@ -1164,7 +1251,7 @@ async def create_browser_use_session_with_url(request: BrowserUseCreateWithURLRe
     logger.info(f"Creating browser-use session and navigating to {request.url}")
     
     try:
-        from browser_use_service import create_browser_session_with_url
+        from agents.claudeAgent.claude_tools.browser_use.browser_use_service import create_browser_session_with_url
         result = await create_browser_session_with_url(request.url, request.timeout_ms)
         
         logger.info(f"Created browser-use session {result['session_id']} and navigated to {request.url}")

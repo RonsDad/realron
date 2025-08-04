@@ -1,0 +1,25 @@
+INFO     [agents.claudeAgent.claude_tools.browser_use.browser_use_service] browser-use library loaded successfully
+INFO     [__main__] Browser-Use service imported successfully
+INFO     [__main__] Claude Code SDK integration loaded successfully
+INFO     [google_adk.google.adk.models.registry] Updating LLM class for gemini-.* from <class 'google.adk.models.google_llm.Gemini'> to <class 'google.adk.models.google_llm.Gemini'>
+INFO     [google_adk.google.adk.models.registry] Updating LLM class for projects\/.+\/locations\/.+\/endpoints\/.+ from <class 'google.adk.models.google_llm.Gemini'> to <class 'google.adk.models.google_llm.Gemini'>
+INFO     [google_adk.google.adk.models.registry] Updating LLM class for projects\/.+\/locations\/.+\/publishers\/google\/models\/gemini.+ from <class 'google.adk.models.google_llm.Gemini'> to <class 'google.adk.models.google_llm.Gemini'>
+INFO     [google_adk.google.adk.models.registry] Updating LLM class for gemini-.* from <class 'google.adk.models.google_llm.Gemini'> to <class 'google.adk.models.google_llm.Gemini'>
+INFO     [google_adk.google.adk.models.registry] Updating LLM class for projects\/.+\/locations\/.+\/endpoints\/.+ from <class 'google.adk.models.google_llm.Gemini'> to <class 'google.adk.models.google_llm.Gemini'>
+INFO     [google_adk.google.adk.models.registry] Updating LLM class for projects\/.+\/locations\/.+\/publishers\/google\/models\/gemini.+ from <class 'google.adk.models.google_llm.Gemini'> to <class 'google.adk.models.google_llm.Gemini'>
+INFO     [__main__] Deep Research Agent loaded successfully!
+INFO     [__main__] Initializing Claude completions agent...
+INFO     [__main__] Advanced features disabled - completions only mode
+/Users/timhunter/ron-ai/backend/api.py:1532: DeprecationWarning: 
+        on_event is deprecated, use lifespan event handlers instead.
+
+        Read more about it in the
+        [FastAPI docs for Lifespan Events](https://fastapi.tiangolo.com/advanced/events/).
+        
+  @app.on_event("startup")
+INFO:     Started server process [10112]
+INFO:     Waiting for application startup.
+INFO:     Application startup complete.
+INFO:     Uvicorn running on http://0.0.0.0:8000 (Press CTRL+C to quit)
+INFO:     127.0.0.1:51038 - "POST /api/claude-code/generate-tool-stream HTTP/1.1" 200 OK
+INFO     [agents.claudeAgent.claude_tools.claude_code_sdk.claude_code_sdk_browserless] Updated session ccsdk_tool_1754127641.443918 with generated tool content

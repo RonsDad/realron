@@ -1,0 +1,644 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>My Medication Tracker</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
+            background-color: #f0f4f8;
+            color: #333;
+            line-height: 1.6;
+            padding-bottom: 70px;
+        }
+        
+        .container {
+            max-width: 600px;
+            margin: 0 auto;
+            padding: 20px;
+        }
+        
+        .header {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            padding: 30px 20px;
+            border-radius: 20px;
+            text-align: center;
+            margin-bottom: 30px;
+            box-shadow: 0 4px 15px rgba(102, 126, 234, 0.3);
+        }
+        
+        .header h1 {
+            font-size: 28px;
+            margin-bottom: 10px;
+        }
+        
+        .header p {
+            font-size: 16px;
+            opacity: 0.9;
+        }
+        
+        .section {
+            background: white;
+            border-radius: 15px;
+            padding: 20px;
+            margin-bottom: 20px;
+            box-shadow: 0 2px 10px rgba(0, 0, 0, 0.05);
+        }
+        
+        .section-title {
+            font-size: 20px;
+            color: #667eea;
+            margin-bottom: 15px;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+        
+        .icon {
+            font-size: 24px;
+        }
+        
+        .medication-item {
+            background: #f8f9fa;
+            border-radius: 10px;
+            padding: 15px;
+            margin-bottom: 15px;
+            border-left: 4px solid #667eea;
+        }
+        
+        .medication-name {
+            font-weight: 600;
+            font-size: 18px;
+            color: #2d3748;
+            margin-bottom: 5px;
+        }
+        
+        .medication-details {
+            color: #718096;
+            font-size: 14px;
+            margin-bottom: 10px;
+        }
+        
+        .schedule-grid {
+            display: grid;
+            grid-template-columns: repeat(7, 1fr);
+            gap: 5px;
+            margin-top: 10px;
+        }
+        
+        .day-box {
+            background: #e2e8f0;
+            border-radius: 8px;
+            padding: 8px;
+            text-align: center;
+            font-size: 12px;
+            cursor: pointer;
+            transition: all 0.3s ease;
+        }
+        
+        .day-box.taken {
+            background: #48bb78;
+            color: white;
+        }
+        
+        .day-box:hover {
+            transform: scale(1.05);
+            box-shadow: 0 2px 5px rgba(0, 0, 0, 0.1);
+        }
+        
+        .checklist-item {
+            display: flex;
+            align-items: center;
+            padding: 12px;
+            background: #f8f9fa;
+            border-radius: 8px;
+            margin-bottom: 10px;
+            cursor: pointer;
+            transition: all 0.3s ease;
+        }
+        
+        .checklist-item:hover {
+            background: #e2e8f0;
+        }
+        
+        .checkbox {
+            width: 20px;
+            height: 20px;
+            border: 2px solid #667eea;
+            border-radius: 4px;
+            margin-right: 12px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            transition: all 0.3s ease;
+        }
+        
+        .checkbox.checked {
+            background: #667eea;
+        }
+        
+        .checkbox.checked::after {
+            content: '✓';
+            color: white;
+            font-weight: bold;
+        }
+        
+        .refill-alert {
+            background: #fef5e7;
+            border-left: 4px solid #f39c12;
+            padding: 15px;
+            border-radius: 8px;
+            margin-bottom: 15px;
+        }
+        
+        .refill-alert-title {
+            color: #e67e22;
+            font-weight: 600;
+            margin-bottom: 5px;
+        }
+        
+        .side-effects-textarea {
+            width: 100%;
+            min-height: 100px;
+            padding: 12px;
+            border: 2px solid #e2e8f0;
+            border-radius: 8px;
+            font-family: inherit;
+            font-size: 14px;
+            resize: vertical;
+            transition: border-color 0.3s ease;
+        }
+        
+        .side-effects-textarea:focus {
+            outline: none;
+            border-color: #667eea;
+        }
+        
+        .button {
+            background: #667eea;
+            color: white;
+            border: none;
+            padding: 12px 24px;
+            border-radius: 8px;
+            font-size: 16px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            margin-top: 10px;
+        }
+        
+        .button:hover {
+            background: #5a67d8;
+            transform: translateY(-1px);
+            box-shadow: 0 4px 10px rgba(102, 126, 234, 0.3);
+        }
+        
+        .empty-state {
+            text-align: center;
+            padding: 40px 20px;
+            color: #718096;
+        }
+        
+        .empty-state-icon {
+            font-size: 48px;
+            margin-bottom: 15px;
+        }
+        
+        .add-medication-form {
+            display: none;
+            background: #f8f9fa;
+            padding: 20px;
+            border-radius: 10px;
+            margin-bottom: 20px;
+        }
+        
+        .form-group {
+            margin-bottom: 15px;
+        }
+        
+        .form-label {
+            display: block;
+            font-weight: 600;
+            color: #2d3748;
+            margin-bottom: 5px;
+            font-size: 14px;
+        }
+        
+        .form-input {
+            width: 100%;
+            padding: 10px;
+            border: 2px solid #e2e8f0;
+            border-radius: 8px;
+            font-size: 14px;
+            transition: border-color 0.3s ease;
+        }
+        
+        .form-input:focus {
+            outline: none;
+            border-color: #667eea;
+        }
+        
+        .bottom-nav {
+            position: fixed;
+            bottom: 0;
+            left: 0;
+            right: 0;
+            background: white;
+            box-shadow: 0 -2px 10px rgba(0, 0, 0, 0.1);
+            padding: 10px;
+        }
+        
+        .nav-container {
+            max-width: 600px;
+            margin: 0 auto;
+            display: flex;
+            justify-content: space-around;
+        }
+        
+        .nav-item {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            padding: 8px;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            border-radius: 8px;
+        }
+        
+        .nav-item:hover {
+            background: #f0f4f8;
+        }
+        
+        .nav-icon {
+            font-size: 24px;
+            margin-bottom: 4px;
+        }
+        
+        .nav-label {
+            font-size: 12px;
+            color: #718096;
+        }
+        
+        @media (max-width: 480px) {
+            .container {
+                padding: 15px;
+            }
+            
+            .header h1 {
+                font-size: 24px;
+            }
+            
+            .schedule-grid {
+                grid-template-columns: repeat(7, 1fr);
+                gap: 3px;
+            }
+            
+            .day-box {
+                font-size: 10px;
+                padding: 6px 2px;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1>My Medication Tracker</h1>
+            <p>Stay on top of your health journey</p>
+        </div>
+        
+        <div class="section">
+            <h2 class="section-title">
+                <span class="icon">💊</span>
+                My Medications
+            </h2>
+            
+            <div id="medicationsList">
+                <div class="empty-state">
+                    <div class="empty-state-icon">📋</div>
+                    <p>No medications added yet</p>
+                    <p style="font-size: 14px; margin-top: 10px;">Click "Add Medication" below to get started!</p>
+                </div>
+            </div>
+            
+            <div id="addMedicationForm" class="add-medication-form">
+                <div class="form-group">
+                    <label class="form-label" for="medName">Medication Name</label>
+                    <input type="text" id="medName" class="form-input" placeholder="e.g., Vitamin D">
+                </div>
+                
+                <div class="form-group">
+                    <label class="form-label" for="medDosage">Dosage</label>
+                    <input type="text" id="medDosage" class="form-input" placeholder="e.g., 1000 IU">
+                </div>
+                
+                <div class="form-group">
+                    <label class="form-label" for="medSchedule">When do you take it?</label>
+                    <input type="text" id="medSchedule" class="form-input" placeholder="e.g., Once daily with breakfast">
+                </div>
+                
+                <div class="form-group">
+                    <label class="form-label" for="medRefillDate">Next refill date</label>
+                    <input type="date" id="medRefillDate" class="form-input">
+                </div>
+                
+                <button class="button" onclick="saveMedication()">Save Medication</button>
+                <button class="button" style="background: #718096; margin-left: 10px;" onclick="cancelAddMedication()">Cancel</button>
+            </div>
+            
+            <button class="button" id="addMedicationBtn" onclick="showAddMedicationForm()">+ Add Medication</button>
+        </div>
+        
+        <div class="section">
+            <h2 class="section-title">
+                <span class="icon">✅</span>
+                Today's Checklist
+            </h2>
+            <div id="todayChecklist">
+                <p style="text-align: center; color: #718096;">Add medications to see your daily checklist</p>
+            </div>
+        </div>
+        
+        <div class="section">
+            <h2 class="section-title">
+                <span class="icon">⏰</span>
+                Refill Reminders
+            </h2>
+            <div id="refillReminders">
+                <p style="text-align: center; color: #718096;">No upcoming refills</p>
+            </div>
+        </div>
+        
+        <div class="section">
+            <h2 class="section-title">
+                <span class="icon">📝</span>
+                Side Effects Journal
+            </h2>
+            <p style="font-size: 14px; color: #718096; margin-bottom: 10px;">
+                Track how you're feeling. This can help your doctor understand how medications affect you.
+            </p>
+            <textarea 
+                id="sideEffectsJournal" 
+                class="side-effects-textarea" 
+                placeholder="How are you feeling today? Any side effects or concerns?"
+            ></textarea>
+            <button class="button" onclick="saveJournalEntry()">Save Entry</button>
+        </div>
+    </div>
+    
+    <div class="bottom-nav">
+        <div class="nav-container">
+            <div class="nav-item" onclick="scrollToSection('medicationsList')">
+                <span class="nav-icon">💊</span>
+                <span class="nav-label">Medications</span>
+            </div>
+            <div class="nav-item" onclick="scrollToSection('todayChecklist')">
+                <span class="nav-icon">✅</span>
+                <span class="nav-label">Today</span>
+            </div>
+            <div class="nav-item" onclick="scrollToSection('refillReminders')">
+                <span class="nav-icon">⏰</span>
+                <span class="nav-label">Refills</span>
+            </div>
+            <div class="nav-item" onclick="scrollToSection('sideEffectsJournal')">
+                <span class="nav-icon">📝</span>
+                <span class="nav-label">Journal</span>
+            </div>
+        </div>
+    </div>
+    
+    <script>
+        // Initialize data storage
+        let medications = JSON.parse(localStorage.getItem('medications')) || [];
+        let checkedMedications = JSON.parse(localStorage.getItem('checkedMedications')) || {};
+        let journalEntries = JSON.parse(localStorage.getItem('journalEntries')) || [];
+        
+        // Initialize today's date
+        const today = new Date().toDateString();
+        
+        // Load saved data on page load
+        window.onload = function() {
+            loadMedications();
+            loadTodayChecklist();
+            loadRefillReminders();
+            loadJournalEntry();
+        };
+        
+        function showAddMedicationForm() {
+            document.getElementById('addMedicationForm').style.display = 'block';
+            document.getElementById('addMedicationBtn').style.display = 'none';
+        }
+        
+        function cancelAddMedication() {
+            document.getElementById('addMedicationForm').style.display = 'none';
+            document.getElementById('addMedicationBtn').style.display = 'block';
+            // Clear form
+            document.getElementById('medName').value = '';
+            document.getElementById('medDosage').value = '';
+            document.getElementById('medSchedule').value = '';
+            document.getElementById('medRefillDate').value = '';
+        }
+        
+        function saveMedication() {
+            const name = document.getElementById('medName').value;
+            const dosage = document.getElementById('medDosage').value;
+            const schedule = document.getElementById('medSchedule').value;
+            const refillDate = document.getElementById('medRefillDate').value;
+            
+            if (!name || !dosage || !schedule) {
+                alert('Please fill in all required fields');
+                return;
+            }
+            
+            const medication = {
+                id: Date.now(),
+                name: name,
+                dosage: dosage,
+                schedule: schedule,
+                refillDate: refillDate,
+                addedDate: new Date().toISOString()
+            };
+            
+            medications.push(medication);
+            localStorage.setItem('medications', JSON.stringify(medications));
+            
+            cancelAddMedication();
+            loadMedications();
+            loadTodayChecklist();
+            loadRefillReminders();
+        }
+        
+        function loadMedications() {
+            const container = document.getElementById('medicationsList');
+            
+            if (medications.length === 0) {
+                container.innerHTML = `
+                    <div class="empty-state">
+                        <div class="empty-state-icon">📋</div>
+                        <p>No medications added yet</p>
+                        <p style="font-size: 14px; margin-top: 10px;">Click "Add Medication" below to get started!</p>
+                    </div>
+                `;
+                return;
+            }
+            
+            container.innerHTML = medications.map(med => `
+                <div class="medication-item">
+                    <div class="medication-name">${med.name}</div>
+                    <div class="medication-details">
+                        <div>💊 ${med.dosage}</div>
+                        <div>⏰ ${med.schedule}</div>
+                        ${med.refillDate ? `<div>📅 Refill: ${formatDate(med.refillDate)}</div>` : ''}
+                    </div>
+                    <div class="schedule-grid">
+                        ${generateWeekView(med.id)}
+                    </div>
+                </div>
+            `).join('');
+        }
+        
+        function generateWeekView(medId) {
+            const days = ['S', 'M', 'T', 'W', 'T', 'F', 'S'];
+            const today = new Date();
+            let html = '';
+            
+            for (let i = 0; i < 7; i++) {
+                const date = new Date(today);
+                date.setDate(today.getDate() - today.getDay() + i);
+                const dateStr = date.toDateString();
+                const isToday = dateStr === today.toDateString();
+                const isTaken = checkedMedications[`${medId}-${dateStr}`] || false;
+                
+                html += `
+                    <div class="day-box ${isTaken ? 'taken' : ''}" 
+                         onclick="toggleDayTaken('${medId}', '${dateStr}')"
+                         style="${isToday ? 'border: 2px solid #667eea;' : ''}">
+                        ${days[i]}
+                    </div>
+                `;
+            }
+            
+            return html;
+        }
+        
+        function toggleDayTaken(medId, dateStr) {
+            const key = `${medId}-${dateStr}`;
+            checkedMedications[key] = !checkedMedications[key];
+            localStorage.setItem('checkedMedications', JSON.stringify(checkedMedications));
+            loadMedications();
+            loadTodayChecklist();
+        }
+        
+        function loadTodayChecklist() {
+            const container = document.getElementById('todayChecklist');
+            
+            if (medications.length === 0) {
+                container.innerHTML = '<p style="text-align: center; color: #718096;">Add medications to see your daily checklist</p>';
+                return;
+            }
+            
+            const todayStr = new Date().toDateString();
+            
+            container.innerHTML = medications.map(med => {
+                const key = `${med.id}-${todayStr}`;
+                const isChecked = checkedMedications[key] || false;
+                
+                return `
+                    <div class="checklist-item" onclick="toggleChecklist('${med.id}', '${todayStr}')">
+                        <div class="checkbox ${isChecked ? 'checked' : ''}"></div>
+                        <div>
+                            <div style="font-weight: 600;">${med.name} - ${med.dosage}</div>
+                            <div style="font-size: 14px; color: #718096;">${med.schedule}</div>
+                        </div>
+                    </div>
+                `;
+            }).join('');
+        }
+        
+        function toggleChecklist(medId, dateStr) {
+            toggleDayTaken(medId, dateStr);
+        }
+        
+        function loadRefillReminders() {
+            const container = document.getElementById('refillReminders');
+            const upcomingRefills = medications.filter(med => {
+                if (!med.refillDate) return false;
+                const refillDate = new Date(med.refillDate);
+                const today = new Date();
+                const daysUntil = Math.floor((refillDate - today) / (1000 * 60 * 60 * 24));
+                return daysUntil <= 7 && daysUntil >= 0;
+            });
+            
+            if (upcomingRefills.length === 0) {
+                container.innerHTML = '<p style="text-align: center; color: #718096;">No upcoming refills</p>';
+                return;
+            }
+            
+            container.innerHTML = upcomingRefills.map(med => {
+                const refillDate = new Date(med.refillDate);
+                const today = new Date();
+                const daysUntil = Math.floor((refillDate - today) / (1000 * 60 * 60 * 24));
+                
+                return `
+                    <div class="refill-alert">
+                        <div class="refill-alert-title">Refill Reminder</div>
+                        <div>${med.name} - ${med.dosage}</div>
+                        <div style="font-size: 14px; margin-top: 5px;">
+                            ${daysUntil === 0 ? 'Refill today!' : `Refill in ${daysUntil} day${daysUntil !== 1 ? 's' : ''}`}
+                        </div>
+                    </div>
+                `;
+            }).join('');
+        }
+        
+        function saveJournalEntry() {
+            const entry = document.getElementById('sideEffectsJournal').value;
+            if (!entry.trim()) return;
+            
+            const journalEntry = {
+                date: new Date().toISOString(),
+                content: entry
+            };
+            
+            journalEntries.push(journalEntry);
+            localStorage.setItem('journalEntries', JSON.stringify(journalEntries));
+            
+            alert('Journal entry saved! Your doctor will appreciate these notes.');
+            document.getElementById('sideEffectsJournal').value = '';
+        }
+        
+        function loadJournalEntry() {
+            // Load today's journal entry if exists
+            const todayEntries = journalEntries.filter(entry => {
+                const entryDate = new Date(entry.date).toDateString();
+                return entryDate === new Date().toDateString();
+            });
+            
+            if (todayEntries.length > 0) {
+                document.getElementById('sideEffectsJournal').value = todayEntries[todayEntries.length - 1].content;
+            }
+        }
+        
+        function formatDate(dateStr) {
+            const date = new Date(dateStr);
+            const months = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+            return `${months[date.getMonth()]} ${date.getDate()}, ${date.getFullYear()}`;
+        }
+        
+        function scrollToSection(sectionId) {
+            const element = document.getElementById(sectionId);
+            if (element) {
+                element.scrollIntoView({ behavior: 'smooth', block: 'start' });
+            }
+        }
+    </script>
+</body>
+</html>

@@ -31,31 +31,39 @@ export function ThinkingView({ reasoning, tokenCount, isStreaming = false, class
 
   if (!reasoning?.trim()) return null
 
-  const thoughtSteps = reasoning.split('\n').filter(line => line.trim())
+  // Split thoughts by double newlines or specific patterns
+  const thoughtSteps = reasoning
+    .split(/\n\n+/)
+    .filter(line => line.trim())
+    .map(step => step.trim())
   
   return (
-    <motion.div 
-      initial={{ opacity: 0, y: 20 }} 
+    <motion.div
+      initial={{ opacity: 0, y: 20 }}
       animate={{ opacity: 1, y: 0 }}
       className={cn("space-y-4", className)}
     >
-      <Card className="border-purple-200 bg-gradient-to-br from-purple-50 to-indigo-50 dark:from-purple-950/20 dark:to-indigo-950/20 shadow-lg">
-        <CardHeader className="pb-4">
+      <Card className={cn(
+        "border-purple-200 bg-gradient-to-br from-purple-50 to-indigo-50 dark:from-purple-950/20 dark:to-indigo-950/20 shadow-lg",
+        "transition-all duration-300",
+        !isExpanded && "h-auto"
+      )}>
+        <CardHeader className="pb-3 px-3">
           <CardTitle className="flex items-center justify-between">
-            <div className="flex items-center gap-2">
+            <div className="flex items-center gap-1.5">
               <motion.div
-                animate={{ 
+                animate={{
                   rotate: isStreaming ? 360 : 0,
                   scale: isStreaming ? [1, 1.1, 1] : 1
                 }}
-                transition={{ 
+                transition={{
                   rotate: { duration: 2, repeat: Infinity, ease: "linear" },
                   scale: { duration: 1, repeat: Infinity, ease: "easeInOut" }
                 }}
               >
-                <Brain className="w-5 h-5 text-purple-600 dark:text-purple-400" />
+                <Brain className="w-4 h-4 text-purple-600 dark:text-purple-400" />
               </motion.div>
-              <span className="text-lg font-semibold bg-gradient-to-r from-purple-600 to-indigo-600 dark:from-purple-400 dark:to-indigo-400 bg-clip-text text-transparent">
+              <span className="text-sm font-semibold bg-gradient-to-r from-purple-600 to-indigo-600 dark:from-purple-400 dark:to-indigo-400 bg-clip-text text-transparent">
                 Chain of Thought
               </span>
               {isStreaming && (
@@ -84,7 +92,7 @@ export function ThinkingView({ reasoning, tokenCount, isStreaming = false, class
           </CardTitle>
         </CardHeader>
         
-        <CardContent>
+        <CardContent className="px-3 pb-3">
           <AnimatePresence>
             {isExpanded ? (
               <motion.div
@@ -94,56 +102,61 @@ export function ThinkingView({ reasoning, tokenCount, isStreaming = false, class
                 transition={{ duration: 0.3 }}
                 className="space-y-3 overflow-hidden"
               >
-                <div className="bg-white/50 dark:bg-black/20 rounded-lg p-4 space-y-3">
+                <div className="space-y-2">
                   {thoughtSteps.map((step, index) => (
                     <motion.div
                       key={index}
-                      initial={{ opacity: 0, x: -20 }}
-                      animate={{ opacity: 1, x: 0 }}
+                      initial={{ opacity: 0, y: 10 }}
+                      animate={{ opacity: 1, y: 0 }}
                       transition={{ delay: isStreaming ? 0 : index * 0.05 }}
-                      className="flex items-start gap-3"
+                      className="bg-white/50 dark:bg-black/20 rounded-lg p-3"
                     >
-                      <div className="flex-shrink-0 mt-1">
-                        <motion.div
-                          animate={isStreaming && index === thoughtSteps.length - 1 ? {
-                            scale: [1, 1.2, 1],
-                            rotate: [0, 180, 360]
-                          } : {}}
-                          transition={{ duration: 1, repeat: Infinity }}
-                          className={cn(
-                            "w-6 h-6 rounded-full flex items-center justify-center",
-                            index < thoughtSteps.length - 1 || !isStreaming
-                              ? "bg-purple-500/20 text-purple-600 dark:text-purple-400"
-                              : "bg-gradient-to-r from-purple-500 to-indigo-500 text-white"
-                          )}
-                        >
-                          {index < thoughtSteps.length - 1 || !isStreaming ? (
-                            <Zap className="w-3 h-3" />
-                          ) : (
-                            <Sparkles className="w-3 h-3" />
-                          )}
-                        </motion.div>
+                      <div className="flex items-start gap-2">
+                        <div className="flex-shrink-0 mt-0.5">
+                          <motion.div
+                            animate={isStreaming && index === thoughtSteps.length - 1 ? {
+                              scale: [1, 1.2, 1],
+                              rotate: [0, 180, 360]
+                            } : {}}
+                            transition={{ duration: 1, repeat: Infinity }}
+                            className={cn(
+                              "w-5 h-5 rounded-full flex items-center justify-center",
+                              index < thoughtSteps.length - 1 || !isStreaming
+                                ? "bg-purple-500/20 text-purple-600 dark:text-purple-400"
+                                : "bg-gradient-to-r from-purple-500 to-indigo-500 text-white"
+                            )}
+                          >
+                            {index < thoughtSteps.length - 1 || !isStreaming ? (
+                              <Zap className="w-2.5 h-2.5" />
+                            ) : (
+                              <Sparkles className="w-2.5 h-2.5" />
+                            )}
+                          </motion.div>
+                        </div>
+                        <p className="text-xs text-gray-700 dark:text-gray-300 leading-relaxed flex-1">
+                          {step}
+                        </p>
                       </div>
-                      <p className="text-sm text-gray-700 dark:text-gray-300 leading-relaxed flex-1">
-                        {step}
-                      </p>
                     </motion.div>
                   ))}
                 </div>
               </motion.div>
             ) : (
               <motion.div
-                initial={{ opacity: 0 }}
-                animate={{ opacity: 1 }}
+                initial={{ height: "auto", opacity: 0 }}
+                animate={{ height: "auto", opacity: 1 }}
+                exit={{ height: "auto", opacity: 0 }}
+                transition={{ duration: 0.3 }}
                 className="space-y-2"
+                style={{ overflow: "hidden" }}
               >
-                <div className="flex items-center gap-2 text-sm text-purple-600 dark:text-purple-400">
-                  <Sparkles className="w-4 h-4" />
+                <div className="flex items-center gap-1.5 text-xs text-purple-600 dark:text-purple-400">
+                  <Sparkles className="w-3.5 h-3.5" />
                   <span className="font-medium">
                     {isStreaming ? "Analyzing..." : `${thoughtSteps.length} thought steps`}
                   </span>
                 </div>
-                <p className="text-sm text-gray-600 dark:text-gray-400 line-clamp-2">
+                <p className="text-xs text-gray-600 dark:text-gray-400 line-clamp-2">
                   {displayedText.slice(0, 150)}...
                 </p>
               </motion.div>

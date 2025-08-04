@@ -1,0 +1,48 @@
+2025-08-03 03:06:41.086 [info] 
+
+
+
+
+2025-08-03 03:06:41.094 [info] Extension host agent started.
+2025-08-03 03:06:41.218 [info] Deleted marked for removal extension from disk anthropic.claude-code /home/workspace/.openvscode-server/extensions/anthropic.claude-code-1.0.29-universal
+2025-08-03 03:06:47.266 [info] [192.168.65.1][11e74b17][ManagementConnection] New connection established.
+2025-08-03 03:06:47.277 [info] [192.168.65.1][cc35bccc][ExtensionHostConnection] New connection established.
+2025-08-03 03:06:47.340 [info] [192.168.65.1][cc35bccc][ExtensionHostConnection] <30> Launched Extension Host Process.
+2025-08-03 03:06:59.991 [info] [192.168.65.1][11e74b17][ManagementConnection] The client has disconnected gracefully, so the connection will be disposed.
+2025-08-03 03:07:00.038 [info] [192.168.65.1][cc35bccc][ExtensionHostConnection] <30> Extension Host Process exited with code: 0, signal: null.
+2025-08-03 03:07:00.353 [info] [192.168.65.1][35903c6c][ManagementConnection] New connection established.
+2025-08-03 03:07:00.465 [info] [192.168.65.1][2b2b6aa1][ExtensionHostConnection] New connection established.
+2025-08-03 03:07:00.468 [info] [192.168.65.1][2b2b6aa1][ExtensionHostConnection] <134> Launched Extension Host Process.
+2025-08-03 03:18:14.278 [info] Installing extension: anthropic.claude-code {"isMachineScoped":true,"installGivenVersion":true,"isApplicationScoped":false,"profileLocation":{"$mid":1,"fsPath":"/home/workspace/.openvscode-server/extensions/extensions.json","external":"file:///home/workspace/.openvscode-server/extensions/extensions.json","path":"/home/workspace/.openvscode-server/extensions/extensions.json","scheme":"file"},"productVersion":{"version":"1.102.3","date":"2025-07-30T07:13:18.101Z"}}
+2025-08-03 03:18:14.410 [info] Deleted existing extension from disk anthropic.claude-code /home/workspace/.openvscode-server/extensions/anthropic.claude-code-1.0.67
+2025-08-03 03:18:14.426 [info] Extracted extension to file:///home/workspace/.openvscode-server/extensions/anthropic.claude-code-1.0.67: anthropic.claude-code
+2025-08-03 03:18:14.429 [info] Renamed to /home/workspace/.openvscode-server/extensions/anthropic.claude-code-1.0.67
+2025-08-03 03:18:14.455 [info] Extension installed successfully: anthropic.claude-code file:///home/workspace/.openvscode-server/extensions/extensions.json
+2025-08-03 03:29:32.501 [warning] [File Watcher (node.js)] Watcher shutdown because watched path got deleted
+2025-08-03 04:02:07.617 [info] Started initializing default profile extensions in extensions installation folder. file:///home/workspace/.openvscode-server/extensions
+2025-08-03 04:02:07.640 [error] Error: Unable to resolve nonexistent file '/home/workspace/.openvscode-server/extensions'
+    at tl.resolve (file:///home/.openvscode-server/out/server-main.js:64:21420)
+    at async Zc.r (file:///home/.openvscode-server/out/server-main.js:54:36575)
+    at async ul.scanAllUserExtensions (file:///home/.openvscode-server/out/server-main.js:54:29507)
+    at async file:///home/.openvscode-server/out/server-main.js:54:31449
+    at async ul.scanUserExtensions (file:///home/.openvscode-server/out/server-main.js:54:29168)
+    at async Promise.all (index 1)
+    at async ul.scanAllExtensions (file:///home/.openvscode-server/out/server-main.js:54:28414)
+    at async Zh.scanExtensions (file:///home/.openvscode-server/out/server-main.js:55:20209)
+    at async V2.call (file:///home/.openvscode-server/out/server-main.js:71:56354)
+2025-08-03 04:02:28.582 [info] Started initializing default profile extensions in extensions installation folder. file:///home/workspace/.openvscode-server/extensions
+2025-08-03 04:02:28.590 [error] Error: Unable to resolve nonexistent file '/home/workspace/.openvscode-server/extensions'
+    at tl.resolve (file:///home/.openvscode-server/out/server-main.js:64:21420)
+    at async Zc.r (file:///home/.openvscode-server/out/server-main.js:54:36575)
+    at async ul.scanAllUserExtensions (file:///home/.openvscode-server/out/server-main.js:54:29507)
+    at async file:///home/.openvscode-server/out/server-main.js:54:31449
+    at async ul.scanUserExtensions (file:///home/.openvscode-server/out/server-main.js:54:29168)
+    at async Promise.all (index 1)
+    at async ul.scanAllExtensions (file:///home/.openvscode-server/out/server-main.js:54:28414)
+    at async Zh.scanExtensions (file:///home/.openvscode-server/out/server-main.js:55:20209)
+    at async V2.call (file:///home/.openvscode-server/out/server-main.js:71:56354)
+2025-08-03 04:16:52.771 [info] [192.168.65.1][2b2b6aa1][ExtensionHostConnection] The client has reconnected.
+2025-08-03 04:16:52.798 [info] [192.168.65.1][35903c6c][ManagementConnection] The client has reconnected.
+2025-08-03 04:17:00.202 [info] [192.168.65.1][2b2b6aa1][ExtensionHostConnection] The client has reconnected.
+2025-08-03 04:17:00.246 [info] [192.168.65.1][35903c6c][ManagementConnection] The client has reconnected.
+2025-08-03 04:17:26.704 [warning] No ptyHost heartbeat after 6 seconds

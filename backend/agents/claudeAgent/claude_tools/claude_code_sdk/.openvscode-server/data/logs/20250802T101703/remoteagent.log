@@ -1,0 +1,241 @@
+2025-08-02 10:17:03.559 [info] 
+
+
+
+
+2025-08-02 10:17:03.565 [info] Extension host agent started.
+2025-08-02 10:17:03.574 [info] Started initializing default profile extensions in extensions installation folder. file:///home/workspace/.openvscode-server/extensions
+2025-08-02 10:17:03.580 [info] Completed initializing default profile extensions in extensions installation folder. file:///home/workspace/.openvscode-server/extensions
+2025-08-02 10:21:51.801 [info] [192.168.65.1][1c6f258f][ExtensionHostConnection] New connection established.
+2025-08-02 10:21:51.803 [info] [192.168.65.1][512fc2e4][ManagementConnection] New connection established.
+2025-08-02 10:21:51.842 [info] [192.168.65.1][1c6f258f][ExtensionHostConnection] <30> Launched Extension Host Process.
+2025-08-02 10:21:58.207 [info] [192.168.65.1][512fc2e4][ManagementConnection] The client has disconnected gracefully, so the connection will be disposed.
+2025-08-02 10:21:58.226 [info] [192.168.65.1][1c6f258f][ExtensionHostConnection] <30> Extension Host Process exited with code: 0, signal: null.
+2025-08-02 11:09:33.736 [info] [192.168.65.1][270f31be][ManagementConnection] New connection established.
+2025-08-02 11:09:33.740 [info] [192.168.65.1][bdd0e5eb][ExtensionHostConnection] New connection established.
+2025-08-02 11:09:33.745 [info] [192.168.65.1][bdd0e5eb][ExtensionHostConnection] <47> Launched Extension Host Process.
+2025-08-02 11:09:47.501 [info] [192.168.65.1][270f31be][ManagementConnection] The client has disconnected gracefully, so the connection will be disposed.
+2025-08-02 11:09:47.520 [info] [192.168.65.1][bdd0e5eb][ExtensionHostConnection] <47> Extension Host Process exited with code: 0, signal: null.
+2025-08-02 12:00:33.809 [info] [192.168.65.1][f7dec260][ManagementConnection] New connection established.
+2025-08-02 12:00:33.810 [info] [192.168.65.1][9f688c65][ExtensionHostConnection] New connection established.
+2025-08-02 12:00:33.814 [info] [192.168.65.1][9f688c65][ExtensionHostConnection] <64> Launched Extension Host Process.
+2025-08-02 12:01:02.409 [info] Getting Manifest... ms-python.python
+2025-08-02 12:01:04.119 [info] Getting Manifest... ms-python.debugpy
+2025-08-02 12:01:04.478 [info] Installing extension: ms-python.python {"isMachineScoped":false,"installPreReleaseVersion":false,"pinned":false,"isApplicationScoped":false,"profileLocation":{"$mid":1,"fsPath":"/home/workspace/.openvscode-server/extensions/extensions.json","external":"file:///home/workspace/.openvscode-server/extensions/extensions.json","path":"/home/workspace/.openvscode-server/extensions/extensions.json","scheme":"file"},"productVersion":{"version":"1.102.3","date":"2025-07-30T07:13:18.101Z"}}
+2025-08-02 12:01:05.081 [error] #4: https://open-vsx.org/vscode/gallery/ms-python/vscode-pylance/latest - error GET connect ECONNREFUSED 127.0.0.1:80
+2025-08-02 12:01:05.082 [error] Error while getting the latest version for the extension ms-python.vscode-pylance. connect ECONNREFUSED 127.0.0.1:80
+2025-08-02 12:01:05.229 [info] Getting Manifest... ms-python.debugpy
+2025-08-02 12:01:05.318 [info] Installing extension: ms-python.debugpy {"isMachineScoped":false,"installPreReleaseVersion":false,"pinned":false,"isApplicationScoped":false,"profileLocation":{"$mid":1,"fsPath":"/home/workspace/.openvscode-server/extensions/extensions.json","external":"file:///home/workspace/.openvscode-server/extensions/extensions.json","path":"/home/workspace/.openvscode-server/extensions/extensions.json","scheme":"file"},"productVersion":{"version":"1.102.3","date":"2025-07-30T07:13:18.101Z"}}
+2025-08-02 12:01:05.567 [info] Waiting for already requested installing extension ms-python.debugpy ms-python.python file:///home/workspace/.openvscode-server/extensions/extensions.json
+2025-08-02 12:01:05.745 [info] Getting Manifest... ms-python.python
+2025-08-02 12:01:06.682 [error] #11: https://open-vsx.org/vscode/gallery/ms-python/vscode-pylance/latest - error GET connect ECONNREFUSED 127.0.0.1:80
+2025-08-02 12:01:06.683 [error] Error while getting the latest version for the extension ms-python.vscode-pylance. connect ECONNREFUSED 127.0.0.1:80
+2025-08-02 12:01:10.969 [info] Extracted extension to file:///home/workspace/.openvscode-server/extensions/ms-python.python-2025.4.0-universal: ms-python.python
+2025-08-02 12:01:11.287 [info] Renamed to /home/workspace/.openvscode-server/extensions/ms-python.python-2025.4.0-universal
+2025-08-02 12:01:16.691 [info] Getting Manifest... ms-toolsai.jupyter
+2025-08-02 12:01:38.467 [info] Getting Manifest... ms-toolsai.jupyter-keymap
+2025-08-02 12:01:39.788 [info] Installing extension: ms-toolsai.jupyter-keymap {"isMachineScoped":false,"installPreReleaseVersion":false,"pinned":false,"isApplicationScoped":false,"profileLocation":{"$mid":1,"fsPath":"/home/workspace/.openvscode-server/extensions/extensions.json","external":"file:///home/workspace/.openvscode-server/extensions/extensions.json","path":"/home/workspace/.openvscode-server/extensions/extensions.json","scheme":"file"},"productVersion":{"version":"1.102.3","date":"2025-07-30T07:13:18.101Z"}}
+2025-08-02 12:01:40.490 [info] Extracted extension to file:///home/workspace/.openvscode-server/extensions/ms-toolsai.jupyter-keymap-1.1.2-universal: ms-toolsai.jupyter-keymap
+2025-08-02 12:01:40.494 [info] Renamed to /home/workspace/.openvscode-server/extensions/ms-toolsai.jupyter-keymap-1.1.2-universal
+2025-08-02 12:01:40.501 [info] Extension installed successfully: ms-toolsai.jupyter-keymap file:///home/workspace/.openvscode-server/extensions/extensions.json
+2025-08-02 12:01:41.817 [info] Getting Manifest... github.vscode-pull-request-github
+2025-08-02 12:01:43.042 [info] Installing extension: github.vscode-pull-request-github {"isMachineScoped":false,"installPreReleaseVersion":false,"pinned":false,"isApplicationScoped":false,"profileLocation":{"$mid":1,"fsPath":"/home/workspace/.openvscode-server/extensions/extensions.json","external":"file:///home/workspace/.openvscode-server/extensions/extensions.json","path":"/home/workspace/.openvscode-server/extensions/extensions.json","scheme":"file"},"productVersion":{"version":"1.102.3","date":"2025-07-30T07:13:18.101Z"}}
+2025-08-02 12:01:43.086 [info] Installing extension: ms-toolsai.jupyter {"isMachineScoped":false,"installPreReleaseVersion":false,"pinned":false,"isApplicationScoped":false,"profileLocation":{"$mid":1,"fsPath":"/home/workspace/.openvscode-server/extensions/extensions.json","external":"file:///home/workspace/.openvscode-server/extensions/extensions.json","path":"/home/workspace/.openvscode-server/extensions/extensions.json","scheme":"file"},"productVersion":{"version":"1.102.3","date":"2025-07-30T07:13:18.101Z"}}
+2025-08-02 12:01:43.447 [error] #22: https://open-vsx.org/vscode/gallery/vscode/github-authentication/latest - error GET connect ECONNREFUSED 127.0.0.1:80
+2025-08-02 12:01:43.448 [error] Error while getting the latest version for the extension vscode.github-authentication. connect ECONNREFUSED 127.0.0.1:80
+2025-08-02 12:01:43.587 [info] Getting Manifest... ms-toolsai.jupyter-keymap
+2025-08-02 12:01:44.186 [info] Getting Manifest... ms-toolsai.jupyter-renderers
+2025-08-02 12:01:45.232 [info] Getting Manifest... redhat.java
+2025-08-02 12:01:45.262 [info] Getting Manifest... ms-toolsai.vscode-jupyter-slideshow
+2025-08-02 12:01:46.014 [info] Getting Manifest... ms-toolsai.vscode-jupyter-cell-tags
+2025-08-02 12:01:47.368 [info] Installing extension: ms-toolsai.jupyter-renderers {"isMachineScoped":false,"installPreReleaseVersion":false,"pinned":false,"isApplicationScoped":false,"profileLocation":{"$mid":1,"fsPath":"/home/workspace/.openvscode-server/extensions/extensions.json","external":"file:///home/workspace/.openvscode-server/extensions/extensions.json","path":"/home/workspace/.openvscode-server/extensions/extensions.json","scheme":"file"},"productVersion":{"version":"1.102.3","date":"2025-07-30T07:13:18.101Z"},"installGivenVersion":false,"context":{"dependecyOrPackExtensionInstall":true}}
+2025-08-02 12:01:47.369 [info] Installing extension: ms-toolsai.vscode-jupyter-slideshow {"isMachineScoped":false,"installPreReleaseVersion":false,"pinned":false,"isApplicationScoped":false,"profileLocation":{"$mid":1,"fsPath":"/home/workspace/.openvscode-server/extensions/extensions.json","external":"file:///home/workspace/.openvscode-server/extensions/extensions.json","path":"/home/workspace/.openvscode-server/extensions/extensions.json","scheme":"file"},"productVersion":{"version":"1.102.3","date":"2025-07-30T07:13:18.101Z"},"installGivenVersion":false,"context":{"dependecyOrPackExtensionInstall":true}}
+2025-08-02 12:01:47.369 [info] Installing extension: ms-toolsai.vscode-jupyter-cell-tags {"isMachineScoped":false,"installPreReleaseVersion":false,"pinned":false,"isApplicationScoped":false,"profileLocation":{"$mid":1,"fsPath":"/home/workspace/.openvscode-server/extensions/extensions.json","external":"file:///home/workspace/.openvscode-server/extensions/extensions.json","path":"/home/workspace/.openvscode-server/extensions/extensions.json","scheme":"file"},"productVersion":{"version":"1.102.3","date":"2025-07-30T07:13:18.101Z"},"installGivenVersion":false,"context":{"dependecyOrPackExtensionInstall":true}}
+2025-08-02 12:01:47.801 [info] Installing extension: redhat.java {"isMachineScoped":false,"installPreReleaseVersion":false,"pinned":false,"isApplicationScoped":false,"profileLocation":{"$mid":1,"fsPath":"/home/workspace/.openvscode-server/extensions/extensions.json","external":"file:///home/workspace/.openvscode-server/extensions/extensions.json","path":"/home/workspace/.openvscode-server/extensions/extensions.json","scheme":"file"},"productVersion":{"version":"1.102.3","date":"2025-07-30T07:13:18.101Z"}}
+2025-08-02 12:01:51.188 [info] Extracted extension to file:///home/workspace/.openvscode-server/extensions/ms-toolsai.vscode-jupyter-slideshow-0.1.6-universal: ms-toolsai.vscode-jupyter-slideshow
+2025-08-02 12:01:51.192 [info] Renamed to /home/workspace/.openvscode-server/extensions/ms-toolsai.vscode-jupyter-slideshow-0.1.6-universal
+2025-08-02 12:01:51.196 [info] Extracted extension to file:///home/workspace/.openvscode-server/extensions/ms-toolsai.vscode-jupyter-cell-tags-0.1.9-universal: ms-toolsai.vscode-jupyter-cell-tags
+2025-08-02 12:01:51.201 [info] Renamed to /home/workspace/.openvscode-server/extensions/ms-toolsai.vscode-jupyter-cell-tags-0.1.9-universal
+2025-08-02 12:01:51.462 [info] Getting Manifest... vscjava.vscode-java-debug
+2025-08-02 12:01:51.924 [info] Extracted extension to file:///home/workspace/.openvscode-server/extensions/github.vscode-pull-request-github-0.114.3-universal: github.vscode-pull-request-github
+2025-08-02 12:01:51.931 [info] Renamed to /home/workspace/.openvscode-server/extensions/github.vscode-pull-request-github-0.114.3-universal
+2025-08-02 12:01:51.944 [info] Extension installed successfully: github.vscode-pull-request-github file:///home/workspace/.openvscode-server/extensions/extensions.json
+2025-08-02 12:01:52.260 [info] Installing extension: vscjava.vscode-java-debug {"isMachineScoped":false,"installPreReleaseVersion":false,"pinned":false,"isApplicationScoped":false,"profileLocation":{"$mid":1,"fsPath":"/home/workspace/.openvscode-server/extensions/extensions.json","external":"file:///home/workspace/.openvscode-server/extensions/extensions.json","path":"/home/workspace/.openvscode-server/extensions/extensions.json","scheme":"file"},"productVersion":{"version":"1.102.3","date":"2025-07-30T07:13:18.101Z"}}
+2025-08-02 12:01:52.337 [info] Getting Manifest... esbenp.prettier-vscode
+2025-08-02 12:01:53.256 [info] Installing extension: esbenp.prettier-vscode {"isMachineScoped":false,"installPreReleaseVersion":false,"pinned":false,"isApplicationScoped":false,"profileLocation":{"$mid":1,"fsPath":"/home/workspace/.openvscode-server/extensions/extensions.json","external":"file:///home/workspace/.openvscode-server/extensions/extensions.json","path":"/home/workspace/.openvscode-server/extensions/extensions.json","scheme":"file"},"productVersion":{"version":"1.102.3","date":"2025-07-30T07:13:18.101Z"}}
+2025-08-02 12:01:53.945 [info] Getting Manifest... anysphere.pyright
+2025-08-02 12:01:54.448 [info] Extracted extension to file:///home/workspace/.openvscode-server/extensions/esbenp.prettier-vscode-11.0.0-universal: esbenp.prettier-vscode
+2025-08-02 12:01:54.456 [info] Renamed to /home/workspace/.openvscode-server/extensions/esbenp.prettier-vscode-11.0.0-universal
+2025-08-02 12:01:54.470 [info] Extension installed successfully: esbenp.prettier-vscode file:///home/workspace/.openvscode-server/extensions/extensions.json
+2025-08-02 12:01:54.679 [info] Extracted extension to file:///home/workspace/.openvscode-server/extensions/ms-toolsai.jupyter-renderers-1.3.0-universal: ms-toolsai.jupyter-renderers
+2025-08-02 12:01:54.686 [info] Renamed to /home/workspace/.openvscode-server/extensions/ms-toolsai.jupyter-renderers-1.3.0-universal
+2025-08-02 12:01:54.994 [info] Installing extension: anysphere.pyright {"isMachineScoped":false,"installPreReleaseVersion":false,"pinned":false,"isApplicationScoped":false,"profileLocation":{"$mid":1,"fsPath":"/home/workspace/.openvscode-server/extensions/extensions.json","external":"file:///home/workspace/.openvscode-server/extensions/extensions.json","path":"/home/workspace/.openvscode-server/extensions/extensions.json","scheme":"file"},"productVersion":{"version":"1.102.3","date":"2025-07-30T07:13:18.101Z"}}
+2025-08-02 12:01:55.617 [info] Extracted extension to file:///home/workspace/.openvscode-server/extensions/ms-python.debugpy-2025.6.0-linux-arm64: ms-python.debugpy
+2025-08-02 12:01:55.643 [info] Renamed to /home/workspace/.openvscode-server/extensions/ms-python.debugpy-2025.6.0-linux-arm64
+2025-08-02 12:01:55.655 [info] Extension installed successfully: ms-python.debugpy file:///home/workspace/.openvscode-server/extensions/extensions.json
+2025-08-02 12:01:55.656 [info] Finished waiting for already requested installing extension ms-python.debugpy ms-python.python file:///home/workspace/.openvscode-server/extensions/extensions.json
+2025-08-02 12:01:55.656 [info] Extension installed successfully: ms-python.python file:///home/workspace/.openvscode-server/extensions/extensions.json
+2025-08-02 12:01:59.218 [info] Getting Manifest... dbaeumer.vscode-eslint
+2025-08-02 12:01:59.772 [info] Getting Manifest... ms-azuretools.vscode-docker
+2025-08-02 12:02:00.383 [info] Installing extension: dbaeumer.vscode-eslint {"isMachineScoped":false,"installPreReleaseVersion":false,"pinned":false,"isApplicationScoped":false,"profileLocation":{"$mid":1,"fsPath":"/home/workspace/.openvscode-server/extensions/extensions.json","external":"file:///home/workspace/.openvscode-server/extensions/extensions.json","path":"/home/workspace/.openvscode-server/extensions/extensions.json","scheme":"file"},"productVersion":{"version":"1.102.3","date":"2025-07-30T07:13:18.101Z"}}
+2025-08-02 12:02:00.939 [info] Installing extension: ms-azuretools.vscode-docker {"isMachineScoped":false,"installPreReleaseVersion":false,"pinned":false,"isApplicationScoped":false,"profileLocation":{"$mid":1,"fsPath":"/home/workspace/.openvscode-server/extensions/extensions.json","external":"file:///home/workspace/.openvscode-server/extensions/extensions.json","path":"/home/workspace/.openvscode-server/extensions/extensions.json","scheme":"file"},"productVersion":{"version":"1.102.3","date":"2025-07-30T07:13:18.101Z"}}
+2025-08-02 12:02:01.366 [info] Getting Manifest... ms-azuretools.vscode-containers
+2025-08-02 12:02:01.585 [info] Extracted extension to file:///home/workspace/.openvscode-server/extensions/dbaeumer.vscode-eslint-3.0.10-universal: dbaeumer.vscode-eslint
+2025-08-02 12:02:01.589 [info] Renamed to /home/workspace/.openvscode-server/extensions/dbaeumer.vscode-eslint-3.0.10-universal
+2025-08-02 12:02:01.602 [info] Extension installed successfully: dbaeumer.vscode-eslint file:///home/workspace/.openvscode-server/extensions/extensions.json
+2025-08-02 12:02:02.611 [error] #53: https://open-vsx.org/vscode/gallery/vscode/yaml/latest - error GET connect ECONNREFUSED 127.0.0.1:80
+2025-08-02 12:02:02.612 [error] Error while getting the latest version for the extension vscode.yaml. connect ECONNREFUSED 127.0.0.1:80
+2025-08-02 12:02:02.614 [error] #52: https://open-vsx.org/vscode/gallery/vscode/docker/latest - error GET connect ECONNREFUSED 127.0.0.1:80
+2025-08-02 12:02:02.614 [error] Error while getting the latest version for the extension vscode.docker. connect ECONNREFUSED 127.0.0.1:80
+2025-08-02 12:02:03.003 [info] Installing extension: ms-azuretools.vscode-containers {"isMachineScoped":false,"installPreReleaseVersion":false,"pinned":false,"isApplicationScoped":false,"profileLocation":{"$mid":1,"fsPath":"/home/workspace/.openvscode-server/extensions/extensions.json","external":"file:///home/workspace/.openvscode-server/extensions/extensions.json","path":"/home/workspace/.openvscode-server/extensions/extensions.json","scheme":"file"},"productVersion":{"version":"1.102.3","date":"2025-07-30T07:13:18.101Z"},"installGivenVersion":false,"context":{"dependecyOrPackExtensionInstall":true}}
+2025-08-02 12:02:03.173 [info] Getting Manifest... rust-lang.rust-analyzer
+2025-08-02 12:02:03.399 [info] Extracted extension to file:///home/workspace/.openvscode-server/extensions/ms-azuretools.vscode-docker-2.0.0-universal: ms-azuretools.vscode-docker
+2025-08-02 12:02:03.402 [info] Renamed to /home/workspace/.openvscode-server/extensions/ms-azuretools.vscode-docker-2.0.0-universal
+2025-08-02 12:02:03.430 [info] Getting Manifest... redhat.vscode-yaml
+2025-08-02 12:02:03.573 [info] Installing extension: rust-lang.rust-analyzer {"isMachineScoped":false,"installPreReleaseVersion":false,"pinned":false,"isApplicationScoped":false,"profileLocation":{"$mid":1,"fsPath":"/home/workspace/.openvscode-server/extensions/extensions.json","external":"file:///home/workspace/.openvscode-server/extensions/extensions.json","path":"/home/workspace/.openvscode-server/extensions/extensions.json","scheme":"file"},"productVersion":{"version":"1.102.3","date":"2025-07-30T07:13:18.101Z"}}
+2025-08-02 12:02:03.780 [info] Extracted extension to file:///home/workspace/.openvscode-server/extensions/vscjava.vscode-java-debug-0.58.2-universal: vscjava.vscode-java-debug
+2025-08-02 12:02:03.788 [info] Renamed to /home/workspace/.openvscode-server/extensions/vscjava.vscode-java-debug-0.58.2-universal
+2025-08-02 12:02:03.847 [info] Extension installed successfully: vscjava.vscode-java-debug file:///home/workspace/.openvscode-server/extensions/extensions.json
+2025-08-02 12:02:04.078 [info] Installing extension: redhat.vscode-yaml {"isMachineScoped":false,"installPreReleaseVersion":false,"pinned":false,"isApplicationScoped":false,"profileLocation":{"$mid":1,"fsPath":"/home/workspace/.openvscode-server/extensions/extensions.json","external":"file:///home/workspace/.openvscode-server/extensions/extensions.json","path":"/home/workspace/.openvscode-server/extensions/extensions.json","scheme":"file"},"productVersion":{"version":"1.102.3","date":"2025-07-30T07:13:18.101Z"}}
+2025-08-02 12:02:04.633 [info] Extracted extension to file:///home/workspace/.openvscode-server/extensions/ms-azuretools.vscode-containers-2.1.0-universal: ms-azuretools.vscode-containers
+2025-08-02 12:02:04.644 [info] Renamed to /home/workspace/.openvscode-server/extensions/ms-azuretools.vscode-containers-2.1.0-universal
+2025-08-02 12:02:04.656 [info] Extension installed successfully: ms-azuretools.vscode-docker file:///home/workspace/.openvscode-server/extensions/extensions.json
+2025-08-02 12:02:04.656 [info] Extension installed successfully: ms-azuretools.vscode-containers file:///home/workspace/.openvscode-server/extensions/extensions.json
+2025-08-02 12:02:05.330 [info] Extracted extension to file:///home/workspace/.openvscode-server/extensions/redhat.vscode-yaml-1.18.0-universal: redhat.vscode-yaml
+2025-08-02 12:02:05.336 [info] Renamed to /home/workspace/.openvscode-server/extensions/redhat.vscode-yaml-1.18.0-universal
+2025-08-02 12:02:05.348 [info] Extension installed successfully: redhat.vscode-yaml file:///home/workspace/.openvscode-server/extensions/extensions.json
+2025-08-02 12:02:08.763 [info] Extracted extension to file:///home/workspace/.openvscode-server/extensions/anysphere.pyright-1.1.327-universal: anysphere.pyright
+2025-08-02 12:02:09.090 [info] Renamed to /home/workspace/.openvscode-server/extensions/anysphere.pyright-1.1.327-universal
+2025-08-02 12:02:09.107 [info] Extension installed successfully: anysphere.pyright file:///home/workspace/.openvscode-server/extensions/extensions.json
+2025-08-02 12:02:10.830 [info] Extracted extension to file:///home/workspace/.openvscode-server/extensions/ms-toolsai.jupyter-2025.6.0-universal: ms-toolsai.jupyter
+2025-08-02 12:02:10.852 [info] Renamed to /home/workspace/.openvscode-server/extensions/ms-toolsai.jupyter-2025.6.0-universal
+2025-08-02 12:02:10.872 [info] Extension installed successfully: ms-toolsai.vscode-jupyter-slideshow file:///home/workspace/.openvscode-server/extensions/extensions.json
+2025-08-02 12:02:10.872 [info] Extension installed successfully: ms-toolsai.vscode-jupyter-cell-tags file:///home/workspace/.openvscode-server/extensions/extensions.json
+2025-08-02 12:02:10.872 [info] Extension installed successfully: ms-toolsai.jupyter-renderers file:///home/workspace/.openvscode-server/extensions/extensions.json
+2025-08-02 12:02:10.873 [info] Extension installed successfully: ms-toolsai.jupyter file:///home/workspace/.openvscode-server/extensions/extensions.json
+2025-08-02 12:02:11.724 [info] Getting Manifest... golang.go
+2025-08-02 12:02:12.056 [info] Installing extension: golang.go {"isMachineScoped":false,"installPreReleaseVersion":false,"pinned":false,"isApplicationScoped":false,"profileLocation":{"$mid":1,"fsPath":"/home/workspace/.openvscode-server/extensions/extensions.json","external":"file:///home/workspace/.openvscode-server/extensions/extensions.json","path":"/home/workspace/.openvscode-server/extensions/extensions.json","scheme":"file"},"productVersion":{"version":"1.102.3","date":"2025-07-30T07:13:18.101Z"}}
+2025-08-02 12:02:12.940 [info] Extracted extension to file:///home/workspace/.openvscode-server/extensions/golang.go-0.48.0-universal: golang.go
+2025-08-02 12:02:12.953 [info] Renamed to /home/workspace/.openvscode-server/extensions/golang.go-0.48.0-universal
+2025-08-02 12:02:12.973 [info] Extension installed successfully: golang.go file:///home/workspace/.openvscode-server/extensions/extensions.json
+2025-08-02 12:02:15.867 [info] Extracted extension to file:///home/workspace/.openvscode-server/extensions/rust-lang.rust-analyzer-0.3.2555-linux-arm64: rust-lang.rust-analyzer
+2025-08-02 12:02:15.878 [info] Renamed to /home/workspace/.openvscode-server/extensions/rust-lang.rust-analyzer-0.3.2555-linux-arm64
+2025-08-02 12:02:15.899 [info] Extension installed successfully: rust-lang.rust-analyzer file:///home/workspace/.openvscode-server/extensions/extensions.json
+2025-08-02 12:02:16.955 [info] Getting Manifest... dart-code.dart-code
+2025-08-02 12:02:17.636 [info] Installing extension: dart-code.dart-code {"isMachineScoped":false,"installPreReleaseVersion":false,"pinned":false,"isApplicationScoped":false,"profileLocation":{"$mid":1,"fsPath":"/home/workspace/.openvscode-server/extensions/extensions.json","external":"file:///home/workspace/.openvscode-server/extensions/extensions.json","path":"/home/workspace/.openvscode-server/extensions/extensions.json","scheme":"file"},"productVersion":{"version":"1.102.3","date":"2025-07-30T07:13:18.101Z"}}
+2025-08-02 12:02:19.667 [info] Getting Manifest... angular.ng-template
+2025-08-02 12:02:20.864 [info] Installing extension: angular.ng-template {"isMachineScoped":false,"installPreReleaseVersion":false,"pinned":false,"isApplicationScoped":false,"profileLocation":{"$mid":1,"fsPath":"/home/workspace/.openvscode-server/extensions/extensions.json","external":"file:///home/workspace/.openvscode-server/extensions/extensions.json","path":"/home/workspace/.openvscode-server/extensions/extensions.json","scheme":"file"},"productVersion":{"version":"1.102.3","date":"2025-07-30T07:13:18.101Z"}}
+2025-08-02 12:02:24.688 [info] Getting Manifest... pkief.material-icon-theme
+2025-08-02 12:02:25.342 [info] Installing extension: pkief.material-icon-theme {"isMachineScoped":false,"installPreReleaseVersion":false,"pinned":false,"isApplicationScoped":false,"profileLocation":{"$mid":1,"fsPath":"/home/workspace/.openvscode-server/extensions/extensions.json","external":"file:///home/workspace/.openvscode-server/extensions/extensions.json","path":"/home/workspace/.openvscode-server/extensions/extensions.json","scheme":"file"},"productVersion":{"version":"1.102.3","date":"2025-07-30T07:13:18.101Z"}}
+2025-08-02 12:02:27.283 [info] Extracted extension to file:///home/workspace/.openvscode-server/extensions/pkief.material-icon-theme-5.24.0-universal: pkief.material-icon-theme
+2025-08-02 12:02:27.363 [info] Renamed to /home/workspace/.openvscode-server/extensions/pkief.material-icon-theme-5.24.0-universal
+2025-08-02 12:02:27.386 [info] Extension installed successfully: pkief.material-icon-theme file:///home/workspace/.openvscode-server/extensions/extensions.json
+2025-08-02 12:02:34.712 [info] Getting Manifest... dart-code.flutter
+2025-08-02 12:02:35.245 [info] Extracted extension to file:///home/workspace/.openvscode-server/extensions/angular.ng-template-20.1.1-universal: angular.ng-template
+2025-08-02 12:02:35.276 [info] Installing extension: dart-code.flutter {"isMachineScoped":false,"installPreReleaseVersion":false,"pinned":false,"isApplicationScoped":false,"profileLocation":{"$mid":1,"fsPath":"/home/workspace/.openvscode-server/extensions/extensions.json","external":"file:///home/workspace/.openvscode-server/extensions/extensions.json","path":"/home/workspace/.openvscode-server/extensions/extensions.json","scheme":"file"},"productVersion":{"version":"1.102.3","date":"2025-07-30T07:13:18.101Z"}}
+2025-08-02 12:02:35.307 [info] Renamed to /home/workspace/.openvscode-server/extensions/angular.ng-template-20.1.1-universal
+2025-08-02 12:02:35.332 [info] Extension installed successfully: angular.ng-template file:///home/workspace/.openvscode-server/extensions/extensions.json
+2025-08-02 12:02:35.776 [info] Getting Manifest... dart-code.dart-code
+2025-08-02 12:02:36.129 [info] Waiting for already requested installing extension dart-code.dart-code dart-code.flutter file:///home/workspace/.openvscode-server/extensions/extensions.json
+2025-08-02 12:02:36.904 [info] Extracted extension to file:///home/workspace/.openvscode-server/extensions/dart-code.flutter-3.116.0-universal: dart-code.flutter
+2025-08-02 12:02:36.908 [info] Renamed to /home/workspace/.openvscode-server/extensions/dart-code.flutter-3.116.0-universal
+2025-08-02 12:02:37.240 [info] Getting Manifest... saoudrizwan.claude-dev
+2025-08-02 12:02:37.898 [info] Installing extension: saoudrizwan.claude-dev {"isMachineScoped":false,"installPreReleaseVersion":false,"pinned":false,"isApplicationScoped":false,"profileLocation":{"$mid":1,"fsPath":"/home/workspace/.openvscode-server/extensions/extensions.json","external":"file:///home/workspace/.openvscode-server/extensions/extensions.json","path":"/home/workspace/.openvscode-server/extensions/extensions.json","scheme":"file"},"productVersion":{"version":"1.102.3","date":"2025-07-30T07:13:18.101Z"}}
+2025-08-02 12:02:42.490 [info] Extracted extension to file:///home/workspace/.openvscode-server/extensions/redhat.java-1.44.0-linux-arm64: redhat.java
+2025-08-02 12:02:42.532 [info] Renamed to /home/workspace/.openvscode-server/extensions/redhat.java-1.44.0-linux-arm64
+2025-08-02 12:02:42.558 [info] Extension installed successfully: redhat.java file:///home/workspace/.openvscode-server/extensions/extensions.json
+2025-08-02 12:02:43.488 [info] Extracted extension to file:///home/workspace/.openvscode-server/extensions/dart-code.dart-code-3.116.0-universal: dart-code.dart-code
+2025-08-02 12:02:45.146 [info] Renamed to /home/workspace/.openvscode-server/extensions/dart-code.dart-code-3.116.0-universal
+2025-08-02 12:02:45.173 [info] Extension installed successfully: dart-code.dart-code file:///home/workspace/.openvscode-server/extensions/extensions.json
+2025-08-02 12:02:45.175 [info] Finished waiting for already requested installing extension dart-code.dart-code dart-code.flutter file:///home/workspace/.openvscode-server/extensions/extensions.json
+2025-08-02 12:02:45.175 [info] Extension installed successfully: dart-code.flutter file:///home/workspace/.openvscode-server/extensions/extensions.json
+2025-08-02 12:02:49.349 [info] Extracted extension to file:///home/workspace/.openvscode-server/extensions/saoudrizwan.claude-dev-3.20.5-universal: saoudrizwan.claude-dev
+2025-08-02 12:02:49.464 [info] Renamed to /home/workspace/.openvscode-server/extensions/saoudrizwan.claude-dev-3.20.5-universal
+2025-08-02 12:02:49.682 [info] Extension installed successfully: saoudrizwan.claude-dev file:///home/workspace/.openvscode-server/extensions/extensions.json
+2025-08-02 12:03:03.108 [info] Getting Manifest... anthropic.claude-code
+2025-08-02 12:03:04.389 [info] Installing extension: anthropic.claude-code {"isMachineScoped":false,"installPreReleaseVersion":false,"pinned":false,"isApplicationScoped":false,"profileLocation":{"$mid":1,"fsPath":"/home/workspace/.openvscode-server/extensions/extensions.json","external":"file:///home/workspace/.openvscode-server/extensions/extensions.json","path":"/home/workspace/.openvscode-server/extensions/extensions.json","scheme":"file"},"productVersion":{"version":"1.102.3","date":"2025-07-30T07:13:18.101Z"}}
+2025-08-02 12:03:05.328 [info] Extracted extension to file:///home/workspace/.openvscode-server/extensions/anthropic.claude-code-1.0.29-universal: anthropic.claude-code
+2025-08-02 12:03:05.331 [info] Renamed to /home/workspace/.openvscode-server/extensions/anthropic.claude-code-1.0.29-universal
+2025-08-02 12:03:05.347 [info] Extension installed successfully: anthropic.claude-code file:///home/workspace/.openvscode-server/extensions/extensions.json
+2025-08-02 12:06:01.935 [info] Getting Manifest... vuejs.node-snippets
+2025-08-02 12:06:03.866 [info] Installing extension: vuejs.node-snippets {"isMachineScoped":false,"installPreReleaseVersion":false,"pinned":false,"isApplicationScoped":false,"profileLocation":{"$mid":1,"fsPath":"/home/workspace/.openvscode-server/extensions/extensions.json","external":"file:///home/workspace/.openvscode-server/extensions/extensions.json","path":"/home/workspace/.openvscode-server/extensions/extensions.json","scheme":"file"},"productVersion":{"version":"1.102.3","date":"2025-07-30T07:13:18.101Z"}}
+2025-08-02 12:06:13.194 [info] Extracted extension to file:///home/workspace/.openvscode-server/extensions/vuejs.node-snippets-1.4.0-universal: vuejs.node-snippets
+2025-08-02 12:06:13.199 [info] Renamed to /home/workspace/.openvscode-server/extensions/vuejs.node-snippets-1.4.0-universal
+2025-08-02 12:06:13.215 [info] Extension installed successfully: vuejs.node-snippets file:///home/workspace/.openvscode-server/extensions/extensions.json
+2025-08-02 12:06:13.238 [info] Getting Manifest... mubaidr.vuejs-extension-pack
+2025-08-02 12:06:13.912 [info] Installing extension: mubaidr.vuejs-extension-pack {"isMachineScoped":false,"installPreReleaseVersion":false,"pinned":false,"isApplicationScoped":false,"profileLocation":{"$mid":1,"fsPath":"/home/workspace/.openvscode-server/extensions/extensions.json","external":"file:///home/workspace/.openvscode-server/extensions/extensions.json","path":"/home/workspace/.openvscode-server/extensions/extensions.json","scheme":"file"},"productVersion":{"version":"1.102.3","date":"2025-07-30T07:13:18.101Z"}}
+2025-08-02 12:06:14.954 [info] Getting Manifest... tombonnike.vscode-status-bar-format-toggle
+2025-08-02 12:06:15.617 [info] Getting Manifest... dbaeumer.vscode-eslint
+2025-08-02 12:06:16.200 [info] Getting Manifest... esbenp.prettier-vscode
+2025-08-02 12:06:16.728 [info] Getting Manifest... xabikos.javascriptsnippets
+2025-08-02 12:06:17.182 [info] Getting Manifest... octref.vetur
+2025-08-02 12:06:17.647 [info] Installing extension: tombonnike.vscode-status-bar-format-toggle {"isMachineScoped":false,"installPreReleaseVersion":false,"pinned":false,"isApplicationScoped":false,"profileLocation":{"$mid":1,"fsPath":"/home/workspace/.openvscode-server/extensions/extensions.json","external":"file:///home/workspace/.openvscode-server/extensions/extensions.json","path":"/home/workspace/.openvscode-server/extensions/extensions.json","scheme":"file"},"productVersion":{"version":"1.102.3","date":"2025-07-30T07:13:18.101Z"},"installGivenVersion":false,"context":{"dependecyOrPackExtensionInstall":true}}
+2025-08-02 12:06:17.647 [info] Installing extension: xabikos.javascriptsnippets {"isMachineScoped":false,"installPreReleaseVersion":false,"pinned":false,"isApplicationScoped":false,"profileLocation":{"$mid":1,"fsPath":"/home/workspace/.openvscode-server/extensions/extensions.json","external":"file:///home/workspace/.openvscode-server/extensions/extensions.json","path":"/home/workspace/.openvscode-server/extensions/extensions.json","scheme":"file"},"productVersion":{"version":"1.102.3","date":"2025-07-30T07:13:18.101Z"},"installGivenVersion":false,"context":{"dependecyOrPackExtensionInstall":true}}
+2025-08-02 12:06:17.648 [info] Installing extension: octref.vetur {"isMachineScoped":false,"installPreReleaseVersion":false,"pinned":false,"isApplicationScoped":false,"profileLocation":{"$mid":1,"fsPath":"/home/workspace/.openvscode-server/extensions/extensions.json","external":"file:///home/workspace/.openvscode-server/extensions/extensions.json","path":"/home/workspace/.openvscode-server/extensions/extensions.json","scheme":"file"},"productVersion":{"version":"1.102.3","date":"2025-07-30T07:13:18.101Z"},"installGivenVersion":false,"context":{"dependecyOrPackExtensionInstall":true}}
+2025-08-02 12:06:18.774 [info] Extracted extension to file:///home/workspace/.openvscode-server/extensions/xabikos.javascriptsnippets-1.8.0-universal: xabikos.javascriptsnippets
+2025-08-02 12:06:18.777 [info] Renamed to /home/workspace/.openvscode-server/extensions/xabikos.javascriptsnippets-1.8.0-universal
+2025-08-02 12:06:19.760 [info] Getting Manifest... kevinlaw.vscode-search-node-modules
+2025-08-02 12:06:20.066 [info] Extracted extension to file:///home/workspace/.openvscode-server/extensions/tombonnike.vscode-status-bar-format-toggle-3.2.0-universal: tombonnike.vscode-status-bar-format-toggle
+2025-08-02 12:06:20.069 [info] Renamed to /home/workspace/.openvscode-server/extensions/tombonnike.vscode-status-bar-format-toggle-3.2.0-universal
+2025-08-02 12:06:20.337 [info] Installing extension: kevinlaw.vscode-search-node-modules {"isMachineScoped":false,"installPreReleaseVersion":false,"pinned":false,"isApplicationScoped":false,"profileLocation":{"$mid":1,"fsPath":"/home/workspace/.openvscode-server/extensions/extensions.json","external":"file:///home/workspace/.openvscode-server/extensions/extensions.json","path":"/home/workspace/.openvscode-server/extensions/extensions.json","scheme":"file"},"productVersion":{"version":"1.102.3","date":"2025-07-30T07:13:18.101Z"}}
+2025-08-02 12:06:20.450 [info] Extracted extension to file:///home/workspace/.openvscode-server/extensions/mubaidr.vuejs-extension-pack-1.2.1-universal: mubaidr.vuejs-extension-pack
+2025-08-02 12:06:20.456 [info] Renamed to /home/workspace/.openvscode-server/extensions/mubaidr.vuejs-extension-pack-1.2.1-universal
+2025-08-02 12:06:21.903 [info] Extracted extension to file:///home/workspace/.openvscode-server/extensions/kevinlaw.vscode-search-node-modules-1.0.3-universal: kevinlaw.vscode-search-node-modules
+2025-08-02 12:06:21.906 [info] Renamed to /home/workspace/.openvscode-server/extensions/kevinlaw.vscode-search-node-modules-1.0.3-universal
+2025-08-02 12:06:21.930 [info] Extension installed successfully: kevinlaw.vscode-search-node-modules file:///home/workspace/.openvscode-server/extensions/extensions.json
+2025-08-02 12:06:28.342 [info] Getting Manifest... formulahendry.vscode-node-red
+2025-08-02 12:06:29.981 [info] Installing extension: formulahendry.vscode-node-red {"isMachineScoped":false,"installPreReleaseVersion":false,"pinned":false,"isApplicationScoped":false,"profileLocation":{"$mid":1,"fsPath":"/home/workspace/.openvscode-server/extensions/extensions.json","external":"file:///home/workspace/.openvscode-server/extensions/extensions.json","path":"/home/workspace/.openvscode-server/extensions/extensions.json","scheme":"file"},"productVersion":{"version":"1.102.3","date":"2025-07-30T07:13:18.101Z"}}
+2025-08-02 12:06:37.387 [info] Getting Manifest... eg2.vscode-npm-script
+2025-08-02 12:06:38.769 [info] Installing extension: eg2.vscode-npm-script {"isMachineScoped":false,"installPreReleaseVersion":false,"pinned":false,"isApplicationScoped":false,"profileLocation":{"$mid":1,"fsPath":"/home/workspace/.openvscode-server/extensions/extensions.json","external":"file:///home/workspace/.openvscode-server/extensions/extensions.json","path":"/home/workspace/.openvscode-server/extensions/extensions.json","scheme":"file"},"productVersion":{"version":"1.102.3","date":"2025-07-30T07:13:18.101Z"}}
+2025-08-02 12:06:40.290 [info] Extracted extension to file:///home/workspace/.openvscode-server/extensions/eg2.vscode-npm-script-0.3.11-universal: eg2.vscode-npm-script
+2025-08-02 12:06:40.297 [info] Renamed to /home/workspace/.openvscode-server/extensions/eg2.vscode-npm-script-0.3.11-universal
+2025-08-02 12:06:40.324 [info] Extension installed successfully: eg2.vscode-npm-script file:///home/workspace/.openvscode-server/extensions/extensions.json
+2025-08-02 12:06:44.202 [info] Getting Manifest... christian-kohler.npm-intellisense
+2025-08-02 12:06:45.389 [info] Installing extension: christian-kohler.npm-intellisense {"isMachineScoped":false,"installPreReleaseVersion":false,"pinned":false,"isApplicationScoped":false,"profileLocation":{"$mid":1,"fsPath":"/home/workspace/.openvscode-server/extensions/extensions.json","external":"file:///home/workspace/.openvscode-server/extensions/extensions.json","path":"/home/workspace/.openvscode-server/extensions/extensions.json","scheme":"file"},"productVersion":{"version":"1.102.3","date":"2025-07-30T07:13:18.101Z"}}
+2025-08-02 12:06:47.118 [info] Extracted extension to file:///home/workspace/.openvscode-server/extensions/christian-kohler.npm-intellisense-1.4.5-universal: christian-kohler.npm-intellisense
+2025-08-02 12:06:47.123 [info] Renamed to /home/workspace/.openvscode-server/extensions/christian-kohler.npm-intellisense-1.4.5-universal
+2025-08-02 12:06:47.145 [info] Extension installed successfully: christian-kohler.npm-intellisense file:///home/workspace/.openvscode-server/extensions/extensions.json
+2025-08-02 12:06:47.718 [info] Getting Manifest... gengjiawen.vscode-npm-dependency
+2025-08-02 12:06:49.226 [info] Installing extension: gengjiawen.vscode-npm-dependency {"isMachineScoped":false,"installPreReleaseVersion":false,"pinned":false,"isApplicationScoped":false,"profileLocation":{"$mid":1,"fsPath":"/home/workspace/.openvscode-server/extensions/extensions.json","external":"file:///home/workspace/.openvscode-server/extensions/extensions.json","path":"/home/workspace/.openvscode-server/extensions/extensions.json","scheme":"file"},"productVersion":{"version":"1.102.3","date":"2025-07-30T07:13:18.101Z"}}
+2025-08-02 12:07:02.869 [info] Getting Manifest... abusaidm.html-snippets
+2025-08-02 12:07:03.080 [info] Extracted extension to file:///home/workspace/.openvscode-server/extensions/gengjiawen.vscode-npm-dependency-1.2.2-universal: gengjiawen.vscode-npm-dependency
+2025-08-02 12:07:03.222 [info] Renamed to /home/workspace/.openvscode-server/extensions/gengjiawen.vscode-npm-dependency-1.2.2-universal
+2025-08-02 12:07:03.502 [info] Extension installed successfully: gengjiawen.vscode-npm-dependency file:///home/workspace/.openvscode-server/extensions/extensions.json
+2025-08-02 12:07:04.130 [info] Installing extension: abusaidm.html-snippets {"isMachineScoped":false,"installPreReleaseVersion":false,"pinned":false,"isApplicationScoped":false,"profileLocation":{"$mid":1,"fsPath":"/home/workspace/.openvscode-server/extensions/extensions.json","external":"file:///home/workspace/.openvscode-server/extensions/extensions.json","path":"/home/workspace/.openvscode-server/extensions/extensions.json","scheme":"file"},"productVersion":{"version":"1.102.3","date":"2025-07-30T07:13:18.101Z"}}
+2025-08-02 12:07:05.375 [info] Extracted extension to file:///home/workspace/.openvscode-server/extensions/abusaidm.html-snippets-0.2.1-universal: abusaidm.html-snippets
+2025-08-02 12:07:05.391 [info] Renamed to /home/workspace/.openvscode-server/extensions/abusaidm.html-snippets-0.2.1-universal
+2025-08-02 12:07:05.460 [info] Extension installed successfully: abusaidm.html-snippets file:///home/workspace/.openvscode-server/extensions/extensions.json
+2025-08-02 12:07:06.077 [info] Getting Manifest... htmlhint.vscode-htmlhint
+2025-08-02 12:07:06.657 [info] Installing extension: htmlhint.vscode-htmlhint {"isMachineScoped":false,"installPreReleaseVersion":false,"pinned":false,"isApplicationScoped":false,"profileLocation":{"$mid":1,"fsPath":"/home/workspace/.openvscode-server/extensions/extensions.json","external":"file:///home/workspace/.openvscode-server/extensions/extensions.json","path":"/home/workspace/.openvscode-server/extensions/extensions.json","scheme":"file"},"productVersion":{"version":"1.102.3","date":"2025-07-30T07:13:18.101Z"}}
+2025-08-02 12:07:11.181 [info] Getting Manifest... html-validate.vscode-html-validate
+2025-08-02 12:07:12.079 [info] Installing extension: html-validate.vscode-html-validate {"isMachineScoped":false,"installPreReleaseVersion":false,"pinned":false,"isApplicationScoped":false,"profileLocation":{"$mid":1,"fsPath":"/home/workspace/.openvscode-server/extensions/extensions.json","external":"file:///home/workspace/.openvscode-server/extensions/extensions.json","path":"/home/workspace/.openvscode-server/extensions/extensions.json","scheme":"file"},"productVersion":{"version":"1.102.3","date":"2025-07-30T07:13:18.101Z"}}
+2025-08-02 12:07:12.497 [info] Extracted extension to file:///home/workspace/.openvscode-server/extensions/htmlhint.vscode-htmlhint-1.11.1-universal: htmlhint.vscode-htmlhint
+2025-08-02 12:07:12.612 [info] Renamed to /home/workspace/.openvscode-server/extensions/htmlhint.vscode-htmlhint-1.11.1-universal
+2025-08-02 12:07:12.678 [info] Extension installed successfully: htmlhint.vscode-htmlhint file:///home/workspace/.openvscode-server/extensions/extensions.json
+2025-08-02 12:07:13.784 [info] Extracted extension to file:///home/workspace/.openvscode-server/extensions/html-validate.vscode-html-validate-2.10.11-universal: html-validate.vscode-html-validate
+2025-08-02 12:07:13.814 [info] Renamed to /home/workspace/.openvscode-server/extensions/html-validate.vscode-html-validate-2.10.11-universal
+2025-08-02 12:07:13.890 [info] Extension installed successfully: html-validate.vscode-html-validate file:///home/workspace/.openvscode-server/extensions/extensions.json
+2025-08-02 12:07:16.934 [info] Extracted extension to file:///home/workspace/.openvscode-server/extensions/octref.vetur-0.37.3-universal: octref.vetur
+2025-08-02 12:07:18.222 [info] Renamed to /home/workspace/.openvscode-server/extensions/octref.vetur-0.37.3-universal
+2025-08-02 12:07:18.279 [info] Extension installed successfully: xabikos.javascriptsnippets file:///home/workspace/.openvscode-server/extensions/extensions.json
+2025-08-02 12:07:18.279 [info] Extension installed successfully: tombonnike.vscode-status-bar-format-toggle file:///home/workspace/.openvscode-server/extensions/extensions.json
+2025-08-02 12:07:18.280 [info] Extension installed successfully: mubaidr.vuejs-extension-pack file:///home/workspace/.openvscode-server/extensions/extensions.json
+2025-08-02 12:07:18.280 [info] Extension installed successfully: octref.vetur file:///home/workspace/.openvscode-server/extensions/extensions.json
+2025-08-02 12:07:50.184 [info] Extracted extension to file:///home/workspace/.openvscode-server/extensions/formulahendry.vscode-node-red-0.2.0-universal: formulahendry.vscode-node-red
+2025-08-02 12:07:52.317 [info] Renamed to /home/workspace/.openvscode-server/extensions/formulahendry.vscode-node-red-0.2.0-universal
+2025-08-02 12:07:52.433 [info] Extension installed successfully: formulahendry.vscode-node-red file:///home/workspace/.openvscode-server/extensions/extensions.json
+2025-08-02 12:14:13.480 [info] Installing extension: anthropic.claude-code {"isMachineScoped":true,"installGivenVersion":true,"isApplicationScoped":false,"profileLocation":{"$mid":1,"fsPath":"/home/workspace/.openvscode-server/extensions/extensions.json","external":"file:///home/workspace/.openvscode-server/extensions/extensions.json","path":"/home/workspace/.openvscode-server/extensions/extensions.json","scheme":"file"},"productVersion":{"version":"1.102.3","date":"2025-07-30T07:13:18.101Z"}}
+2025-08-02 12:14:13.594 [info] Extracted extension to file:///home/workspace/.openvscode-server/extensions/anthropic.claude-code-1.0.67: anthropic.claude-code
+2025-08-02 12:14:13.597 [info] Renamed to /home/workspace/.openvscode-server/extensions/anthropic.claude-code-1.0.67
+2025-08-02 12:14:13.613 [info] Marked extension as removed anthropic.claude-code-1.0.29-universal
+2025-08-02 12:14:13.616 [info] Extension installed successfully: anthropic.claude-code file:///home/workspace/.openvscode-server/extensions/extensions.json
+2025-08-02 12:18:04.607 [info] [192.168.65.1][f7dec260][ManagementConnection] The client has disconnected gracefully, so the connection will be disposed.
+2025-08-02 12:18:04.720 [info] [192.168.65.1][9f688c65][ExtensionHostConnection] <64> Extension Host Process exited with code: 0, signal: null.
+2025-08-02 12:18:05.028 [info] [192.168.65.1][bff261f0][ManagementConnection] New connection established.
+2025-08-02 12:18:05.404 [info] [192.168.65.1][bd0aa54b][ExtensionHostConnection] New connection established.
+2025-08-02 12:18:05.408 [info] [192.168.65.1][bd0aa54b][ExtensionHostConnection] <4142> Launched Extension Host Process.
+2025-08-02 12:20:28.368 [info] Installing extension: anthropic.claude-code {"isMachineScoped":true,"installGivenVersion":true,"isApplicationScoped":false,"profileLocation":{"$mid":1,"fsPath":"/home/workspace/.openvscode-server/extensions/extensions.json","external":"file:///home/workspace/.openvscode-server/extensions/extensions.json","path":"/home/workspace/.openvscode-server/extensions/extensions.json","scheme":"file"},"productVersion":{"version":"1.102.3","date":"2025-07-30T07:13:18.101Z"}}
+2025-08-02 12:20:28.462 [info] Deleted existing extension from disk anthropic.claude-code /home/workspace/.openvscode-server/extensions/anthropic.claude-code-1.0.67
+2025-08-02 12:20:28.473 [info] Extracted extension to file:///home/workspace/.openvscode-server/extensions/anthropic.claude-code-1.0.67: anthropic.claude-code
+2025-08-02 12:20:28.475 [info] Renamed to /home/workspace/.openvscode-server/extensions/anthropic.claude-code-1.0.67
+2025-08-02 12:20:28.490 [info] Extension installed successfully: anthropic.claude-code file:///home/workspace/.openvscode-server/extensions/extensions.json

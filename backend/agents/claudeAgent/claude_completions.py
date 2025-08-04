@@ -115,7 +115,7 @@ class ClaudeCompletions:
   * Prevents session expiration errors
 
 * **Perplexity Sonar Pro Tool** (`perplexity_sonar_pro`)
-  **General Search Tool - USE THIS FIRST** for broad, fast searches:
+  Fast, broad web search tool:
   * Quick searches across multiple topics or sources
   * Current information retrieval (prices, news, updates)
   * Finding contact information and basic facts
@@ -123,7 +123,7 @@ class ClaudeCompletions:
   * When you need fast, accurate results from the web
 
 * **Perplexity Reasoning Pro Tool** (`perplexity_reasoning_pro`)
-  **Multi-Criteria Analysis Tool - USE THIS SECOND** for complex searches requiring reasoning:
+  Advanced analysis tool with reasoning capabilities:
   * Comparing multiple options with specific criteria
   * Analyzing eligibility requirements and complex rules
   * Understanding relationships between different factors
@@ -131,13 +131,18 @@ class ClaudeCompletions:
   * Making logical deductions from search results
 
 * **Perplexity Deep Research Tool** (`perplexity_deep_research`)
-  **Deep Dive Tool - USE THIS SPARINGLY** for exhaustive single-topic research:
-  * Comprehensive investigation of ONE specific topic only
-  * Academic or clinical research on a single subject
+  Comprehensive research tool for in-depth analysis:
+  * Comprehensive investigation of specific topics
+  * Academic or clinical research requiring depth
   * Detailed analysis requiring extensive documentation
-  * When you need the most thorough information possible on ONE thing
+  * When you need the most thorough information possible
   
-  **SEARCH WORKFLOW**: Start with Sonar Pro for general search → Use Reasoning Pro for multi-criteria analysis → Reserve Deep Research for single-topic deep dives only.
+  **PARALLEL TOOL EXECUTION**: When you need information from multiple sources, call multiple tools in parallel to save time. For example:
+  - If researching medication costs AND side effects, call both perplexity_sonar_pro and perplexity_reasoning_pro simultaneously
+  - If checking multiple aspects of a drug, call relevant FDA tools in parallel
+  - This dramatically reduces wait time - 3 tools called in parallel complete in the time of the slowest one, not the sum of all three
+  
+  Choose the most appropriate tool(s) for the specific information needed and leverage parallel execution whenever multiple data points are required.
 
 ---
 
@@ -399,86 +404,154 @@ Remember: Every dollar saved and every barrier removed helps a real person acces
                         'content': assistant_content
                     })
                     
-                    # Execute tools silently and collect results
-                    tool_results = []
-                    for block in assistant_content:
-                        if block.get('type') == 'tool_use':
-                            try:
-                                from tools import execute_tool
+                    # Collect all tool use blocks
+                    tool_blocks = [block for block in assistant_content if block.get('type') == 'tool_use']
+                    
+                    if tool_blocks:
+                        # Import required modules
+                        from agents.claudeAgent.claude_tools.tools import execute_tool
+                        import asyncio
+                        
+                        # Check if we have browser tools that need special handling
+                        has_browser_tools = any(block.get('name') in ['browser_use', 'reuse_browser_session'] for block in tool_blocks)
+                        
+                        if has_browser_tools:
+                            # Browser tools must be executed sequentially
+                            logger.info("Browser tools detected - executing sequentially")
+                            tool_results = []
+                            
+                            for block in tool_blocks:
+                                tool_name = block.get('name', 'unknown')
+                                tool_input = block.get('input', {})
+                                tool_id = block.get('id', '')
                                 
-                                tool_name = block['name']
-                                tool_input = block['input']
-                                tool_id = block['id']
-                                
-                                logger.info(f"Executing tool {tool_name} with input: {tool_input}")
-                                
-                                # Browser_use will return the live_url in its result
-                                
-                                # For browser tools, send LiveURL immediately before execution
-                                if tool_name in ['browser_use', 'reuse_browser_session']:
-                                    logger.info(f"Browser tool detected: {tool_name}")
-                                    # Quick check to get session info without executing task
-                                    from browser_use_service import browser_use_service
+                                try:
+                                    logger.info(f"Executing tool {tool_name} with input: {tool_input}")
                                     
-                                    # Try to get existing session first
-                                    active_sessions = await browser_use_service.list_active_sessions()
-                                    if active_sessions['total_sessions'] > 0:
-                                        session = active_sessions['sessions_list'][0]
-                                        logger.info(f"IMMEDIATE: Sending LiveURL from existing session: {session['live_url']}")
+                                    # For browser tools, send LiveURL immediately before execution
+                                    if tool_name in ['browser_use', 'reuse_browser_session']:
+                                        logger.info(f"Browser tool detected: {tool_name}")
+                                        from agents.claudeAgent.claude_tools.browser_use.browser_use_service import browser_use_service
+                                        
+                                        # Try to get existing session first
+                                        active_sessions = await browser_use_service.list_active_sessions()
+                                        if active_sessions['total_sessions'] > 0:
+                                            session = active_sessions['sessions_list'][0]
+                                            logger.info(f"IMMEDIATE: Sending LiveURL from existing session: {session['live_url']}")
+                                            yield {
+                                                'type': 'browser_live_url',
+                                                'live_url': session['live_url'],
+                                                'session_id': session['session_id']
+                                            }
+                                    
+                                    # Execute the tool
+                                    tool_result = await execute_tool(tool_name, tool_input)
+                                    logger.info(f"Tool {tool_name} executed successfully")
+                                    
+                                    # For browser_use or reuse_browser_session, also yield live URL if it's in the result
+                                    if (tool_name in ['browser_use', 'reuse_browser_session']) and isinstance(tool_result, dict) and 'live_url' in tool_result:
+                                        logger.info(f"SENDING browser_live_url EVENT: {tool_result['live_url']}")
                                         yield {
                                             'type': 'browser_live_url',
-                                            'live_url': session['live_url'],
-                                            'session_id': session['session_id']
+                                            'live_url': tool_result['live_url'],
+                                            'session_id': tool_result.get('session_id')
                                         }
-                                
-                                # Execute the tool
-                                tool_result = await execute_tool(tool_name, tool_input)
-                                logger.info(f"Tool {tool_name} executed successfully")
-                                
-                                # For browser_use or reuse_browser_session, also yield live URL if it's in the result
-                                if (tool_name in ['browser_use', 'reuse_browser_session']) and isinstance(tool_result, dict) and 'live_url' in tool_result:
-                                    logger.info(f"SENDING browser_live_url EVENT: {tool_result['live_url']}")
+                                    
+                                    # Yield tool result to frontend
                                     yield {
-                                        'type': 'browser_live_url',
-                                        'live_url': tool_result['live_url'],
-                                        'session_id': tool_result.get('session_id')
+                                        'type': 'tool_result',
+                                        'tool_name': tool_name,
+                                        'tool_id': tool_id,
+                                        'result': tool_result
+                                    }
+                                    
+                                    # Add to results for next message
+                                    tool_results.append({
+                                        'type': 'tool_result',
+                                        'tool_use_id': tool_id,
+                                        'content': json.dumps(tool_result) if not isinstance(tool_result, str) else tool_result
+                                    })
+                                    
+                                except Exception as e:
+                                    logger.error(f"Error executing tool {tool_name}: {str(e)}")
+                                    
+                                    # Yield tool error to frontend
+                                    yield {
+                                        'type': 'tool_error',
+                                        'tool_name': tool_name,
+                                        'tool_id': tool_id,
+                                        'error': str(e)
+                                    }
+                                    
+                                    tool_results.append({
+                                        'type': 'tool_result',
+                                        'tool_use_id': tool_id,
+                                        'content': f"Error: {str(e)}"
+                                    })
+                        else:
+                            # No browser tools - execute in parallel
+                            logger.info(f"Executing {len(tool_blocks)} tools in parallel")
+                            
+                            # Define async function to execute a single tool
+                            async def execute_single_tool(block):
+                                tool_name = block.get('name', 'unknown')
+                                tool_input = block.get('input', {})
+                                tool_id = block.get('id', '')
+                                
+                                try:
+                                    logger.info(f"Executing tool {tool_name} with input: {tool_input}")
+                                    tool_result = await execute_tool(tool_name, tool_input)
+                                    logger.info(f"Tool {tool_name} executed successfully")
+                                    
+                                    return {
+                                        'success': True,
+                                        'tool_name': tool_name,
+                                        'tool_id': tool_id,
+                                        'result': tool_result,
+                                        'content': json.dumps(tool_result) if not isinstance(tool_result, str) else tool_result
+                                    }
+                                except Exception as e:
+                                    logger.error(f"Error executing tool {tool_name}: {str(e)}")
+                                    return {
+                                        'success': False,
+                                        'tool_name': tool_name,
+                                        'tool_id': tool_id,
+                                        'error': str(e),
+                                        'content': f"Error: {str(e)}"
+                                    }
+                            
+                            # Execute all tools in parallel
+                            parallel_results = await asyncio.gather(
+                                *[execute_single_tool(block) for block in tool_blocks],
+                                return_exceptions=False
+                            )
+                            
+                            # Process results and yield to frontend
+                            tool_results = []
+                            for result in parallel_results:
+                                if result['success']:
+                                    yield {
+                                        'type': 'tool_result',
+                                        'tool_name': result['tool_name'],
+                                        'tool_id': result['tool_id'],
+                                        'result': result['result']
                                     }
                                 else:
-                                    logger.info(f"NO LIVE_URL SENT: tool_name={tool_name}, result_type={type(tool_result)}, is_dict={isinstance(tool_result, dict)}, has_live_url={'live_url' in tool_result if isinstance(tool_result, dict) else False}")
-                                    if isinstance(tool_result, dict):
-                                        logger.info(f"Tool result keys: {list(tool_result.keys())}")
-                                
-                                # Yield tool result to frontend
-                                yield {
-                                    'type': 'tool_result',
-                                    'tool_name': tool_name,
-                                    'tool_id': tool_id,
-                                    'result': tool_result
-                                }
+                                    yield {
+                                        'type': 'tool_error',
+                                        'tool_name': result['tool_name'],
+                                        'tool_id': result['tool_id'],
+                                        'error': result['error']
+                                    }
                                 
                                 # Add to results for next message
                                 tool_results.append({
                                     'type': 'tool_result',
-                                    'tool_use_id': tool_id,
-                                    'content': json.dumps(tool_result) if not isinstance(tool_result, str) else tool_result
+                                    'tool_use_id': result['tool_id'],
+                                    'content': result['content']
                                 })
-                                
-                            except Exception as e:
-                                logger.error(f"Error executing tool {tool_name}: {str(e)}")
-                                
-                                # Yield tool error to frontend
-                                yield {
-                                    'type': 'tool_error',
-                                    'tool_name': tool_name,
-                                    'tool_id': tool_id,
-                                    'error': str(e)
-                                }
-                                
-                                tool_results.append({
-                                    'type': 'tool_result',
-                                    'tool_use_id': tool_id,
-                                    'content': f"Error: {str(e)}"
-                                })
+                    else:
+                        tool_results = []
                     
                     # Add tool results as user message
                     # Tool results are already properly formatted as content blocks

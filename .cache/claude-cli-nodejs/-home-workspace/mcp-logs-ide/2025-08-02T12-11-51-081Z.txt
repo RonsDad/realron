@@ -1,0 +1,14 @@
+[
+  {
+    "debug": "Starting connection attempt",
+    "timestamp": "2025-08-02T12:14:13.168Z",
+    "sessionId": "b8704af0-4db2-4c44-af08-cd213e2d972c",
+    "cwd": "/home/workspace"
+  },
+  {
+    "debug": "Connection attempt completed in 86ms - status: connected",
+    "timestamp": "2025-08-02T12:14:13.282Z",
+    "sessionId": "b8704af0-4db2-4c44-af08-cd213e2d972c",
+    "cwd": "/home/workspace"
+  }
+]
