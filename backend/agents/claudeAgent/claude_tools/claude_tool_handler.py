@@ -3,8 +3,9 @@ Simple tool handler for Claude based on Anthropic documentation
 """
 
 import logging
+import json
 from typing import Dict, Any, List
-from .tools import execute_tool, get_tool_definitions_for_claude
+from .tools import execute_tool as execute_local_tool, get_tool_definitions_for_claude
 
 logger = logging.getLogger(__name__)
 
@@ -21,7 +22,7 @@ async def handle_tool_use_in_conversation(messages: List[Dict[str, Any]], tools:
     Returns:
         Final response after any tool executions
     """
-    from agents.claudeAgent.claude_completions import ClaudeCompletions
+    from backend.agents.claudeAgent.claude_completions import ClaudeCompletions
     
     claude = ClaudeCompletions()
     
@@ -43,7 +44,7 @@ async def handle_tool_use_in_conversation(messages: List[Dict[str, Any]], tools:
             logger.info(f"Claude used tool: {tool_use['name']} with input: {tool_use['input']}")
             
             # Execute the tool
-            tool_result = await execute_tool(tool_use["name"], tool_use["input"])
+            tool_result = await execute_tool(tool_use["name"], tool_use["input"], tools)
             
             # Add Claude's response (with tool use) to messages
             messages.append({
@@ -76,11 +77,20 @@ async def handle_tool_use_in_conversation(messages: List[Dict[str, Any]], tools:
             return response
 
 
+async def execute_tool(tool_name: str, tool_input: Dict[str, Any], available_tools: List[Dict[str, Any]]) -> Any:
+    """
+    Executes a tool, checking if it's a Telnyx tool or a local one.
+    """
+    # For now, all tools go through local execution
+    # Remote MCP tools (like Telnyx) should be handled via Claude's MCP connector, not here
+    return await execute_local_tool(tool_name, tool_input)
+
+
 async def stream_with_tool_handling(messages: List[Dict[str, Any]], tools: List[Dict[str, Any]], **kwargs):
     """
     Stream responses with tool handling.
     """
-    from agents.claudeAgent.claude_completions import ClaudeCompletions
+    from backend.agents.claudeAgent.claude_completions import ClaudeCompletions
     
     claude = ClaudeCompletions()
     

@@ -8,8 +8,8 @@ import logging
 import asyncio
 from datetime import datetime
 import os
-from agents.claudeAgent.claude_tools.clinical_agent.healthcare_agent_integration import clinical_operations_query
-from agents.claudeAgent.claude_tools.FDA.fda_drug_tools import (
+from backend.agents.claudeAgent.claude_tools.clinical_agent.healthcare_agent_integration import clinical_operations_query
+from backend.agents.claudeAgent.claude_tools.FDA.fda_drug_tools import (
     searchDrugLabel, searchAdverseEffects, getSpecialPopulations,
     getBoxedWarning, getDrugInteractions, getAbuse, getAbuseTable,
     getActiveIngredient, getAdverseReactions, getClinicalPharmacology,
@@ -18,7 +18,7 @@ from agents.claudeAgent.claude_tools.FDA.fda_drug_tools import (
     getIndicationsAndUsage, getMechanismOfAction, getOverdosage,
     getPharmacokinetics, getControlledSubstance, getNursingMothers
 )
-from agents.claudeAgent.claude_tools.pubmed.pubmed_tools import (
+from backend.agents.claudeAgent.claude_tools.pubmed.pubmed_tools import (
     pubmed_search, pubmed_fetch_abstracts, pubmed_fetch_summaries,
     pubmed_fetch_related, pubmed_fetch_citations, pubmed_search_clinical_trials,
     pubmed_mesh_search
@@ -29,39 +29,45 @@ logger = logging.getLogger(__name__)
 # Browser session creation tool - creates session and returns LiveURL immediately
 async def create_browser_session(initial_url: str = "about:blank") -> Dict[str, Any]:
     """
-    Create a browser session and return LiveURL immediately for instant panel opening.
-    This is called BEFORE browser_use to ensure the panel opens right away.
+    Create a persistent browser session with keep_alive=True and return LiveURL immediately.
+    This session will persist after agent tasks complete, allowing for reuse.
     """
     try:
         from browser_use import BrowserProfile
-        from agents.claudeAgent.claude_tools.browser_use.browser_use_service import browser_use_service
+        from backend.agents.claudeAgent.claude_tools.browser_use.browser_use_service import browser_use_service
         
-        logger.info("Creating browser session for immediate LiveURL")
+        logger.info("Creating persistent browser session with keep_alive=True")
         
-        # Create browser profile
+        # Create optimized browser profile
         browser_profile = BrowserProfile(
-            stealth=True,
-            headless=False,
+            headless=False,  # Required for LiveURL viewing
             viewport={"width": 1280, "height": 900},
-            wait_between_actions=0.1
+            wait_between_actions=0.1  # Fast actions
         )
         
-        # Create session and get LiveURL
+        # Create session with keep_alive=True for persistence
         session_result = await browser_use_service.create_live_url_session(
-            timeout_ms=900000,
+            timeout_ms=900000,  # 15 minutes
             browser_profile=browser_profile,
-            interactive=False
+            interactive=True  # Allow user interaction with browser
         )
         
-        logger.info(f"Browser session created with LiveURL: {session_result['live_url']}")
+        logger.info(f"✅ Browser session created with LiveURL: {session_result['live_url']}")
+        logger.info(f"Session ID: {session_result['session_id']}")
+        
+        # Small delay to ensure session is fully registered
+        await asyncio.sleep(0.5)  # 500ms for session registration
+        logger.info(f"Session {session_result['session_id']} fully registered and ready")
         
         # Navigate to initial URL if specified
-        if initial_url != "about:blank":
+        if initial_url and initial_url != "about:blank":
             try:
-                await browser_use_service.navigate_and_get_live_url(
+                logger.info(f"Navigating to initial URL: {initial_url}")
+                nav_result = await browser_use_service.navigate_and_get_live_url(
                     session_result['session_id'], 
                     initial_url
                 )
+                logger.info(f"Successfully navigated to {initial_url}")
             except Exception as e:
                 logger.warning(f"Failed to navigate to {initial_url}: {e}")
         
@@ -69,56 +75,77 @@ async def create_browser_session(initial_url: str = "about:blank") -> Dict[str, 
             "success": True,
             "session_id": session_result['session_id'],
             "live_url": session_result['live_url'],
-            "message": "Browser session created. Panel should be open."
+            "session_number": session_result.get('session_number', 1),
+            "display_name": session_result.get('display_name', 'Browser Session'),
+            "message": f"✅ Browser session created successfully! The browser panel should be open. Session ID: {session_result['session_id']}",
+            "instructions": "Use browser_use with this session_id to perform tasks"
         }
         
     except Exception as e:
         logger.error(f"Failed to create browser session: {str(e)}")
         return {
             "success": False,
-            "error": str(e)
+            "error": str(e),
+            "message": f"❌ Failed to create browser session: {str(e)}"
         }
+
+
+# Helper function for retry logic
+async def _browser_use_with_retry(session_id: str, task: str, max_retries: int = 3, delay: float = 1.0) -> Dict[str, Any]:
+    """
+    Execute browser task with retry logic for session registration race conditions.
+    """
+    from backend.agents.claudeAgent.claude_tools.browser_use.browser_use_service import browser_use_service
+    
+    for attempt in range(max_retries):
+        try:
+            # Add a small delay on retries to ensure session is fully registered
+            if attempt > 0:
+                logger.info(f"Retry attempt {attempt + 1} for session {session_id}")
+                await asyncio.sleep(delay)
+            
+            # Try to execute the task
+            result = await browser_use_service.execute_browser_task(session_id, task)
+            
+            # Success - return result
+            return result
+            
+        except Exception as e:
+            error_msg = str(e)
+            if ("not found" in error_msg.lower() or "expired" in error_msg.lower()) and attempt < max_retries - 1:
+                logger.warning(f"Session {session_id} not ready, retrying in {delay}s... (attempt {attempt + 1}/{max_retries})")
+                continue
+            else:
+                # Final attempt failed or different error
+                raise
 
 
 # Browser automation tool using browser-use
 async def browser_use(task: str, session_id: str = None) -> Dict[str, Any]:
     """
     Perform a browser automation task using browser-use Agent.
-    Creates a new session if session_id is not provided.
+    Requires an existing session created by create_browser_session.
     """
     try:
-        from browser_use import Agent, BrowserSession, BrowserProfile
-        from browser_use.llm import ChatOpenAI
-        
-        # Generate session_id if not provided
-        if not session_id:
-            session_id = f"claude_browser_{datetime.now().timestamp()}"
+        # Import the centralized browser service
+        from backend.agents.claudeAgent.claude_tools.browser_use.browser_use_service import browser_use_service
         
         logger.info(f"Starting browser task: {task}")
         
-        # Get browserless token
-        browserless_token = os.getenv('BROWSERLESS_API_TOKEN')
-        if not browserless_token:
-            return {"error": "BROWSERLESS_API_TOKEN not configured"}
-        
-        # Create browser profile for consistency
-        browser_profile = BrowserProfile(
-            stealth=True,
-            headless=False,  # For human-in-the-loop
-            viewport={"width": 1280, "height": 900},
-            wait_between_actions=0.1  # Reduced from 0.3 for faster actions
-        )
-        
-        # Import the centralized browser service to enforce single session
-        from agents.claudeAgent.claude_tools.browser_use.browser_use_service import browser_use_service
-        
         # Check if we have an existing session to reuse
         active_sessions = await browser_use_service.list_active_sessions()
+        available_sessions = list(active_sessions.get('sessions', {}).keys())
+        logger.info(f"Active sessions: {available_sessions}")
+        
+        # If no session_id provided, try to use the first available session
+        if not session_id and available_sessions:
+            session_id = available_sessions[0]
+            logger.info(f"No session_id provided, using first available session: {session_id}")
         
         if session_id and session_id in active_sessions.get('sessions', {}):
-            # Use existing session
-            logger.info(f"Reusing existing session: {session_id}")
-            result = await browser_use_service.execute_browser_task(session_id, task)
+            # Use existing session with retry logic
+            logger.info(f"Using session: {session_id} for task: {task}")
+            result = await _browser_use_with_retry(session_id, task)
             
             # Add session_id to result if not present
             if 'session_id' not in result:
@@ -126,12 +153,15 @@ async def browser_use(task: str, session_id: str = None) -> Dict[str, Any]:
                 
             return result
         else:
-            # No session_id provided and no existing session
-            logger.error("browser_use called without session_id and no existing session")
+            # No valid session found
+            logger.error(f"browser_use called with session_id={session_id} but session not found")
+            logger.error(f"Available sessions: {available_sessions}")
             return {
                 "success": False,
-                "error": "You must call create_browser_session first to open the browser panel, then use the returned session_id",
-                "instruction": "Please call create_browser_session first"
+                "error": "No browser session found. You must call create_browser_session first to open the browser panel.",
+                "instruction": "Please call create_browser_session first, then use browser_use with the returned session_id",
+                "provided_session_id": session_id,
+                "available_sessions": available_sessions
             }
         
     except Exception as e:
@@ -140,6 +170,102 @@ async def browser_use(task: str, session_id: str = None) -> Dict[str, Any]:
             "success": False,
             "error": str(e),
             "task": task
+        }
+
+
+# Browser session management tools
+async def check_browser_session(session_id: str = None) -> Dict[str, Any]:
+    """
+    Check the status of browser sessions.
+    If session_id is provided, checks that specific session.
+    Otherwise, lists all active sessions.
+    """
+    try:
+        from backend.agents.claudeAgent.claude_tools.browser_use.browser_use_service import browser_use_service
+        
+        if session_id:
+            # Check specific session
+            try:
+                session_info = await browser_use_service.get_session_info(session_id)
+                return {
+                    "success": True,
+                    "session_id": session_id,
+                    "status": session_info.get('status', 'unknown'),
+                    "live_url": session_info.get('live_url'),
+                    "current_url": session_info.get('current_url'),
+                    "created_at": session_info.get('created_at'),
+                    "message": f"Session {session_id} is {session_info.get('status', 'unknown')}"
+                }
+            except Exception as e:
+                return {
+                    "success": False,
+                    "session_id": session_id,
+                    "error": str(e),
+                    "message": f"Session {session_id} not found or expired"
+                }
+        else:
+            # List all sessions
+            sessions = await browser_use_service.list_active_sessions()
+            session_count = sessions.get('total_sessions', 0)
+            
+            if session_count > 0:
+                return {
+                    "success": True,
+                    "total_sessions": session_count,
+                    "sessions": sessions.get('sessions_list', []),
+                    "message": f"Found {session_count} active browser session(s)"
+                }
+            else:
+                return {
+                    "success": True,
+                    "total_sessions": 0,
+                    "sessions": [],
+                    "message": "No active browser sessions. Use create_browser_session to start one."
+                }
+                
+    except Exception as e:
+        logger.error(f"Failed to check browser sessions: {str(e)}")
+        return {
+            "success": False,
+            "error": str(e),
+            "message": f"Failed to check browser sessions: {str(e)}"
+        }
+
+
+async def close_browser_session(session_id: str = None) -> Dict[str, Any]:
+    """
+    Close browser session(s).
+    If session_id is provided, closes that specific session.
+    Otherwise, closes all active sessions.
+    """
+    try:
+        from backend.agents.claudeAgent.claude_tools.browser_use.browser_use_service import browser_use_service
+        
+        if session_id:
+            # Close specific session
+            result = await browser_use_service.close_session(session_id)
+            return {
+                "success": True,
+                "session_id": session_id,
+                "message": f"✅ Browser session {session_id} closed successfully"
+            }
+        else:
+            # Close all sessions
+            result = await browser_use_service.close_all_sessions()
+            closed_count = result.get('total_closed', 0)
+            return {
+                "success": True,
+                "closed_sessions": result.get('closed_sessions', []),
+                "total_closed": closed_count,
+                "message": f"✅ Closed {closed_count} browser session(s)"
+            }
+            
+    except Exception as e:
+        logger.error(f"Failed to close browser session(s): {str(e)}")
+        return {
+            "success": False,
+            "error": str(e),
+            "message": f"❌ Failed to close browser session(s): {str(e)}"
         }
 
 
@@ -196,10 +322,9 @@ async def perplexity_sonar_pro(query: str, search_filter: str = None, search_dom
         if search_domain_filter:
             payload["search_domain_filter"] = search_domain_filter
         
-        # Set a shorter timeout for better UX
-        timeout = aiohttp.ClientTimeout(total=30)  # 30 second timeout
+        # No timeout - let Perplexity handle it
         
-        async with aiohttp.ClientSession(timeout=timeout) as session:
+        async with aiohttp.ClientSession() as session:
             async with session.post(
                 "https://api.perplexity.ai/chat/completions",
                 headers=headers,
@@ -221,13 +346,6 @@ async def perplexity_sonar_pro(query: str, search_filter: str = None, search_dom
                         "query": query
                     }
                     
-    except asyncio.TimeoutError:
-        logger.error(f"Perplexity Sonar Pro timeout after 30 seconds")
-        return {
-            "success": False,
-            "error": "Request timed out after 30 seconds. The query might be too complex.",
-            "query": query
-        }
     except Exception as e:
         logger.error(f"Perplexity Sonar Pro error: {str(e)}")
         return {
@@ -266,10 +384,9 @@ async def perplexity_reasoning_pro(query: str, search_filter: str = None, search
         if search_domain_filter:
             payload["search_domain_filter"] = search_domain_filter
         
-        # Set a reasonable timeout for reasoning pro
-        timeout = aiohttp.ClientTimeout(total=45)  # 45 second timeout
+        # No timeout - let Perplexity handle it
         
-        async with aiohttp.ClientSession(timeout=timeout) as session:
+        async with aiohttp.ClientSession() as session:
             async with session.post(
                 "https://api.perplexity.ai/chat/completions",
                 headers=headers,
@@ -291,13 +408,6 @@ async def perplexity_reasoning_pro(query: str, search_filter: str = None, search
                         "query": query
                     }
                     
-    except asyncio.TimeoutError:
-        logger.error(f"Perplexity Reasoning Pro timeout after 45 seconds")
-        return {
-            "success": False,
-            "error": "Request timed out after 45 seconds. Consider breaking down the query into smaller parts.",
-            "query": query
-        }
     except Exception as e:
         logger.error(f"Perplexity Reasoning Pro error: {str(e)}")
         return {
@@ -334,16 +444,9 @@ async def perplexity_deep_research(query: str, reasoning_effort: str = None) -> 
         # Log the start of deep research
         logger.info(f"Starting Perplexity Deep Research with effort: {reasoning_effort}")
         
-        # Create timeout based on reasoning effort - reduced for better UX
-        timeout_seconds = {
-            "low": 30,      # 30 seconds - much faster
-            "medium": 60,   # 1 minute - reasonable for most queries
-            "high": 120     # 2 minutes - only for complex research
-        }.get(reasoning_effort, 30)  # Default to low
+        # No timeout - let Perplexity handle it
         
-        timeout = aiohttp.ClientTimeout(total=timeout_seconds)
-        
-        async with aiohttp.ClientSession(timeout=timeout) as session:
+        async with aiohttp.ClientSession() as session:
             async with session.post(
                 "https://api.perplexity.ai/chat/completions",
                 headers=headers,
@@ -367,14 +470,6 @@ async def perplexity_deep_research(query: str, reasoning_effort: str = None) -> 
                         "query": query
                     }
                     
-    except asyncio.TimeoutError:
-        logger.error(f"Perplexity Deep Research timeout after {timeout_seconds} seconds")
-        return {
-            "success": False,
-            "error": f"Request timed out after {timeout_seconds} seconds. Consider using lower reasoning_effort or breaking the query into smaller parts.",
-            "query": query,
-            "reasoning_effort": reasoning_effort
-        }
     except Exception as e:
         logger.error(f"Perplexity Deep Research error: {str(e)}")
         return {
@@ -382,6 +477,31 @@ async def perplexity_deep_research(query: str, reasoning_effort: str = None) -> 
             "error": str(e),
             "query": query
         }
+
+
+# Claude Code SDK: Generate healthcare tool and return LiveURL
+async def claude_code_generate_tool(message: str, patient_id: str, patient_data: Dict[str, Any] = None) -> Dict[str, Any]:
+    """Generate a healthcare tool using Claude Code SDK and return a LiveURL for preview."""
+    try:
+        from backend.agents.claudeAgent.claude_tools.claude_code_sdk.patient_handler import patient_request_handler
+        result = await patient_request_handler.handle_request(
+            message=message,
+            patient_id=patient_id,
+            patient_data=patient_data,
+        )
+        return {
+            "success": bool(result.get("success")),
+            "tool_id": result.get("tool_id"),
+            "live_url": result.get("live_url") or result.get("tool_url"),
+            "share_url": result.get("share_url"),
+            "message": result.get("message"),
+            "timestamp": result.get("timestamp"),
+            "session_id": result.get("session_id"),
+            "error": result.get("error"),
+        }
+    except Exception as e:
+        logger.error(f"Claude Code SDK generation failed: {str(e)}")
+        return {"success": False, "error": str(e)}
 
 
 # Tool registry
@@ -508,7 +628,7 @@ TOOLS = {
     },
     "perplexity_deep_research": {
         "function": perplexity_deep_research,
-        "description": "Deep Dive Tool - Exhaustive single-topic research. IMPORTANT: Always use 'low' effort unless user explicitly asks for comprehensive/exhaustive research:\n- Use 'low' (30s) BY DEFAULT for ALL queries - fast and efficient\n- Use 'medium' (1min) ONLY when user explicitly asks for 'comprehensive' or 'detailed' research\n- Use 'high' (2min) ONLY when user explicitly requests 'exhaustive', 'complete', or 'academic-level' analysis\n- NEVER use medium or high unless specifically requested",
+        "description": "Deep Dive Tool - Exhaustive single-topic research. IMPORTANT: Always use 'low' effort unless user explicitly asks for comprehensive/exhaustive research:\n- Use 'low' BY DEFAULT for ALL queries - fast and efficient\n- Use 'medium' ONLY when user explicitly asks for 'comprehensive' or 'detailed' research\n- Use 'high' ONLY when user explicitly requests 'exhaustive', 'complete', or 'academic-level' analysis\n- NEVER use medium or high unless specifically requested",
         "parameters": {
             "query": {
                 "type": "string",
@@ -517,7 +637,28 @@ TOOLS = {
             },
             "reasoning_effort": {
                 "type": "string",
-                "description": "Reasoning effort: 'low' for quick overview (30s), 'medium' for balanced research (1min), 'high' for exhaustive analysis (2min). DEFAULT TO 'low' unless user explicitly requests more depth.",
+                "description": "Reasoning effort: 'low' for quick overview, 'medium' for balanced research, 'high' for exhaustive analysis. DEFAULT TO 'low' unless user explicitly requests more depth.",
+                "required": False
+            }
+        }
+    },
+    "claude_code_generate_tool": {
+        "function": claude_code_generate_tool,
+        "description": "Generate a personalized healthcare tool using Claude Code SDK and return a LiveURL for instant preview.",
+        "parameters": {
+            "message": {
+                "type": "string",
+                "description": "Patient's natural language request",
+                "required": True
+            },
+            "patient_id": {
+                "type": "string",
+                "description": "Patient identifier",
+                "required": True
+            },
+            "patient_data": {
+                "type": "object",
+                "description": "Optional structured patient context (conditions, meds, etc.)",
                 "required": False
             }
         }
@@ -944,31 +1085,10 @@ TOOLS = {
                 "default": 20
             }
         }
-    },
-    "computer_use": {
-        "function": None,  # Will be imported dynamically
-        "description": "Control computer desktop with interleaved thinking for healthcare applications. Can install Claude Code CLI, create tools, and automate desktop workflows.",
-        "parameters": {
-            "task": {
-                "type": "string",
-                "description": "Task to perform on the desktop (e.g., 'Install Claude Code CLI and create medication tracker')",
-                "required": True
-            },
-            "max_iterations": {
-                "type": "integer",
-                "description": "Maximum number of thinking-action cycles",
-                "required": False,
-                "default": 10
-            },
-            "thinking_budget": {
-                "type": "integer",
-                "description": "Token budget for interleaved thinking",
-                "required": False,
-                "default": 10000
-            }
-        }
     }
+    # computer_use removed - should be enabled as native Claude capability, not a recursive tool
 }
+
 
 
 # Claude Code SDK Tool for Healthcare Tool Generation
@@ -978,7 +1098,7 @@ async def create_browser_ccsdk(tool_html: str, tool_name: str) -> Dict[str, Any]
     Returns LiveURL immediately for inline chat display.
     """
     try:
-        from agents.claudeAgent.claude_tools.claude_code_sdk.claude_code_sdk_browserless import claude_code_sdk_browserless
+        from backend.agents.claudeAgent.claude_tools.claude_code_sdk.claude_code_sdk_browserless import claude_code_sdk_browserless
         
         logger.info(f"Creating Claude Code SDK tool preview for: {tool_name}")
         
@@ -1044,18 +1164,12 @@ async def execute_tool(tool_name: str, tool_input: Dict[str, Any]) -> Dict[str, 
     if tool_name not in TOOLS:
         return {"error": f"Unknown tool: {tool_name}"}
     
-    # Handle computer_use tool with dynamic import
-    if tool_name == "computer_use":
-        try:
-            from .computer_use.computer_use_tool import execute_computer_use
-            result = await execute_computer_use(tool_input)
-            return result
-        except ImportError as e:
-            logger.error(f"Failed to import computer_use tool: {str(e)}")
-            return {"error": f"Computer use tool not available: {str(e)}"}
-        except Exception as e:
-            logger.error(f"Error executing computer_use tool: {str(e)}")
-            return {"error": f"Computer use execution failed: {str(e)}"}
+    # Ensure tool_input is a dictionary (handle empty string or None cases)
+    if not isinstance(tool_input, dict):
+        logger.warning(f"Tool {tool_name} received non-dict input: {type(tool_input)} - {tool_input}")
+        tool_input = {} if (tool_input == "" or tool_input is None) else {"input": tool_input}
+    
+    # computer_use is handled as a native Claude capability, not through this tool system
     
     tool_func = TOOLS[tool_name]["function"]
     

@@ -5,7 +5,7 @@ const util = require('util');
 const execAsync = util.promisify(exec);
 
 // Ports used by the ron-ai application
-const PORTS = [3000, 8000, 5900, 6080]; // Frontend (Next.js), Backend (Python API), VNC, NoVNC
+const PORTS = [3000, 8001, 8765, 8000, 5900, 6080]; // Frontend (Next.js), Backend (Python API on 8001), Alternative Backend (8765), Legacy Backend (8000), VNC, NoVNC
 
 async function killPort(port) {
   try {

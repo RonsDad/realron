@@ -8,6 +8,10 @@ import asyncio
 import logging
 from typing import Dict, Any, Optional
 from datetime import datetime
+from dotenv import load_dotenv
+
+# Load environment variables first
+load_dotenv()
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
@@ -122,10 +126,18 @@ class BrowserUseService:
         try:
             session, live_url, is_reused = await self.get_or_create_session()
             
+            # Get and validate OpenAI API key
+            openai_api_key = os.getenv('OPENAI_API_KEY')
+            if not openai_api_key:
+                raise ValueError("OPENAI_API_KEY environment variable is required")
+            
+            # Log that we're using the key (first 10 chars only for security)
+            logger.info(f"Using OpenAI API key: {openai_api_key[:10]}...")
+            
             # Create agent with the SAME session instance
             agent = Agent(
                 task=task,
-                llm=ChatOpenAI(model="gpt-4.1", api_key=os.getenv('OPENAI_API_KEY')),
+                llm=ChatOpenAI(model="gpt-4.1", api_key=openai_api_key),
                 browser_session=session  # Pass the ACTUAL session instance
             )
             

@@ -8,6 +8,10 @@ import asyncio
 import logging
 from typing import Dict, Any, Optional
 from datetime import datetime
+from dotenv import load_dotenv
+
+# Load environment variables first
+load_dotenv()
 
 # Configure logging
 logging.basicConfig(level=logging.INFO)
@@ -149,7 +153,7 @@ class OptimizedBrowserUseService:
                 raise ValueError("OPENAI_API_KEY environment variable is required")
             
             llm = ChatOpenAI(
-                model="gpt-4o-mini",  # Use efficient model
+                model="gpt-4.1",
                 api_key=openai_api_key
             )
             

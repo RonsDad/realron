@@ -5,7 +5,7 @@ export async function POST(request: NextRequest) {
     const body = await request.json()
     
     // Proxy request to Python backend browser-use service
-    const response = await fetch('http://localhost:8000/browser-use/session/create-with-url', {
+    const response = await fetch('http://localhost:8765/browser-use/session/create-with-url', {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',

@@ -1,39 +1,47 @@
 "use client"
 
 import { useState, useEffect, useRef } from "react"
-import { ArrowUp, Bot, BrainCircuit, User, Paperclip, Mic, Monitor } from "lucide-react"
+import { ArrowUp, Bot, BrainCircuit, User, Paperclip, Mic, Monitor, Sparkles } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Switch } from "@/components/ui/switch"
 import { Textarea } from "@/components/ui/textarea"
 import { ThemeToggle } from "@/components/theme-toggle"
-// import { PromptBuilderDialog } from "@/components/prompt-builder-dialog"
 import { AgentStatusIndicator } from "@/components/agent-status-indicator"
 import { ProviderSearchInterface } from "@/components/provider-search-interface"
 import { MedicationManagerInterface } from "@/components/medication-manager-interface"
 import { CareTeamPanel } from "@/components/care-team-panel"
 import { ComputerUseAgent } from "@/components/computer-use-agent"
 import { BrowserTimeline } from "@/components/browser-timeline"
-import { RetractableSidebar } from "@/components/retractable-sidebar"
+import { SidebarMinimal } from "@/components/sidebar-minimal"
 import { useComputerAgent } from "@/hooks/use-computer-agent"
 import { claudeAPI, parseSSEStream, type ChatMessage } from "@/lib/api"
 import type { Message } from "@/lib/types"
-import { ThinkingView } from "@/components/thinking-view"
-import { MessageBubble } from "@/components/message-bubble"
+import { ThinkingBubble } from "@/components/thinking-bubble"
+import { MessageCard } from "@/components/message-card"
 import { ResearchProgressUnified } from "@/components/research-progress-unified"
-import { ToolOutputBubble } from "@/components/tool-output-bubble"
-// import { CommandDropdown } from "@/components/command-dropdown"
+import { ToolOutputCard } from "@/components/tool-output-card"
+import { ClaudeCodePreview } from "@/components/claude-code-preview"
+import { Card } from "@/components/ui/card"
+import { ScrollArea } from "@/components/ui/scroll-area"
 
-interface ThinkingBubble {
+interface ThinkingData {
   id: string
   content: string
   timestamp: Date
 }
 
-interface ToolOutput {
+interface ToolOutputData {
   id: string
   toolName: string
   content: string
   timestamp: Date
+  status?: "pending" | "executing" | "completed" | "error"
+}
+
+interface CodeFileData {
+  name: string
+  language: string
+  content: string
 }
 
 export default function HealthCopilot() {
@@ -53,9 +61,11 @@ export default function HealthCopilot() {
   const [deepResearchMessages, setDeepResearchMessages] = useState<any[]>([])
   const [showCommandMenu, setShowCommandMenu] = useState(false)
   const [browserActions, setBrowserActions] = useState<any[]>([])
-  const [thinkingBubbles, setThinkingBubbles] = useState<ThinkingBubble[]>([])
-  const [toolOutputs, setToolOutputs] = useState<ToolOutput[]>([])
+  const [thinkingBubbles, setThinkingBubbles] = useState<ThinkingData[]>([])
+  const [toolOutputs, setToolOutputs] = useState<ToolOutputData[]>([])
   const [currentThinkingId, setCurrentThinkingId] = useState<string | null>(null)
+  const [codeFiles, setCodeFiles] = useState<CodeFileData[]>([])
+  const [codeOutput, setCodeOutput] = useState<string>("")
   const messagesEndRef = useRef<HTMLDivElement>(null)
   const inputRef = useRef<HTMLTextAreaElement>(null)
 
@@ -458,26 +468,15 @@ ${isDeepResearch ? "DEEP RESEARCH MODE: Perform comprehensive research with mult
             else if (event.type === 'content_block_start' && event.content_block?.type === 'tool_use') {
               console.log(`Tool started: ${event.content_block.name}`)
               
-              // Format tool usage message based on tool type
-              let toolMessage = ''
-              if (event.content_block.name === 'browser_use') {
-                toolMessage = `\n\n🌐 **Launching browser automation...**`
-              } else if (event.content_block.name === 'web_search') {
-                toolMessage = `\n\n🔍 **Searching the web...**`
-              } else if (event.content_block.name === 'perplexity_deep_research') {
-                toolMessage = `\n\n🔬 **Conducting deep research...**`
-              } else if (event.content_block.name === 'perplexity_reasoning_pro') {
-                toolMessage = `\n\n🧠 **Analyzing with advanced reasoning...**`
-              } else if (event.content_block.name === 'perplexity_sonar_pro') {
-                toolMessage = `\n\n📡 **Searching with Sonar Pro...**`
-              } else if (event.content_block.name === 'computer_use') {
-                toolMessage = `\n\n🖥️ **Launching computer control...**`
-              } else {
-                toolMessage = `\n\n🔧 **Using ${event.content_block.name}...**`
-              }
-              
-              fullContent += toolMessage
-              setCurrentStreamingMessage(fullContent)
+              // Add tool output with pending status
+              const toolId = `tool-${Date.now()}-${event.content_block.name}`
+              setToolOutputs(prev => [...prev, {
+                id: toolId,
+                toolName: event.content_block.name,
+                content: "Initializing...",
+                timestamp: new Date(),
+                status: "executing"
+              }])
               
               // Clear browser actions when browser_use tool is detected
               if (event.content_block.name === 'browser_use') {
@@ -663,6 +662,17 @@ ${isDeepResearch ? "DEEP RESEARCH MODE: Perform comprehensive research with mult
                 } else if (result.error) {
                   formattedResult += `\n\nError: ${result.error}`
                 }
+              } else if (event.tool_name === 'claude_code_generate_tool') {
+                // SDK generated tool with LiveURL
+                const result = typeof event.result === 'string' ? JSON.parse(event.result) : event.result
+                setToolOutputs(prev => [...prev, {
+                  id: toolId,
+                  toolName: event.tool_name,
+                  content: { live_url: result.live_url, message: result.message },
+                  timestamp: new Date(),
+                  status: "completed"
+                }])
+                formattedResult = `\n\n✅ **Tool generated**`
               } else if (event.tool_name?.startsWith('perplexity_') ||
                          event.tool_name?.startsWith('pubmed_') ||
                          event.tool_name?.startsWith('search') ||
@@ -691,7 +701,8 @@ ${isDeepResearch ? "DEEP RESEARCH MODE: Perform comprehensive research with mult
                   id: toolId,
                   toolName: event.tool_name,
                   content: toolContent,
-                  timestamp: new Date()
+                  timestamp: new Date(),
+                  status: "completed"
                 }])
                 
                 // Add brief mention in main message
@@ -837,7 +848,6 @@ ${isDeepResearch ? "DEEP RESEARCH MODE: Perform comprehensive research with mult
     }
   }
 
-
   const renderAgentInterface = () => {
     // Show deep research progress when in deep research mode
     if (isDeepResearch && Object.keys(deepResearchOutputs).length > 0) {
@@ -871,9 +881,9 @@ ${isDeepResearch ? "DEEP RESEARCH MODE: Perform comprehensive research with mult
 
   return (
     <div className="flex min-h-screen bg-background text-foreground">
-      <RetractableSidebar onOpenChange={setIsOpen} />
+      <SidebarMinimal isOpen={isOpen} onOpenChange={setIsOpen} />
 
-      <div className={`flex-1 flex flex-col transition-all duration-300 ease-out bg-background h-screen ${isOpen ? "ml-80" : "ml-0"}`}>
+      <div className={`flex-1 flex flex-col transition-all duration-300 ease-out bg-background h-screen ${isOpen ? 'ml-64' : 'ml-16'}`}>
         <div className="md:hidden">
           <ComputerUseAgent
             isVisible={agentState.isActive}
@@ -946,8 +956,8 @@ ${isDeepResearch ? "DEEP RESEARCH MODE: Perform comprehensive research with mult
                     {/* Show thinking during streaming */}
                     {isProcessing && currentReasoning && (
                       <div className="animate-slide-up mb-4">
-                        <ThinkingView
-                          reasoning={currentReasoning}
+                        <ThinkingBubble
+                          content={currentReasoning}
                           tokenCount={reasoningTokens}
                           isStreaming={true}
                           className=""
@@ -958,10 +968,11 @@ ${isDeepResearch ? "DEEP RESEARCH MODE: Perform comprehensive research with mult
                     {/* Show tool outputs */}
                     {toolOutputs.map((output) => (
                       <div key={output.id} className="animate-slide-up mb-4">
-                        <ToolOutputBubble
+                        <ToolOutputCard
                           toolName={output.toolName}
                           content={output.content}
                           timestamp={output.timestamp}
+                          status={output.status}
                           className=""
                         />
                       </div>
@@ -983,18 +994,19 @@ ${isDeepResearch ? "DEEP RESEARCH MODE: Perform comprehensive research with mult
                         {/* Show thinking view for messages with reasoning */}
                         {msg.role === "assistant" && msg.reasoning && (
                           <div className="mb-4">
-                            <ThinkingView
-                              reasoning={msg.reasoning}
+                            <ThinkingBubble
+                              content={msg.reasoning}
                               tokenCount={msg.reasoningTokens}
                               isStreaming={false}
                               className=""
                             />
                           </div>
                         )}
-                        <MessageBubble
+                        <MessageCard
                           role={msg.role}
                           content={msg.content}
                           timestamp={msg.timestamp}
+                          isStreaming={false}
                         />
                         {/* Show approval buttons for research plans */}
                         {msg.role === "assistant" && 
@@ -1042,48 +1054,55 @@ ${isDeepResearch ? "DEEP RESEARCH MODE: Perform comprehensive research with mult
               </div>
             </main>
 
-            <div className="fixed bottom-0 left-0 right-0 p-2 animate-slide-up-footer z-50">
+            <div className="fixed bottom-0 left-0 right-0 p-4 z-50">
               <div className="max-w-4xl mx-auto">
-                <div className="relative bg-card/95 backdrop-blur-xl rounded-xl p-2 shadow-2xl shadow-primary/5 border border-border">
-                  <div className="flex items-center gap-2">
-                    <div className="flex-1">
-                      <Textarea
-                        ref={inputRef}
-                        value={inputValue}
-                        onChange={handleInputChange}
-                        placeholder="Ask about symptoms, treatments, or find a specialist..."
-                        className="w-full text-sm resize-none focus-visible:ring-0 focus-visible:ring-offset-0 placeholder:text-muted-foreground/70 min-h-[40px] max-h-[100px] border border-border bg-background py-2"
-                        rows={1}
-                        onKeyDown={(e) => {
-                          if (e.key === "Enter" && !e.shiftKey) {
-                            e.preventDefault()
-                            handleSendMessage()
-                          }
-                        }}
-                      />
-                    </div>
-                    <div className="flex items-center gap-1 sm:gap-2">
-                      <Button
-                        variant="ghost"
-                        size="icon"
-                        className="w-8 h-8 hover:bg-primary/10 bg-primary rounded-md"
-                      >
-                        <Paperclip className="w-4 h-4 text-white" />
-                      </Button>
-                      <Button
-                        variant="ghost"
-                        size="icon"
-                        className="w-8 h-8 hover:bg-primary/10 bg-primary rounded-md"
-                      >
-                        <Mic className="w-4 h-4 text-white" />
-                      </Button>
-                      <Button
-                        onClick={() => handleSendMessage()}
-                        size="icon"
-                        className="w-8 h-8 hover:bg-primary/90 text-primary-foreground hover:shadow-primary/25 transition-all duration-200 rounded-md bg-primary shadow-xl"
-                      >
-                        <ArrowUp className="w-4 h-4" />
-                      </Button>
+                <Card className="bg-card/95 backdrop-blur-xl shadow-2xl border-border/50">
+                  <div className="p-4">
+                    <div className="flex items-end gap-3">
+                      <div className="flex-1">
+                        <Textarea
+                          ref={inputRef}
+                          value={inputValue}
+                          onChange={handleInputChange}
+                          placeholder="Ask about symptoms, treatments, or find a specialist..."
+                          className="w-full resize-none focus-visible:ring-1 focus-visible:ring-primary/50 placeholder:text-muted-foreground/60 min-h-[50px] max-h-[120px] bg-background/50 border-border/50"
+                          rows={2}
+                          onKeyDown={(e) => {
+                            if (e.key === "Enter" && !e.shiftKey) {
+                              e.preventDefault()
+                              handleSendMessage()
+                            }
+                          }}
+                        />
+                      </div>
+                      <div className="flex items-center gap-2">
+                        <Button
+                          variant="outline"
+                          size="icon"
+                          className="h-10 w-10 border-border/50"
+                        >
+                          <Paperclip className="w-4 h-4" />
+                        </Button>
+                        <Button
+                          variant="outline"
+                          size="icon"
+                          className="h-10 w-10 border-border/50"
+                        >
+                          <Mic className="w-4 h-4" />
+                        </Button>
+                        <Button
+                          onClick={() => handleSendMessage()}
+                          size="icon"
+                          className="h-10 w-10 bg-gradient-to-r from-primary to-primary/80 hover:from-primary/90 hover:to-primary/70 text-primary-foreground shadow-lg transition-all duration-200"
+                          disabled={isProcessing || !inputValue.trim()}
+                        >
+                          {isProcessing ? (
+                            <Sparkles className="w-4 h-4 animate-pulse" />
+                          ) : (
+                            <ArrowUp className="w-4 h-4" />
+                          )}
+                        </Button>
+                      </div>
                     </div>
                   </div>
 
@@ -1094,7 +1113,7 @@ ${isDeepResearch ? "DEEP RESEARCH MODE: Perform comprehensive research with mult
                         size="sm"
                         onClick={async () => {
                           if (agentState.isActive) {
-                            stopAgent()
+                            await stopAgent()
                           } else {
                             try {
                               await startAgent("Computer Use Agent Active", undefined)
@@ -1132,7 +1151,7 @@ ${isDeepResearch ? "DEEP RESEARCH MODE: Perform comprehensive research with mult
                       </div>
                     </div>
                   </div>
-                </div>
+                </Card>
               </div>
             </div>
           </div>
@@ -1208,8 +1227,8 @@ ${isDeepResearch ? "DEEP RESEARCH MODE: Perform comprehensive research with mult
                   {/* Show thinking during streaming */}
                   {isProcessing && currentReasoning && (
                     <div className="animate-slide-up mb-6">
-                      <ThinkingView
-                        reasoning={currentReasoning}
+                      <ThinkingBubble
+                        content={currentReasoning}
                         tokenCount={reasoningTokens}
                         isStreaming={true}
                         className=""
@@ -1220,14 +1239,26 @@ ${isDeepResearch ? "DEEP RESEARCH MODE: Perform comprehensive research with mult
                   {/* Show tool outputs */}
                   {toolOutputs.map((output) => (
                     <div key={output.id} className="animate-slide-up mb-6">
-                      <ToolOutputBubble
+                      <ToolOutputCard
                         toolName={output.toolName}
                         content={output.content}
                         timestamp={output.timestamp}
+                        status={output.status}
                         className=""
                       />
                     </div>
                   ))}
+                  
+                  {/* Show code preview if available */}
+                  {codeFiles.length > 0 && (
+                    <div className="animate-slide-up mb-6">
+                      <ClaudeCodePreview
+                        files={codeFiles}
+                        output={codeOutput}
+                        className=""
+                      />
+                    </div>
+                  )}
                   
                   {isProcessing && !currentReasoning && toolOutputs.length === 0 && (
                     <AgentStatusIndicator
@@ -1245,18 +1276,19 @@ ${isDeepResearch ? "DEEP RESEARCH MODE: Perform comprehensive research with mult
                       {/* Show thinking view for messages with reasoning */}
                       {msg.role === "assistant" && msg.reasoning && (
                         <div className="mb-6">
-                          <ThinkingView
-                            reasoning={msg.reasoning}
+                          <ThinkingBubble
+                            content={msg.reasoning}
                             tokenCount={msg.reasoningTokens}
                             isStreaming={false}
                             className=""
                           />
                         </div>
                       )}
-                      <MessageBubble
+                      <MessageCard
                         role={msg.role}
                         content={msg.content}
                         timestamp={msg.timestamp}
+                        isStreaming={false}
                       />
                       {/* Show approval buttons for research plans */}
                       {msg.role === "assistant" && 
@@ -1308,51 +1340,58 @@ ${isDeepResearch ? "DEEP RESEARCH MODE: Perform comprehensive research with mult
           </main>
 
           <div
-            className={`fixed bottom-0 p-6 transition-all duration-300 animate-slide-up-footer z-50 ${
+            className={`fixed bottom-0 p-6 transition-all duration-300 z-50 ${
               agentState.isActive ? "left-0 right-1/2" : "left-0 right-0"
-            } ${isOpen ? "ml-80" : "ml-0"}`}
+            } ${isOpen ? "ml-64" : "ml-16"}`}
           >
             <div className="container max-w-5xl mx-auto">
-              <div className="relative backdrop-blur-xl rounded-3xl p-4 shadow-2xl shadow-primary/5 font-sans leading-7 my-[-18px] mx-[-43px] py-[34px] border-border border-2 bg-card">
-                <div className="flex items-end gap-4">
-                  <div className="flex-1">
-                    <Textarea
-                      ref={inputRef}
-                      value={inputValue}
-                      onChange={handleInputChange}
-                      placeholder="Ask about symptoms, treatments, or find a specialist..."
-                      className="w-full text-lg resize-none focus-visible:ring-0 focus-visible:ring-offset-0 placeholder:text-muted-foreground/70 min-h-[60px] opacity-100 border-solid border border-border bg-background leading-10 text-foreground"
-                      rows={1}
-                      onKeyDown={(e) => {
-                        if (e.key === "Enter" && !e.shiftKey) {
-                          e.preventDefault()
-                          handleSendMessage()
-                        }
-                      }}
-                    />
-                  </div>
-                  <div className="flex items-center gap-2">
-                    <Button
-                      variant="ghost"
-                      size="icon"
-                      className="w-12 h-12 hover:bg-primary/10 bg-primary rounded-md"
-                    >
-                      <Paperclip className="w-5 h-5 text-primary-foreground" />
-                    </Button>
-                    <Button
-                      variant="ghost"
-                      size="icon"
-                      className="w-12 h-12 hover:bg-primary/10 bg-primary rounded-md"
-                    >
-                      <Mic className="w-5 h-5 text-primary-foreground" />
-                    </Button>
-                    <Button
-                      onClick={() => handleSendMessage()}
-                      size="icon"
-                      className="w-12 h-12 hover:bg-primary/90 text-primary-foreground hover:shadow-primary/25 transition-all duration-200 rounded-md bg-primary shadow-xl"
-                    >
-                      <ArrowUp className="w-5 h-5 text-primary-foreground" />
-                    </Button>
+              <Card className="bg-card/95 backdrop-blur-xl shadow-2xl border-border/50">
+                <div className="p-6">
+                  <div className="flex items-end gap-4">
+                    <div className="flex-1">
+                      <Textarea
+                        ref={inputRef}
+                        value={inputValue}
+                        onChange={handleInputChange}
+                        placeholder="Ask about symptoms, treatments, or find a specialist..."
+                        className="w-full text-base resize-none focus-visible:ring-1 focus-visible:ring-primary/50 placeholder:text-muted-foreground/60 min-h-[60px] max-h-[150px] bg-background/50 border-border/50"
+                        rows={2}
+                        onKeyDown={(e) => {
+                          if (e.key === "Enter" && !e.shiftKey) {
+                            e.preventDefault()
+                            handleSendMessage()
+                          }
+                        }}
+                      />
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <Button
+                        variant="outline"
+                        size="icon"
+                        className="h-12 w-12 border-border/50"
+                      >
+                        <Paperclip className="w-5 h-5" />
+                      </Button>
+                      <Button
+                        variant="outline"
+                        size="icon"
+                        className="h-12 w-12 border-border/50"
+                      >
+                        <Mic className="w-5 h-5" />
+                      </Button>
+                      <Button
+                        onClick={() => handleSendMessage()}
+                        size="icon"
+                        className="h-12 w-12 bg-gradient-to-r from-primary to-primary/80 hover:from-primary/90 hover:to-primary/70 text-primary-foreground shadow-lg transition-all duration-200"
+                        disabled={isProcessing || !inputValue.trim()}
+                      >
+                        {isProcessing ? (
+                          <Sparkles className="w-5 h-5 animate-pulse" />
+                        ) : (
+                          <ArrowUp className="w-5 h-5" />
+                        )}
+                      </Button>
+                    </div>
                   </div>
                 </div>
 
@@ -1401,7 +1440,7 @@ ${isDeepResearch ? "DEEP RESEARCH MODE: Perform comprehensive research with mult
                     </div>
                   </div>
                 </div>
-              </div>
+              </Card>
             </div>
           </div>
 

@@ -1,403 +1,270 @@
- 
+# CLAUDE.md
 
-## Ron AI Computer Use Tool Implementation
+This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
 
-### 1. Main Tool Implementation
+## Project Overview
 
-File: `/backend/agents/claudeAgent/claude_tools/computer_use/computer_use_tool.py`
+Ron AI Healthcare Copilot is an AI-powered healthcare advocacy assistant integrating Claude Sonnet 4 with advanced tool capabilities for medication management, provider search, and healthcare research.
 
-```python
-import anthropic
-import os
-import asyncio
-import subprocess
-import base64
-import json
-from typing import Dict, Any, List
-from datetime import datetime
+## Development Commands
 
-async def execute_computer_use(tool_input: Dict[str, Any]) -> Dict[str, Any]:
-    """Execute computer use task with interleaved thinking"""
-    
-    task = tool_input.get("task", "")
-    max_iterations = tool_input.get("max_iterations", 10)
-    thinking_budget = tool_input.get("thinking_budget", 10000)
-    
-    if not task:
-        return {
-            "success": False,
-            "error": "No task provided",
-            "task_completed": False
-        }
-    
-    # Initialize interleaved thinking agent
-    agent = InterleavedComputerAgent(
-        max_iterations=max_iterations,
-        thinking_budget=thinking_budget
-    )
-    
-    try:
-        result = await agent.execute_task(task)
-        return result
-    except Exception as e:
-        return {
-            "success": False,
-            "error": str(e),
-            "task_completed": False
-        }
-
-class InterleavedComputerAgent:
-    def __init__(self, max_iterations: int = 10, thinking_budget: int = 10000):
-        self.client = anthropic.Anthropic(api_key=os.getenv("ANTHROPIC_API_KEY"))
-        self.max_iterations = max_iterations
-        self.thinking_budget = thinking_budget
-        self.session_id = datetime.now().strftime("%Y%m%d_%H%M%S")
-        self.screenshots = []
-        self.thinking_logs = []
-        self.actions_taken = []
-        
-    async def execute_task(self, task: str) -> Dict[str, Any]:
-        """Execute task with interleaved thinking loop"""
-        
-        messages = [{
-            "role": "user",
-            "content": f"Complete this task using computer use: {task}"
-        }]
-        
-        iterations = 0
-        while iterations < self.max_iterations:
-            iterations += 1
-            
-            try:
-                response = self.client.beta.messages.create(
-                    model="claude-sonnet-4-20250514",
-                    max_tokens=16000,
-                    thinking={
-                        "type": "enabled",
-                        "budget_tokens": self.thinking_budget
-                    },
-                    tools=[
-                        {
-                            "type": "computer_20250124",
-                            "name": "computer",
-                            "display_width_px": 1024,
-                            "display_height_px": 768,
-                            "display_number": 1,
-                        },
-                        {
-                            "type": "text_editor_20250124",
-                            "name": "str_replace_editor"
-                        },
-                        {
-                            "type": "bash_20250124",
-                            "name": "bash"
-                        }
-                    ],
-                    betas=["computer-use-2025-01-24"],
-                    messages=messages
-                )
-                
-                # Process response content
-                thinking_blocks = []
-                tool_use_blocks = []
-                text_blocks = []
-                
-                for block in response.content:
-                    if hasattr(block, 'type'):
-                        if block.type == "thinking":
-                            thinking_blocks.append(block.thinking)
-                            self.thinking_logs.append(block.thinking)
-                        elif block.type == "tool_use":
-                            tool_use_blocks.append(block)
-                        elif block.type == "text":
-                            text_blocks.append(block.text)
-                
-                # Add assistant response to conversation
-                messages.append({"role": "assistant", "content": response.content})
-                
-                # If no tools used, task is complete
-                if not tool_use_blocks:
-                    return {
-                        "success": True,
-                        "task_completed": True,
-                        "screenshots": self.screenshots,
-                        "thinking_logs": self.thinking_logs,
-                        "actions_taken": self.actions_taken,
-                        "final_result": " ".join(text_blocks),
-                        "session_id": self.session_id
-                    }
-                
-                # Execute tools and collect results
-                tool_results = []
-                for tool_block in tool_use_blocks:
-                    result = await self._execute_tool_action(tool_block)
-                    tool_results.append({
-                        "type": "tool_result",
-                        "tool_use_id": tool_block.id,
-                        "content": result
-                    })
-                
-                messages.append({"role": "user", "content": tool_results})
-                
-            except Exception as e:
-                return {
-                    "success": False,
-                    "error": f"Iteration {iterations} failed: {str(e)}",
-                    "task_completed": False,
-                    "screenshots": self.screenshots,
-                    "thinking_logs": self.thinking_logs,
-                    "actions_taken": self.actions_taken,
-                    "session_id": self.session_id
-                }
-        
-        return {
-            "success": True,
-            "task_completed": False,
-            "error": f"Max iterations ({self.max_iterations}) reached",
-            "screenshots": self.screenshots,
-            "thinking_logs": self.thinking_logs,
-            "actions_taken": self.actions_taken,
-            "session_id": self.session_id
-        }
-    
-    async def _execute_tool_action(self, tool_block) -> Dict[str, Any]:
-        """Execute individual tool action"""
-        
-        if tool_block.name == "computer":
-            return await self._execute_computer_action(tool_block.input)
-        elif tool_block.name == "bash":
-            return await self._execute_bash_action(tool_block.input)
-        elif tool_block.name == "str_replace_editor":
-            return await self._execute_editor_action(tool_block.input)
-        else:
-            return {"error": f"Unknown tool: {tool_block.name}"}
-    
-    async def _execute_computer_action(self, action_input: Dict[str, Any]) -> Dict[str, Any]:
-        """Execute computer use action"""
-        
-        action = action_input.get("action")
-        self.actions_taken.append({"action": action, "input": action_input})
-        
-        try:
-            if action == "screenshot":
-                screenshot_data = await self._take_screenshot()
-                self.screenshots.append(screenshot_data)
-                return {"type": "screenshot", "data": screenshot_data}
-            
-            elif action == "left_click":
-                coordinate = action_input.get("coordinate", [0, 0])
-                return await self._click(coordinate[0], coordinate[1])
-            
-            elif action == "type":
-                text = action_input.get("text", "")
-                return await self._type_text(text)
-            
-            elif action == "key":
-                key = action_input.get("key", "")
-                return await self._press_key(key)
-            
-            elif action == "scroll":
-                coordinate = action_input.get("coordinate", [500, 400])
-                direction = action_input.get("scroll_direction", "down")
-                amount = action_input.get("scroll_amount", 3)
-                return await self._scroll(coordinate[0], coordinate[1], direction, amount)
-            
-            elif action == "left_click_drag":
-                start = action_input.get("startCoordinate", [0, 0])
-                end = action_input.get("endCoordinate", [0, 0])
-                return await self._drag(start[0], start[1], end[0], end[1])
-            
-            else:
-                return {"error": f"Unsupported computer action: {action}"}
-                
-        except Exception as e:
-            return {"error": f"Computer action failed: {str(e)}"}
-    
-    async def _take_screenshot(self) -> str:
-        """Take screenshot and return base64 data"""
-        try:
-            # Ensure screenshots directory exists
-            os.makedirs("/tmp/claude_screenshots", exist_ok=True)
-            
-            screenshot_path = f"/tmp/claude_screenshots/screenshot_{self.session_id}_{len(self.screenshots)}.png"
-            
-            # Use xwd to capture screenshot
-            cmd = f"DISPLAY=:1 xwd -root | convert xwd:- png:{screenshot_path}"
-            result = subprocess.run(cmd, shell=True, capture_output=True, text=True)
-            
-            if result.returncode == 0 and os.path.exists(screenshot_path):
-                with open(screenshot_path, "rb") as f:
-                    screenshot_data = base64.b64encode(f.read()).decode()
-                return screenshot_data
-            else:
-                return "Screenshot failed"
-                
-        except Exception as e:
-            return f"Screenshot error: {str(e)}"
-    
-    async def _click(self, x: int, y: int) -> Dict[str, Any]:
-        """Click at coordinates"""
-        try:
-            cmd = f"DISPLAY=:1 xdotool mousemove {x} {y} click 1"
-            result = subprocess.run(cmd, shell=True, capture_output=True, text=True)
-            return {"result": f"Clicked at ({x}, {y})", "success": result.returncode == 0}
-        except Exception as e:
-            return {"error": f"Click failed: {str(e)}"}
-    
-    async def _type_text(self, text: str) -> Dict[str, Any]:
-        """Type text"""
-        try:
-            # Escape special characters
-            escaped_text = text.replace("'", "\\'").replace('"', '\\"')
-            cmd = f"DISPLAY=:1 xdotool type '{escaped_text}'"
-            result = subprocess.run(cmd, shell=True, capture_output=True, text=True)
-            return {"result": f"Typed: {text}", "success": result.returncode == 0}
-        except Exception as e:
-            return {"error": f"Type failed: {str(e)}"}
-    
-    async def _press_key(self, key: str) -> Dict[str, Any]:
-        """Press key or key combination"""
-        try:
-            cmd = f"DISPLAY=:1 xdotool key {key}"
-            result = subprocess.run(cmd, shell=True, capture_output=True, text=True)
-            return {"result": f"Pressed key: {key}", "success": result.returncode == 0}
-        except Exception as e:
-            return {"error": f"Key press failed: {str(e)}"}
-    
-    async def _scroll(self, x: int, y: int, direction: str, amount: int) -> Dict[str, Any]:
-        """Scroll at coordinates"""
-        try:
-            # Map direction to xdotool button numbers
-            button = "4" if direction == "up" else "5"  # 4=up, 5=down
-            
-            cmd = f"DISPLAY=:1 xdotool mousemove {x} {y}"
-            for _ in range(amount):
-                cmd += f" && DISPLAY=:1 xdotool click {button}"
-            
-            result = subprocess.run(cmd, shell=True, capture_output=True, text=True)
-            return {"result": f"Scrolled {direction} {amount} times at ({x}, {y})", "success": result.returncode == 0}
-        except Exception as e:
-            return {"error": f"Scroll failed: {str(e)}"}
-    
-    async def _drag(self, x1: int, y1: int, x2: int, y2: int) -> Dict[str, Any]:
-        """Drag from one coordinate to another"""
-        try:
-            cmd = f"DISPLAY=:1 xdotool mousemove {x1} {y1} mousedown 1 mousemove {x2} {y2} mouseup 1"
-            result = subprocess.run(cmd, shell=True, capture_output=True, text=True)
-            return {"result": f"Dragged from ({x1}, {y1}) to ({x2}, {y2})", "success": result.returncode == 0}
-        except Exception as e:
-            return {"error": f"Drag failed: {str(e)}"}
-    
-    async def _execute_bash_action(self, action_input: Dict[str, Any]) -> Dict[str, Any]:
-        """Execute bash command"""
-        try:
-            command = action_input.get("command", "")
-            result = subprocess.run(command, shell=True, capture_output=True, text=True, timeout=30)
-            return {
-                "stdout": result.stdout,
-                "stderr": result.stderr,
-                "returncode": result.returncode
-            }
-        except Exception as e:
-            return {"error": f"Bash execution failed: {str(e)}"}
-    
-    async def _execute_editor_action(self, action_input: Dict[str, Any]) -> Dict[str, Any]:
-        """Execute text editor action"""
-        # Implement text editor actions as needed
-        return {"result": "Text editor action executed"}
-```
-[(1)](https://docs.anthropic.com/en/docs/agents-and-tools/tool-use/computer-use-tool#how-to-implement-computer-use)
-
-### 2. Tool Definition Update
-
-File: `/backend/agents/claudeAgent/claude_tools/tools.py`
-
-Add to `TOOL_DEFINITIONS`:
-
-```python
-{
-    "type": "function",
-    "function": {
-        "name": "computer_use",
-        "description": "Control computer desktop with interleaved thinking for healthcare applications",
-        "parameters": {
-            "type": "object",
-            "properties": {
-                "task": {
-                    "type": "string", 
-                    "description": "Task to perform on the desktop (e.g., 'Install Claude Code CLI and create medication tracker')"
-                },
-                "max_iterations": {
-                    "type": "integer", 
-                    "default": 10,
-                    "description": "Maximum number of thinking-action cycles"
-                },
-                "thinking_budget": {
-                    "type": "integer", 
-                    "default": 10000,
-                    "description": "Token budget for interleaved thinking"
-                }
-            },
-            "required": ["task"]
-        }
-    }
-}
-```
-
-Add to `execute_tool` function:
-
-```python
-elif tool_name == "computer_use":
-    from .computer_use.computer_use_tool import execute_computer_use
-    return await execute_computer_use(tool_input)
-```
-
-### 3. Supporting Files
-
-File: `/backend/agents/claudeAgent/claude_tools/computer_use/__init__.py`
-
-```python
-"""Computer Use Tool for Ron AI Healthcare Copilot"""
-
-from .computer_use_tool import execute_computer_use
-
-__all__ = ['execute_computer_use']
-```
-
-### 4. Environment Setup Script
-
-File: `/backend/agents/claudeAgent/claude_tools/computer_use/setup_environment.sh`
-
+### Quick Start
 ```bash
-#!/bin/bash
-# Setup desktop environment for computer use
+# Initial setup (first time only)
+./setup.sh
 
-# Install required packages
-sudo apt update
-sudo apt install -y xvfb xdotool imagemagick x11-utils openbox
+# Start EVERYTHING with one command (frontend + backend + Telnyx MCP)
+npm run dev:all
 
-# Start virtual display
-export DISPLAY=:1
-Xvfb :1 -screen 0 1024x768x24 -ac &
-
-# Start window manager
-DISPLAY=:1 openbox &
-
-# Create screenshots directory
-mkdir -p /tmp/claude_screenshots
-
-echo "Computer use environment ready on DISPLAY=:1"
+# This starts:
+# - Frontend on port 3000 (Next.js dev server)
+# - Backend on port 8001 with automatic Telnyx MCP cloud connection
+# - All 97 tools including 57 Telnyx telephony tools
+# - Hot reload enabled for both frontend and backend
 ```
 
-### 5. Integration Example
+### Backend Development
+```bash
+# Backend is automatically started with npm run dev:all
+# But if you need to run it separately:
+npm run dev:backend
 
-From `claude_completions.py`, the tool can be called as:
+# Or manually:
+cd backend
+source ../venv/bin/activate
+export TELNYX_MCP_URL="https://api.telnyx.com/mcp/sse"
+export TELNYX_MCP_MODE="sse"
+export PYTHONPATH="${PYTHONPATH}:$(pwd)"
+python3 -m uvicorn api:app --reload --port 8001
+```
 
+### Frontend Development
+```bash
+# Development server
+npm run dev
+
+# Build for production
+npm run build
+
+# Start production server
+npm start
+```
+
+### Utility Commands
+```bash
+# Kill stuck ports
+npm run kill-ports
+
+# Start Telnyx MCP server
+npm run dev:telnyx
+
+# Start computer use Docker
+npm run dev:computer-use
+
+# Start computer use AWS
+npm run dev:computer-use-aws
+```
+
+## Architecture Overview
+
+### Backend Structure (`/backend`)
+
+The backend is a FastAPI application at `backend/api.py` that serves as the main integration point for all AI agents and tools.
+
+**Key Components:**
+
+1. **Claude Agent** (`agents/claudeAgent/`)
+   - `claude_completions.py`: Core Claude Sonnet 4 integration with streaming support
+   - `claude_tools/`: Tool implementations directory containing:
+     - `tools.py`: Tool definitions and execution logic
+     - `browser_use/`: Browser automation tools
+     - `clinical_agent/`: Healthcare-specific operations
+     - `computer_use/`: Desktop automation with interleaved thinking
+     - FDA drug information tools (23 specialized endpoints)
+
+2. **Deep Research Agent** (`agents/deepResearch/`)
+   - Built on Google ADK (Agent Development Kit)
+   - Multi-agent system for comprehensive research
+   - SSE streaming for long-running tasks
+   - Specialized sub-agents for different research aspects
+
+3. **API Endpoints**:
+   - `POST /chat`: Main chat endpoint with Claude
+   - `POST /healthcare/task`: Healthcare-specific tasks
+   - `POST /code/execute`: Code execution
+   - `POST /search`: Web search
+   - `POST /api/run_sse`: Deep research with SSE
+   - WebSocket `/ws/chat`: Real-time chat streaming
+
+### Frontend Structure (`/src`)
+
+Next.js 15 application with TypeScript and React.
+
+**Key Directories:**
+- `app/`: App router pages (main chat, landing, browser)
+- `components/`: 40+ React components including healthcare-specific UIs
+- `components/ui/`: Shadcn/ui component library
+- `hooks/`: Custom React hooks for state management
+- `lib/`: API utilities and type definitions
+
+### Critical Patterns
+
+#### Adding New Tools
+
+1. Create implementation in `backend/agents/claudeAgent/claude_tools/[tool_name]/`
+2. Add definition to `TOOL_DEFINITIONS` in `tools.py`
+3. Add execution case in `execute_tool` function:
+   ```python
+   elif tool_name == "your_tool":
+       from .your_tool import execute_your_tool
+       return await execute_your_tool(tool_input)
+   ```
+4. Update Claude's system prompt if needed in `claude_completions.py`
+
+#### Browser Session Management
+
+**CRITICAL**: System enforces SINGLE browser session limits:
+- Only one browser session exists at a time
+- Sessions auto-expire after 15 minutes
+- Always use this workflow:
+  1. Call `create_browser_session` to get session_id
+  2. Immediately call `browser_use` with that session_id
+  3. Use `check_browser_session` before reusing
+  4. Use `reuse_browser_session` for follow-up actions
+
+#### Tool Execution Pattern
+
+Tools in `claude_completions.py` follow parallel execution when possible:
 ```python
-result = await execute_tool("computer_use", {
-    "task": "Open terminal, install Claude Code CLI with npm, then create a medication cost optimization dashboard",
-    "max_iterations": 15,
-    "thinking_budget": 10000
-})
+# Browser tools execute sequentially
+if has_browser_tools:
+    for block in tool_blocks:
+        result = await execute_tool(block.name, block.input)
+        
+# Other tools execute in parallel
+else:
+    tasks = [execute_tool(block.name, block.input) for block in tool_blocks]
+    results = await asyncio.gather(*tasks)
+```
 
+## Environment Configuration
 
+### Required Environment Variables
+```bash
+# In .env file (project root)
+ANTHROPIC_API_KEY=your_actual_api_key_here  # Required
+
+# Optional
+BROWSERLESS_API_TOKEN=your_token  # For browser automation
+GOOGLE_APPLICATION_CREDENTIALS=path/to/credentials.json  # For Google services
+```
+
+### Loading Order
+1. Project root `.env` loads first
+2. `backend/.env` provides overrides if present
+3. Environment variables take precedence
+
+## Key Integration Points
+
+### Claude Tools System
+
+Tools are defined in `backend/agents/claudeAgent/claude_tools/tools.py`:
+- Each tool has a JSON schema definition
+- Async execution functions handle tool logic
+- Tools integrate with Claude via function calling
+
+### Streaming Architecture
+
+Three streaming methods:
+1. **WebSocket**: Real-time chat responses
+2. **SSE**: Deep research long-running tasks
+3. **AsyncGenerator**: Claude response streaming
+
+### API Response Pattern
+
+Standard endpoint structure:
+```python
+@app.post("/endpoint")
+async def handler(request: RequestModel):
+    try:
+        # Input validation
+        # Agent/tool execution
+        # Response formatting
+        return response
+    except Exception as e:
+        logger.error(f"Error: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+```
+
+## Available Tools
+
+### Healthcare Tools
+- **clinical_operations**: Fine-tuned GPT-4 for clinical queries
+- **FDA tools** (23 endpoints): Drug labels, warnings, interactions
+- **medication_management**: Track and optimize medications
+
+### Browser Automation
+- **create_browser_session**: Initialize browser session
+- **browser_use**: Automate web interactions
+- **reuse_browser_session**: Continue existing session
+- **check_browser_session**: Verify session health
+
+### Research Tools
+- **perplexity_sonar_pro**: Fast web search
+- **perplexity_reasoning_pro**: Advanced analysis
+- **perplexity_deep_research**: Comprehensive research
+
+### System Tools
+- **computer_use**: Desktop automation with thinking
+- **code_execution**: Run Python code
+- **web_search**: General web search
+
+## Performance Optimizations
+
+1. **Prompt Caching**: Claude caches prompts automatically
+2. **Parallel Tool Execution**: Non-browser tools run concurrently
+3. **Session Reuse**: Browser sessions persist for 15 minutes
+4. **Streaming Responses**: Improves perceived performance
+
+## Common Tasks
+
+### Running a Single Test
+```bash
+# No formal test suite exists
+# Use API docs for manual testing
+open http://localhost:8000/docs
+```
+
+### Debugging Backend
+```bash
+# Check logs
+tail -f api.log
+
+# Run with debug logging
+LOG_LEVEL=DEBUG python3 backend/api.py
+```
+
+### Building for Production
+```bash
+# Frontend build
+npm run build
+
+# Backend doesn't require build
+# Deploy with: uvicorn backend.api:app --host 0.0.0.0 --port 8000
+```
+
+## Project Dependencies
+
+### Core Python Packages
+- `anthropic`: Claude API client
+- `fastapi` & `uvicorn`: Web framework
+- `browser-use>=0.5.5`: Browser automation
+- `google-adk>=0.1.0`: Agent Development Kit
+- `google-generativeai`: Gemini integration
+
+### Core JavaScript Packages
+- `next@15.2.4`: React framework
+- `react@18`: UI library
+- `@radix-ui/*`: Component primitives
+- `tailwindcss`: Styling
+- `framer-motion`: Animations

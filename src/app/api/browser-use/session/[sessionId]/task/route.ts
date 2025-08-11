@@ -15,7 +15,7 @@ export async function POST(
     }
 
     // Forward the request to the backend FastAPI server
-    const backendUrl = process.env.BACKEND_URL || 'http://localhost:8000'
+    const backendUrl = process.env.BACKEND_URL || 'http://localhost:8765'
     const response = await fetch(`${backendUrl}/browser-use/session/${params.sessionId}/task`, {
       method: 'POST',
       headers: {

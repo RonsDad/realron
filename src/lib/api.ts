@@ -1,5 +1,9 @@
 // API service for communicating with Claude agent backend
-const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000'
+// In browser, go through Next.js API routes to avoid CORS/startup races
+const API_BASE_URL =
+  typeof window !== 'undefined'
+    ? (process.env.NEXT_PUBLIC_API_URL ?? '/api')
+    : (process.env.NEXT_PUBLIC_API_URL ?? 'http://localhost:8000')
 
 export interface ChatMessage {
   role: 'user' | 'assistant'
@@ -49,39 +53,39 @@ export class ClaudeAPI {
     this.baseURL = baseURL
   }
 
+  private async sleep(ms: number) { return new Promise(r => setTimeout(r, ms)) }
+
+  private async fetchWithRetry(input: RequestInfo | URL, init: RequestInit, attempts = 5, baseDelayMs = 400): Promise<Response> {
+    let lastErr: any
+    for (let i = 0; i < attempts; i++) {
+      try {
+        const res = await fetch(input, init)
+        if (res.ok) return res
+        lastErr = new Error(`API error: ${res.status} ${res.statusText}`)
+      } catch (e) {
+        lastErr = e
+      }
+      await this.sleep(baseDelayMs * Math.pow(1.5, i))
+    }
+    throw lastErr
+  }
+
   async chat(request: ChatRequest): Promise<ChatResponse> {
-    const response = await fetch(`${this.baseURL}/chat`, {
+    const response = await this.fetchWithRetry(`${this.baseURL}/chat`, {
       method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-      },
+      headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(request),
     })
-
-    if (!response.ok) {
-      throw new Error(`API error: ${response.status} ${response.statusText}`)
-    }
-
     return response.json()
   }
 
   async chatStream(request: ChatRequest): Promise<ReadableStream<Uint8Array>> {
-    const response = await fetch(`${this.baseURL}/chat`, {
+    const response = await this.fetchWithRetry(`${this.baseURL}/chat`, {
       method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-      },
+      headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ ...request, stream: true }),
     })
-
-    if (!response.ok) {
-      throw new Error(`API error: ${response.status} ${response.statusText}`)
-    }
-
-    if (!response.body) {
-      throw new Error('No response body')
-    }
-
+    if (!response.body) throw new Error('No response body')
     return response.body
   }
 

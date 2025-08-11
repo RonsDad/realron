@@ -5,10 +5,13 @@ Exposes all Claude 4 capabilities through REST API endpoints
 
 import logging
 from dotenv import load_dotenv
+import os
 
-# Load environment variables from .env file
-load_dotenv()
-from fastapi import FastAPI, HTTPException, UploadFile, File, BackgroundTasks, WebSocket, WebSocketDisconnect
+# Load environment variables - project root .env FIRST, then backend/.env as override
+load_dotenv(os.path.join(os.path.dirname(os.path.dirname(__file__)), ".env"))
+BACKEND_ENV_PATH = os.path.join(os.path.dirname(__file__), ".env")
+load_dotenv(BACKEND_ENV_PATH)
+from fastapi import FastAPI, HTTPException, UploadFile, File, BackgroundTasks, WebSocket, WebSocketDisconnect, Request
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import StreamingResponse
 from pydantic import BaseModel, Field
@@ -21,10 +24,11 @@ import tempfile
 import shutil
 from browser_use import Agent, BrowserSession, BrowserProfile
 from browser_use.llm import ChatOpenAI
+import httpx
+import anthropic
 
-# Load environment variables FIRST before any imports that need them
-from dotenv import load_dotenv
-load_dotenv('/Users/timhunter/ron-ai/.env')
+# Also load project-level .env if present
+load_dotenv()
 
 # Configure logging
 logging.basicConfig(
@@ -37,12 +41,17 @@ logging.basicConfig(
 )
 logger = logging.getLogger(__name__)
 
-from agents.claudeAgent.claude_completions import ClaudeCompletions
-from agents.claudeAgent.claude_tools.browser_use.browser_live_url_manager import live_url_manager
+try:
+    from backend.agents.claudeAgent.claude_completions import ClaudeCompletions
+    logger.info("Claude completions module imported successfully")
+except Exception as e:
+    logger.error(f"Failed to import Claude completions: {e}")
+    ClaudeCompletions = None
+from backend.agents.claudeAgent.claude_tools.browser_use.browser_live_url_manager import live_url_manager
 
 # Import tools
 try:
-    from agents.claudeAgent.claude_tools.tools import get_tool_definitions_for_claude, execute_tool
+    from backend.agents.claudeAgent.claude_tools.tools import get_tool_definitions_for_claude, execute_tool
     TOOLS_AVAILABLE = True
 except ImportError as e:
     logger.warning(f"Tools not available: {e}")
@@ -50,15 +59,15 @@ except ImportError as e:
 
 # Optional imports - disable for now to focus on completions
 try:
-    from agents.claudeAgent.claude_tools.clinical_agent.healthcare_agent_integration import HealthcareAgentIntegration
-    from agents.claudeAgent.claude_tools.browser_use.claude_browser_integration import ClaudeBrowserIntegration
+    from backend.agents.claudeAgent.claude_tools.clinical_agent.healthcare_agent_integration import HealthcareAgentIntegration
+    from backend.agents.claudeAgent.claude_tools.browser_use.claude_browser_integration import ClaudeBrowserIntegration
     ADVANCED_FEATURES = True
 except ImportError:
     ADVANCED_FEATURES = False
 
 # Browser-Use Integration (always available)
 try:
-    from agents.claudeAgent.claude_tools.browser_use.browser_use_service import browser_use_service, BrowserUseService
+    from backend.agents.claudeAgent.claude_tools.browser_use.browser_use_service import browser_use_service, BrowserUseService
     BROWSER_USE_AVAILABLE = True
     logger.info("Browser-Use service imported successfully")
 except ImportError as e:
@@ -67,7 +76,7 @@ except ImportError as e:
 
 # Claude Code SDK Integration for Tool Generation
 try:
-    from agents.claudeAgent.claude_tools.claude_code_sdk.api_integration import claude_code_api
+    from backend.agents.claudeAgent.claude_tools.claude_code_sdk.api_integration import claude_code_api
     CLAUDE_CODE_SDK_AVAILABLE = True
     logger.info("Claude Code SDK integration loaded successfully")
 except ImportError as e:
@@ -78,7 +87,7 @@ except ImportError as e:
 # Deep Research Agent Integration (optional)
 try:
     # Import using the wrapper which handles all the path and import logic
-    from agents.deepResearch.deep_research_agent import root_agent as deep_research_root_agent
+    from backend.agents.deepResearch.deep_research_agent import root_agent as deep_research_root_agent
     DEEP_RESEARCH_AVAILABLE = True
     
     if DEEP_RESEARCH_AVAILABLE:
@@ -145,7 +154,16 @@ app.add_middleware(
 
 # Initialize agents
 logger.info("Initializing Claude completions agent...")
-claude_agent = ClaudeCompletions()
+if ClaudeCompletions is not None:
+    try:
+        claude_agent = ClaudeCompletions()
+        logger.info("Claude agent initialized successfully")
+    except Exception as e:
+        logger.error(f"Failed to initialize Claude agent: {e}")
+        claude_agent = None
+else:
+    logger.error("ClaudeCompletions class not available")
+    claude_agent = None
 
 if ADVANCED_FEATURES:
     logger.info("Initializing healthcare agent...")
@@ -245,6 +263,23 @@ class BrowserUseTaskRequest(BaseModel):
 class BrowserUseCreateWithURLRequest(BaseModel):
     url: str
     timeout_ms: int = Field(900000, gt=0)  # 15 minutes default
+# MCP Connector test models
+class MCPConnectorTestRequest(BaseModel):
+    server_url: Optional[str] = None
+    server_name: str = Field(default="telnyx")
+    authorization_token: Optional[str] = None
+    prompt: str = Field(
+        default=(
+            "List only the names of tools available from the MCP server as a JSON array. "
+            "If you cannot connect, reply with the single word 'unavailable'."
+        )
+    )
+
+class MCPConnectorTestResponse(BaseModel):
+    success: bool
+    reason: Optional[str] = None
+    http_status: Optional[int] = None
+    raw: Optional[Dict[str, Any]] = None
 
 
 # File storage (in production, use proper storage like S3)
@@ -541,6 +576,8 @@ async def chat(request: ChatRequest):
     logger.info(f"TOOLS_AVAILABLE: {TOOLS_AVAILABLE}")
     
     try:
+        if claude_agent is None:
+            raise HTTPException(status_code=503, detail="Claude agent not initialized. Check ANTHROPIC_API_KEY.")
         # Convert messages to format expected by Claude
         messages = [
             {"role": msg.role, "content": msg.content}
@@ -551,62 +588,21 @@ async def chat(request: ChatRequest):
         system_prompt = request.system_prompt if request.system_prompt else None
         # Note: claude_agent.stream_complete() will use its default healthcare system prompt if system_prompt is None
         
-        # Build tools list
+        # Build tools list - Claude ALWAYS gets ALL his tools
         native_tools = []
+        
+        # ALWAYS give Claude ALL tools - he decides what to use
         enabled_tools = []
+        if TOOLS_AVAILABLE:
+            enabled_tools.extend(get_tool_definitions_for_claude())
         
-        # Separate native and custom tools
-        for tool in request.tools:
-            if tool in ["bash", "text_editor"]:
-                native_tools.append(tool)
-            elif TOOLS_AVAILABLE:
-                # Check if it's a custom tool we support
-                # All available custom tools
-                fda_tools = [
-                    "searchDrugLabel", "searchAdverseEffects", "getSpecialPopulations",
-                    "getBoxedWarning", "getDrugInteractions", "getAbuse", "getAbuseTable",
-                    "getActiveIngredient", "getAdverseReactions", "getClinicalPharmacology",
-                    "getContraindications", "getDescription", "getDosageAndAdministration",
-                    "getWarnings", "getPregnancy", "getPediatricUse", "getGeriatricUse",
-                    "getIndicationsAndUsage", "getMechanismOfAction", "getOverdosage",
-                    "getPharmacokinetics", "getControlledSubstance", "getNursingMothers"
-                ]
-                
-                pubmed_tools = [
-                    "pubmed_search", "pubmed_fetch_abstracts", "pubmed_fetch_summaries",
-                    "pubmed_fetch_related", "pubmed_fetch_citations", "pubmed_search_clinical_trials",
-                    "pubmed_mesh_search"
-                ]
-                
-                browser_tools = [
-                    "browser", "browser_use", "create_browser_session", "reuse_browser_session", "check_browser_session"
-                ]
-                
-                perplexity_tools = [
-                    "perplexity_deep_research", "perplexity_reasoning_pro", "perplexity_sonar_pro"
-                ]
-                
-                other_tools = [
-                    "clinical_operations", "web_search", "execute_code", "computer_use"
-                ]
-                
-                all_custom_tools = browser_tools + perplexity_tools + other_tools + fda_tools + pubmed_tools
-                
-                if tool in all_custom_tools:
-                    # Get tool definitions
-                    tool_defs = get_tool_definitions_for_claude()
-                    # Handle browser tool aliases
-                    tool_name = "browser_use" if tool == "browser" else tool
-                    custom_tool = next((t for t in tool_defs if t["name"] == tool_name), None)
-                    if custom_tool:
-                        enabled_tools.append(custom_tool)
-                        logger.info(f"Added custom tool: {custom_tool['name']}")
-                    else:
-                        logger.warning(f"Custom tool definition not found: {tool_name}")
+        # Telnyx tools are now handled via Claude's MCP connector
         
-        logger.info(f"Final tools - native: {native_tools}, custom: {[t.get('name') for t in enabled_tools]}")
-        logger.info(f"TOOLS_AVAILABLE: {TOOLS_AVAILABLE}")
-        logger.info(f"Enabled tools details: {enabled_tools}")
+        logger.debug(f"Giving Claude ALL {len(enabled_tools)} tools")
+        
+        logger.debug(f"Final tools - native: {native_tools}, custom: {[t.get('name') for t in enabled_tools]}")
+        logger.debug(f"TOOLS_AVAILABLE: {TOOLS_AVAILABLE}")
+        logger.debug(f"Enabled tools details: {enabled_tools}")
         
         # Handle streaming with tool execution
         if request.stream:
@@ -615,11 +611,11 @@ async def chat(request: ChatRequest):
                 try:
                     # Create a queue for LiveURL events
                     event_queue = asyncio.Queue()
-                    
+
                     # Set the event queue for live_url_manager
                     live_url_manager.set_event_queue(event_queue)
-                    
-                    # Create tasks for both the Claude stream and LiveURL events
+
+                    # Create task for the Claude stream
                     async def process_claude_stream():
                         try:
                             async for event in claude_agent.stream_complete(
@@ -630,28 +626,22 @@ async def chat(request: ChatRequest):
                                 thinking_budget=request.thinking_budget,
                                 tools=native_tools,  # Only native tools as strings
                                 custom_tools=enabled_tools,  # Custom tools as dicts
-                                system_prompt=system_prompt
+                                system_prompt=system_prompt,
                             ):
                                 await event_queue.put(event)
                         finally:
                             await event_queue.put(None)  # Signal completion
-                    
+
                     # Start the Claude stream processing
-                    claude_task = asyncio.create_task(process_claude_stream())
-                    
-                    # Process events from both sources
+                    _ = asyncio.create_task(process_claude_stream())
+
+                    # Process events
                     while True:
-                        try:
-                            event = await asyncio.wait_for(event_queue.get(), timeout=0.1)
-                            if event is None:  # Stream completed
-                                break
-                            yield f"data: {json.dumps(event)}\n\n"
-                        except asyncio.TimeoutError:
-                            # Check if task is done
-                            if claude_task.done():
-                                break
-                            continue
-                        
+                        event = await event_queue.get()
+                        if event is None:  # Stream completed
+                            break
+                        yield f"data: {json.dumps(event)}\n\n"
+
                 except Exception as e:
                     logger.error(f"STREAMING ERROR: {str(e)}")
                     yield f"data: {json.dumps({'type': 'error', 'error': str(e)})}\n\n"
@@ -664,10 +654,55 @@ async def chat(request: ChatRequest):
                 media_type="text/event-stream"
             )
         
-        # Non-streaming response
-        if enabled_tools:
+        # Non-streaming response - but with many tools, Anthropic requires streaming
+        # So we'll force streaming when we have many tools
+        if len(enabled_tools) > 10:
+            # Force streaming for large tool sets
+            logger.info(f"Forcing streaming mode due to {len(enabled_tools)} tools")
+            request.stream = True
+            
+            async def stream_generator():
+                try:
+                    event_queue = asyncio.Queue()
+                    live_url_manager.set_event_queue(event_queue)
+
+                    async def process_claude_stream():
+                        try:
+                            async for event in claude_agent.stream_complete(
+                                messages=messages,
+                                max_tokens=request.max_tokens,
+                                temperature=request.temperature,
+                                enable_thinking=request.enable_thinking,
+                                thinking_budget=request.thinking_budget,
+                                tools=native_tools,
+                                custom_tools=enabled_tools,
+                                system_prompt=system_prompt,
+                            ):
+                                await event_queue.put(event)
+                        finally:
+                            await event_queue.put(None)
+
+                    _ = asyncio.create_task(process_claude_stream())
+
+                    while True:
+                        event = await event_queue.get()
+                        if event is None:
+                            break
+                        yield f"data: {json.dumps(event)}\n\n"
+
+                except Exception as e:
+                    logger.error(f"STREAMING ERROR: {str(e)}")
+                    yield f"data: {json.dumps({'type': 'error', 'error': str(e)})}\n\n"
+                finally:
+                    live_url_manager.set_event_queue(None)
+            
+            return StreamingResponse(
+                stream_generator(),
+                media_type="text/event-stream"
+            )
+        elif enabled_tools:
             # Use complete_with_tools when we have custom tools
-            from agents.claudeAgent.claude_tools.claude_tool_handler import handle_tool_use_in_conversation
+            from backend.agents.claudeAgent.claude_tools.claude_tool_handler import handle_tool_use_in_conversation
             
             all_tools = []
             # Add native tools
@@ -675,14 +710,18 @@ async def chat(request: ChatRequest):
                 if tool == "bash":
                     all_tools.append({"type": "bash_20250124", "name": "bash"})
                 elif tool == "text_editor":
-                    all_tools.append({"type": "text_editor_20250728", "name": "str_replace_based_edit_tool"})
-                elif tool == "web_search":
-                    all_tools.append({"type": "web_search_20250305", "name": "web_search"})
+                    all_tools.append({"type": "text_editor_20250124", "name": "str_replace_based_edit_tool"})
             
             # Add custom tools
             all_tools.extend(enabled_tools)
             
             result = await handle_tool_use_in_conversation(messages, all_tools)
+            # Ensure we return a proper dict response
+            if isinstance(result, dict) and "success" in result:
+                if result.get("success"):
+                    return {"success": True, "response": result.get("response", result)}
+                else:
+                    return {"success": False, "error": result.get("error", "Unknown error")}
             return result
         else:
             # Regular completion without custom tools
@@ -693,6 +732,12 @@ async def chat(request: ChatRequest):
                 enable_thinking=request.enable_thinking,
                 thinking_budget=request.thinking_budget
             )
+            # Ensure we return a proper dict response
+            if isinstance(result, dict) and "success" in result:
+                if result.get("success"):
+                    return {"success": True, "response": result.get("response", result)}
+                else:
+                    return {"success": False, "error": result.get("error", "Unknown error")}
             return result
         
     except Exception as e:
@@ -756,6 +801,8 @@ async def execute_code(request: CodeExecutionRequest):
     Execute code with Claude's code execution tool.
     """
     try:
+        if claude_agent is None:
+            raise HTTPException(status_code=503, detail="Claude agent not initialized. Check ANTHROPIC_API_KEY.")
         result = await claude_agent.execute_code_with_verification(
             code_task=request.code_task,
             verify_output=request.verify_output,
@@ -775,6 +822,8 @@ async def web_search(request: WebSearchRequest):
     Perform web search and analysis.
     """
     try:
+        if claude_agent is None:
+            raise HTTPException(status_code=503, detail="Claude agent not initialized. Check ANTHROPIC_API_KEY.")
         result = await claude_agent.search_and_analyze(
             query=request.query,
             num_results=request.num_results,
@@ -821,6 +870,8 @@ async def analyze_files(request: FileAnalysisRequest):
     Analyze uploaded files with Claude.
     """
     try:
+        if claude_agent is None:
+            raise HTTPException(status_code=503, detail="Claude agent not initialized. Check ANTHROPIC_API_KEY.")
         # Get file paths
         file_paths = [
             uploaded_files.get(file_id)
@@ -845,6 +896,51 @@ async def analyze_files(request: FileAnalysisRequest):
         
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
+
+
+@app.post("/mcp/test-connector", response_model=MCPConnectorTestResponse)
+async def test_mcp_connector(request: MCPConnectorTestRequest):
+    """
+    Perform a smoke test against Anthropic Messages API with MCP connector enabled.
+    Uses env vars unless overridden in the request body:
+      - ANTHROPIC_API_KEY
+      - TELNYX_MCP_URL
+      - TELNYX_MCP_TOKEN (or TELNYX_API_KEY)
+    """
+    anth_key = os.getenv("ANTHROPIC_API_KEY")
+    if not anth_key:
+        return MCPConnectorTestResponse(success=False, reason="Missing ANTHROPIC_API_KEY in environment")
+
+    server_url = request.server_url or os.getenv("TELNYX_MCP_URL")
+    if not server_url:
+        return MCPConnectorTestResponse(success=False, reason="Missing TELNYX_MCP_URL (server_url)")
+
+    auth_token = request.authorization_token or os.getenv("TELNYX_MCP_TOKEN") or os.getenv("TELNYX_API_KEY")
+    if not auth_token:
+        return MCPConnectorTestResponse(success=False, reason="Missing TELNYX_MCP_TOKEN or TELNYX_API_KEY")
+
+    try:
+        client = anthropic.Anthropic(api_key=anth_key)
+        resp = client.messages.create(
+            model="claude-sonnet-4-20250514",
+            max_tokens=256,
+            messages=[{"role": "user", "content": request.prompt}],
+            mcp_servers=[
+                {
+                    "type": "url",
+                    "url": server_url,
+                    "name": request.server_name,
+                    "authorization_token": auth_token,
+                }
+            ],
+            extra_headers={"anthropic-beta": "mcp-client-2025-04-04"},
+        )
+        # If the API call succeeded, return success with raw response
+        return MCPConnectorTestResponse(success=True, http_status=200, raw=resp.model_dump())
+    except anthropic.APIError as e:
+        return MCPConnectorTestResponse(success=False, reason=str(e), http_status=getattr(e, "status_code", None))
+    except Exception as e:
+        return MCPConnectorTestResponse(success=False, reason=str(e))
 
 
 # Deep Research Agent Endpoints (if available)
@@ -1148,6 +1244,18 @@ Please:
 if CLAUDE_CODE_SDK_AVAILABLE and claude_code_api:
     app.include_router(claude_code_api)
 
+# Telnyx Webhook Handler
+from backend.agents.claudeAgent.claude_tools.telnyx_webhook_handler import router as telnyx_webhook_router
+app.include_router(telnyx_webhook_router, prefix="/v1", tags=["Telnyx Webhooks"])
+
+# Telnyx Remote MCP Gateway (streamable HTTP + SSE fallback)
+try:
+    from backend.agents.claudeAgent.claude_tools.telnyx_mcp_gateway import router as telnyx_mcp_gateway_router
+    app.include_router(telnyx_mcp_gateway_router, prefix="", tags=["MCP Gateway"])
+    logger.info("Telnyx MCP gateway router mounted at /adapters/{name}/...")
+except Exception as e:
+    logger.warning(f"Failed to mount Telnyx MCP gateway router: {e}")
+
 
 @app.get("/health")
 async def health_check():
@@ -1166,7 +1274,7 @@ async def health_check():
 
 
 @app.get("/browser-use/test-connection")
-async def test_browserless_connection():
+async def test_browserless_connection(request: Request):
     """Test the browserless connection without creating a full session."""
     if not BROWSER_USE_AVAILABLE:
         raise HTTPException(status_code=503, detail="Browser-use integration is not available")
@@ -1180,30 +1288,35 @@ async def test_browserless_connection():
         raise HTTPException(status_code=422, detail="ANTHROPIC_API_KEY environment variable is required")
     
     try:
-        # Test basic browserless connection
-        import requests
+        # Test basic browserless connection (async)
         test_url = f"https://production-sfo.browserless.io/json/version?token={browserless_token}"
-        response = requests.get(test_url, timeout=10)
-        
+        client: httpx.AsyncClient = request.app.state.http if hasattr(request.app.state, "http") else httpx.AsyncClient()
+        try:
+            response = await client.get(test_url, timeout=10)
+        finally:
+            # Only close if we created a temporary client
+            if not hasattr(request.app.state, "http"):
+                await client.aclose()
+
         if response.status_code == 200:
             return {
                 "status": "success",
                 "message": "Browserless connection successful",
                 "browserless_version": response.json(),
                 "websocket_url": f"wss://production-sfo.browserless.io/chrome/stealth?token={browserless_token}",
-                "timestamp": datetime.now().isoformat()
+                "timestamp": datetime.now().isoformat(),
             }
         else:
             return {
-                "status": "error", 
+                "status": "error",
                 "message": f"Browserless connection failed with status {response.status_code}",
-                "timestamp": datetime.now().isoformat()
+                "timestamp": datetime.now().isoformat(),
             }
     except Exception as e:
         return {
             "status": "error",
             "message": f"Failed to test browserless connection: {str(e)}",
-            "timestamp": datetime.now().isoformat()
+            "timestamp": datetime.now().isoformat(),
         }
 
 
@@ -1251,7 +1364,7 @@ async def create_browser_use_session_with_url(request: BrowserUseCreateWithURLRe
     logger.info(f"Creating browser-use session and navigating to {request.url}")
     
     try:
-        from agents.claudeAgent.claude_tools.browser_use.browser_use_service import create_browser_session_with_url
+        from backend.agents.claudeAgent.claude_tools.browser_use.browser_use_service import create_browser_session_with_url
         result = await create_browser_session_with_url(request.url, request.timeout_ms)
         
         logger.info(f"Created browser-use session {result['session_id']} and navigated to {request.url}")
@@ -1531,10 +1644,39 @@ async def cleanup_old_files():
 
 @app.on_event("startup")
 async def startup_event():
-    """Start background tasks on startup."""
+    """Start background tasks and connect to services on startup."""
     asyncio.create_task(cleanup_old_files())
+    # Initialize a shared AsyncClient for outbound HTTP
+    try:
+        if not hasattr(app.state, "http") or app.state.http is None:
+            app.state.http = httpx.AsyncClient(
+                http2=True,
+                timeout=httpx.Timeout(connect=5, read=60, write=30, pool=5),
+                limits=httpx.Limits(max_keepalive_connections=50, max_connections=200),
+            )
+            logger.info("Initialized shared AsyncHTTP client")
+    except Exception as e:
+        logger.warning(f"Failed to initialize shared HTTP client: {e}")
+    
+    # Telnyx MCP is now handled via Claude's native MCP connector
+    logger.info("Telnyx MCP will be connected via Claude's native MCP connector when needed")
+
+@app.on_event("shutdown")
+async def shutdown_event():
+    """Disconnect from services on shutdown."""
+    # Telnyx MCP connections are managed by Claude's MCP connector
+    pass
+    # Close shared HTTP client
+    try:
+        if hasattr(app.state, "http") and app.state.http is not None:
+            await app.state.http.aclose()
+            app.state.http = None
+            logger.info("Closed shared AsyncHTTP client")
+    except Exception as e:
+        logger.warning(f"Failed to close shared HTTP client: {e}")
 
 
 if __name__ == "__main__":
-    import uvicorn
-    uvicorn.run(app, host="0.0.0.0", port=8000)
+    import uvicorn, os
+    port = int(os.getenv("PORT", "8000"))
+    uvicorn.run(app, host="0.0.0.0", port=port)

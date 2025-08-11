@@ -7,7 +7,6 @@ import base64
 import json
 from typing import Dict, Any, List
 from datetime import datetime
-from pymongo import MongoClient
 import logging
 
 logger = logging.getLogger(__name__)
@@ -44,7 +43,12 @@ async def execute_computer_use(tool_input: Dict[str, Any]) -> Dict[str, Any]:
 
 class InterleavedComputerAgent:
     def __init__(self, max_iterations: int = 10, thinking_budget: int = 10000):
-        self.client = AsyncAnthropic(api_key=os.getenv("ANTHROPIC_API_KEY"))
+        self.client = AsyncAnthropic(
+            api_key=os.getenv("ANTHROPIC_API_KEY"),
+            default_headers={
+                "anthropic-beta": "interleaved-thinking-2025-05-14,computer-use-2025-01-24,fine-grained-tool-streaming-2025-05-14"
+            }
+        )
         self.max_iterations = max_iterations
         self.thinking_budget = thinking_budget
         self.session_id = datetime.now().strftime("%Y%m%d_%H%M%S")
@@ -52,16 +56,7 @@ class InterleavedComputerAgent:
         self.thinking_logs = []
         self.actions_taken = []
         
-        # Initialize MongoDB connection if available
-        self.mongo_client = None
-        self.db = None
-        try:
-            mongo_uri = os.getenv("MONGO_URI", "mongodb://localhost:27017/")
-            self.mongo_client = MongoClient(mongo_uri)
-            self.db = self.mongo_client.ron_ai
-            logger.info("MongoDB connected for computer_use logging")
-        except Exception as e:
-            logger.warning(f"MongoDB connection failed: {e}. Continuing without database logging.")
+        # MongoDB removed - logging to memory only
         
     async def execute_task(self, task: str) -> Dict[str, Any]:
         """Execute task with interleaved thinking loop and streaming"""
@@ -78,7 +73,7 @@ class InterleavedComputerAgent:
             try:
                 # Use streaming for long-running operations
                 async with self.client.beta.messages.stream(
-                    model="claude-opus-4-20250514",  # Updated to Claude 4 Opus
+                    model="claude-sonnet-4-20250514",
                     max_tokens=16000,
                     thinking={
                         "type": "enabled",
@@ -124,7 +119,8 @@ class InterleavedComputerAgent:
                                 if content_type == 'thinking':
                                     assistant_content[block_index] = {
                                         'type': 'thinking',
-                                        'thinking': ''
+                                        'thinking': '',
+                                        'signature': ''
                                     }
                                 elif content_type == 'tool_use':
                                     assistant_content[block_index] = {
@@ -153,6 +149,10 @@ class InterleavedComputerAgent:
                                     elif delta_type == 'input_json_delta':
                                         json_text = getattr(event.delta, 'partial_json', '')
                                         assistant_content[block_index]['input'] += json_text
+                                    elif delta_type == 'signature_delta':
+                                        sig_text = getattr(event.delta, 'signature', '')
+                                        if 'signature' in assistant_content[block_index]:
+                                            assistant_content[block_index]['signature'] += sig_text
                             
                             elif event.type == 'content_block_stop':
                                 block_index = getattr(event, 'index', 0)
@@ -163,11 +163,11 @@ class InterleavedComputerAgent:
                                     if block.get('type') == 'thinking':
                                         thinking_blocks.append(block['thinking'])
                                         self.thinking_logs.append(block['thinking'])
-                                        self._log_to_mongodb("thinking", {"content": block['thinking']})
+                                        # Thinking logged to memory
                                     elif block.get('type') == 'tool_use':
                                         # Parse JSON input
                                         try:
-                                            block['input'] = json.loads(block['input'])
+                                            block['input'] = json.loads(block['input']) if block['input'] else {}
                                         except json.JSONDecodeError:
                                             logger.error(f"Failed to parse tool input: {block['input']}")
                                         tool_use_blocks.append(block)
@@ -188,7 +188,7 @@ class InterleavedComputerAgent:
                         "final_result": " ".join(text_blocks),
                         "session_id": self.session_id
                     }
-                    self._log_to_mongodb("task_complete", result)
+                    # Task completion logged
                     return result
                 
                 # Execute tools and collect results
@@ -203,7 +203,7 @@ class InterleavedComputerAgent:
                     
                     tool_results.append({
                         "type": "tool_result",
-                        "tool_use_id": tool_block.id,
+                        "tool_use_id": tool_block['id'],
                         "content": content
                     })
                 
@@ -234,38 +234,37 @@ class InterleavedComputerAgent:
             "session_id": self.session_id
         }
     
-    def _log_to_mongodb(self, action_type: str, data: Dict[str, Any]):
-        """Log action to MongoDB if available"""
-        if self.db:
-            try:
-                log_entry = {
-                    "session_id": self.session_id,
-                    "timestamp": datetime.now(),
-                    "action_type": action_type,
-                    "data": data
-                }
-                self.db.computer_use_logs.insert_one(log_entry)
-            except Exception as e:
-                logger.error(f"Failed to log to MongoDB: {e}")
+    def _log_action(self, action_type: str, data: Dict[str, Any]):
+        """Log action to memory"""
+        log_entry = {
+            "session_id": self.session_id,
+            "timestamp": datetime.now(),
+            "action_type": action_type,
+            "data": data
+        }
+        # Just log to logger for now
+        logger.debug(f"Computer use action: {action_type} - {data}")
     
     async def _execute_tool_action(self, tool_block) -> Dict[str, Any]:
         """Execute individual tool action"""
         
-        if tool_block.name == "computer":
-            return await self._execute_computer_action(tool_block.input)
-        elif tool_block.name == "bash":
-            return await self._execute_bash_action(tool_block.input)
-        elif tool_block.name == "str_replace_editor":
-            return await self._execute_editor_action(tool_block.input)
+        tool_name = tool_block.get('name')
+        tool_input = tool_block.get('input', {})
+        if tool_name == "computer":
+            return await self._execute_computer_action(tool_input)
+        elif tool_name == "bash":
+            return await self._execute_bash_action(tool_input)
+        elif tool_name == "str_replace_editor":
+            return await self._execute_editor_action(tool_input)
         else:
-            return {"error": f"Unknown tool: {tool_block.name}"}
+            return {"error": f"Unknown tool: {tool_name}"}
     
     async def _execute_computer_action(self, action_input: Dict[str, Any]) -> Dict[str, Any]:
         """Execute computer use action"""
         
         action = action_input.get("action")
         self.actions_taken.append({"action": action, "input": action_input})
-        self._log_to_mongodb("computer_action", {"action": action, "input": action_input})
+        self._log_action("computer_action", {"action": action, "input": action_input})
         
         try:
             if action == "screenshot":

@@ -9,7 +9,7 @@ export async function POST(
     const { sessionId } = params
     
     // Proxy request to Python backend browser-use service
-    const response = await fetch(`http://localhost:8000/browser-use/session/${sessionId}/navigate`, {
+    const response = await fetch(`http://localhost:8765/browser-use/session/${sessionId}/navigate`, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',

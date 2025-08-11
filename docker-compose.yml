@@ -1,0 +1,114 @@
+version: '3.8'
+
+services:
+  # Backend API Service
+  backend:
+    build:
+      context: .
+      dockerfile: Dockerfile.backend
+    container_name: ron-ai-backend
+    ports:
+      - "8000:8000"
+    environment:
+      - ANTHROPIC_API_KEY=${ANTHROPIC_API_KEY}
+      - OPENAI_API_KEY=${OPENAI_API_KEY}
+      - GOOGLE_API_KEY=${GOOGLE_API_KEY}
+      - GOOGLE_MAPS_API_KEY=${GOOGLE_MAPS_API_KEY}
+      - VAPI_BACKEND_API_KEY=${VAPI_BACKEND_API_KEY}
+      - VAPI_FRONTEND_API_KEY=${VAPI_FRONTEND_API_KEY}
+      - PUBMED_API_KEY=${PUBMED_API_KEY}
+      - FDA_API_KEY=${FDA_API_KEY}
+      - PERPLEXITY_API_KEY=${PERPLEXITY_API_KEY}
+      - BRAVE_API_KEY=${BRAVE_API_KEY}
+      - NOVA_ACT_API_KEY=${NOVA_ACT_API_KEY}
+      - BROWSERLESS_API_TOKEN=${BROWSERLESS_API_TOKEN}
+      - BROWSERLESS_ENDPOINT=${BROWSERLESS_ENDPOINT}
+      - BROWSERLESS_URL=${BROWSERLESS_URL}
+      - USE_BROWSERLESS=${USE_BROWSERLESS}
+      - BROWSERLESS_USE_RESIDENTIAL_PROXY=${BROWSERLESS_USE_RESIDENTIAL_PROXY}
+      - BROWSERLESS_TIMEOUT=${BROWSERLESS_TIMEOUT}
+      - PYTHONPATH=/app:/app/backend
+    volumes:
+      - ./backend:/app/backend
+      - ./logs:/app/logs
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8000/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+    networks:
+      - ron-ai-network
+
+  # Frontend Service
+  frontend:
+    build:
+      context: .
+      dockerfile: Dockerfile.frontend
+    container_name: ron-ai-frontend
+    ports:
+      - "3000:3000"
+    environment:
+      - NODE_ENV=production
+      - NEXT_PUBLIC_API_URL=http://backend:8000
+      - NEXT_PUBLIC_BROWSERLESS_API_TOKEN=${NEXT_PUBLIC_BROWSERLESS_API_TOKEN}
+    depends_on:
+      backend:
+        condition: service_healthy
+    restart: unless-stopped
+    networks:
+      - ron-ai-network
+
+  # Nginx Reverse Proxy
+  nginx:
+    image: nginx:alpine
+    container_name: ron-ai-nginx
+    ports:
+      - "80:80"
+      - "443:443"
+    volumes:
+      - ./nginx.conf:/etc/nginx/nginx.conf:ro
+      - ./ssl:/etc/nginx/ssl:ro
+    depends_on:
+      - backend
+      - frontend
+    restart: unless-stopped
+    networks:
+      - ron-ai-network
+
+  # Redis for caching (optional)
+  redis:
+    image: redis:7-alpine
+    container_name: ron-ai-redis
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis_data:/data
+    restart: unless-stopped
+    networks:
+      - ron-ai-network
+
+  # PostgreSQL for data persistence (optional)
+  postgres:
+    image: postgres:15-alpine
+    container_name: ron-ai-postgres
+    environment:
+      - POSTGRES_DB=ron_ai
+      - POSTGRES_USER=ron_ai_user
+      - POSTGRES_PASSWORD=secure_password_change_me
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+      - ./init.sql:/docker-entrypoint-initdb.d/init.sql
+    ports:
+      - "5432:5432"
+    restart: unless-stopped
+    networks:
+      - ron-ai-network
+
+volumes:
+  redis_data:
+  postgres_data:
+
+networks:
+  ron-ai-network:
+    driver: bridge

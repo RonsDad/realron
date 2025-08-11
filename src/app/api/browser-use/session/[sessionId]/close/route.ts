@@ -8,7 +8,7 @@ export async function DELETE(
     const { sessionId } = params
     
     // Proxy request to Python backend browser-use service
-    const response = await fetch(`http://localhost:8000/browser-use/session/${sessionId}/close`, {
+    const response = await fetch(`http://localhost:8765/browser-use/session/${sessionId}/close`, {
       method: 'DELETE',
       headers: {
         'Content-Type': 'application/json',

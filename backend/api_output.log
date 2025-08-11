@@ -1,33 +1,28 @@
-WARNING  [google_genai._api_client] Both GOOGLE_API_KEY and GEMINI_API_KEY are set. Using GOOGLE_API_KEY.
-INFO     [google_genai._api_client] The user provided Vertex AI API key will take precedence over the project/location from the environment variables.
+INFO     [agents.claudeAgent.claude_tools.clinical_agent.healthcare_agent_integration] Clinical Ops initialized with OpenAI API key: sk-svcacct...
 INFO     [agents.claudeAgent.claude_tools.browser_use.browser_use_service] browser-use library loaded successfully
 INFO     [__main__] Browser-Use service imported successfully
 INFO     [__main__] Claude Code SDK integration loaded successfully
 INFO     [google_adk.google.adk.models.registry] Updating LLM class for gemini-.* from <class 'google.adk.models.google_llm.Gemini'> to <class 'google.adk.models.google_llm.Gemini'>
-INFO     [google_adk.google.adk.models.registry] Updating LLM class for model-optimizer-.* from <class 'google.adk.models.google_llm.Gemini'> to <class 'google.adk.models.google_llm.Gemini'>
 INFO     [google_adk.google.adk.models.registry] Updating LLM class for projects\/.+\/locations\/.+\/endpoints\/.+ from <class 'google.adk.models.google_llm.Gemini'> to <class 'google.adk.models.google_llm.Gemini'>
 INFO     [google_adk.google.adk.models.registry] Updating LLM class for projects\/.+\/locations\/.+\/publishers\/google\/models\/gemini.+ from <class 'google.adk.models.google_llm.Gemini'> to <class 'google.adk.models.google_llm.Gemini'>
 INFO     [google_adk.google.adk.models.registry] Updating LLM class for gemini-.* from <class 'google.adk.models.google_llm.Gemini'> to <class 'google.adk.models.google_llm.Gemini'>
-INFO     [google_adk.google.adk.models.registry] Updating LLM class for model-optimizer-.* from <class 'google.adk.models.google_llm.Gemini'> to <class 'google.adk.models.google_llm.Gemini'>
-INFO     [google_adk.google.adk.models.registry] Updating LLM class for projects\/.+\/locations\/.+\/endpoints\/.+ from <class 'google.adk.models.google_llm.Gemini'> to <class 'google.adk.models.google_llm.Gemini'>
-INFO     [google_adk.google.adk.models.registry] Updating LLM class for projects\/.+\/locations\/.+\/publishers\/google\/models\/gemini.+ from <class 'google.adk.models.google_llm.Gemini'> to <class 'google.adk.models.google_llm.Gemini'>
-INFO     [google_adk.google.adk.models.registry] Updating LLM class for gemini-.* from <class 'google.adk.models.google_llm.Gemini'> to <class 'google.adk.models.google_llm.Gemini'>
-INFO     [google_adk.google.adk.models.registry] Updating LLM class for model-optimizer-.* from <class 'google.adk.models.google_llm.Gemini'> to <class 'google.adk.models.google_llm.Gemini'>
 INFO     [google_adk.google.adk.models.registry] Updating LLM class for projects\/.+\/locations\/.+\/endpoints\/.+ from <class 'google.adk.models.google_llm.Gemini'> to <class 'google.adk.models.google_llm.Gemini'>
 INFO     [google_adk.google.adk.models.registry] Updating LLM class for projects\/.+\/locations\/.+\/publishers\/google\/models\/gemini.+ from <class 'google.adk.models.google_llm.Gemini'> to <class 'google.adk.models.google_llm.Gemini'>
 INFO     [__main__] Deep Research Agent loaded successfully!
 INFO     [__main__] Initializing Claude completions agent...
-INFO     [__main__] Initializing healthcare agent...
-INFO     [__main__] Initializing browser integration...
-INFO     [__main__] All agents initialized successfully
-/Users/timhunter/ron-ai/backend/api.py:1532: DeprecationWarning: 
+INFO     [__main__] Advanced features disabled - completions only mode
+/Users/timhunter/ron-ai/backend/api.py:1489: DeprecationWarning: 
         on_event is deprecated, use lifespan event handlers instead.
 
         Read more about it in the
         [FastAPI docs for Lifespan Events](https://fastapi.tiangolo.com/advanced/events/).
         
   @app.on_event("startup")
-INFO:     Started server process [44194]
+INFO:     Started server process [23862]
 INFO:     Waiting for application startup.
 INFO:     Application startup complete.
-INFO:     Uvicorn running on http://0.0.0.0:8000 (Press CTRL+C to quit)
+INFO:     Uvicorn running on http://0.0.0.0:8765 (Press CTRL+C to quit)
+INFO:     Shutting down
+INFO:     Waiting for application shutdown.
+INFO:     Application shutdown complete.
+INFO:     Finished server process [23862]
