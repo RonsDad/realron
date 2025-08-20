@@ -158,13 +158,11 @@ export default function HealthCopilot() {
       setCurrentOrchestrationAgent(null)
 
       try {
-        console.log("=== SENDING MESSAGE ===")
-        console.log("Deep Research Mode:", isDeepResearch)
-        console.log("Message:", messageToSend)
+        // Removed console.logs for better performance
         
         // Check if using deep research mode
         if (isDeepResearch) {
-          console.log(">>> USING DEEP RESEARCH AGENT <<<")
+          // Using deep research agent
           
           let sessionId = deepResearchSessionId
           let userId = deepResearchUserId
@@ -475,9 +473,10 @@ ${isDeepResearch ? "DEEP RESEARCH MODE: Perform comprehensive research with mult
 
           let fullContent = ""
           let fullReasoning = ""
-          console.log("Starting to parse SSE stream...")
+          // Removed console.log spam for better performance
           for await (const event of parseSSEStream(stream)) {
-            console.log("Received event:", JSON.stringify(event))
+            // Only log in debug mode to avoid blocking main thread
+            // console.log("Received event:", JSON.stringify(event))
             
             // Handle content block start for thinking
             if (event.type === 'content_block_start' && event.content_block?.type === 'thinking') {
@@ -499,11 +498,11 @@ ${isDeepResearch ? "DEEP RESEARCH MODE: Perform comprehensive research with mult
             // Handle signature deltas
             else if (event.type === 'content_block_delta' && event.delta?.type === 'signature_delta') {
               // Signature is encrypted and we don't need to display it
-              console.log("Received signature delta")
+              // Signature is encrypted, no need to log
             }
             // Handle tool use start
             else if (event.type === 'content_block_start' && event.content_block?.type === 'tool_use') {
-              console.log(`Tool started: ${event.content_block.name}`)
+              // Tool started - track activity without logging
               
               // Activate agent orchestration and track activity
               setIsAgentOrchestrationActive(true)
@@ -563,7 +562,7 @@ ${isDeepResearch ? "DEEP RESEARCH MODE: Perform comprehensive research with mult
             }
             // Handle tool results
             else if (event.type === 'tool_result') {
-              console.log(`Tool ${event.tool_name} completed:`, event.result)
+              // Tool completed - process result without logging
               
               // Update agent activity to completed
               const agentName = getAgentNameFromTool(event.tool_name)

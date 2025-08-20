@@ -268,6 +268,7 @@ You can create and orchestrate specialized subagents using these tools:
 
 # Pre-computed beta headers list
 DEFAULT_BETAS = [
+    "token-efficient-tools-2025-02-19",  # Dramatically reduces latency with many tools
     "interleaved-thinking-2025-05-14",
     "computer-use-2025-01-24", 
     "fine-grained-tool-streaming-2025-05-14",
@@ -428,8 +429,12 @@ class ClaudeCompletions:
             logger.info("Added native computer-use tool")
         
         if tool_list:
+            # Add cache_control to LAST tool to cache ALL tools as a prefix
+            # This dramatically reduces latency by reusing tool definitions across requests
+            if len(tool_list) > 0:
+                tool_list[-1]["cache_control"] = {"type": "ephemeral"}
             request_params["tools"] = tool_list
-            logger.info(f"Configured {len(tool_list)} tools")
+            logger.info(f"Configured {len(tool_list)} tools with ephemeral caching")
         
         # Add cached MCP servers if not disabled
         if not disable_mcp and self.mcp_servers_cache:

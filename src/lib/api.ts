@@ -1,9 +1,9 @@
 // API service for communicating with Claude agent backend
-// In browser, go through Next.js API routes to avoid CORS/startup races
+// Direct connection to FastAPI for reduced latency (skip Next.js proxy)
 const API_BASE_URL =
   typeof window !== 'undefined'
-    ? (process.env.NEXT_PUBLIC_API_URL ?? '/api')
-    : (process.env.NEXT_PUBLIC_API_URL ?? (process.env.BACKEND_URL ?? 'http://localhost:8000'))
+    ? (process.env.NEXT_PUBLIC_API_URL ?? 'http://localhost:8001')
+    : (process.env.NEXT_PUBLIC_API_URL ?? (process.env.BACKEND_URL ?? 'http://localhost:8001'))
 
 export interface ChatMessage {
   role: 'user' | 'assistant'
@@ -56,7 +56,7 @@ export class ClaudeAPI {
 
   private async sleep(ms: number) { return new Promise(r => setTimeout(r, ms)) }
 
-  private async fetchWithRetry(input: RequestInfo | URL, init: RequestInit, attempts = 5, baseDelayMs = 400): Promise<Response> {
+  private async fetchWithRetry(input: RequestInfo | URL, init: RequestInit, attempts = 2, baseDelayMs = 100): Promise<Response> {
     let lastErr: any
     for (let i = 0; i < attempts; i++) {
       try {

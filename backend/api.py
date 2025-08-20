@@ -622,38 +622,50 @@ async def chat(request: ChatRequest):
             logger.info("STREAMING COMPLETIONS MODE WITH TOOL EXECUTION")
             async def stream_generator():
                 try:
-                    # Create a queue for LiveURL events
-                    event_queue = asyncio.Queue()
-
-                    # Set the event queue for live_url_manager
-                    live_url_manager.set_event_queue(event_queue)
-
-                    # Create task for the Claude stream
-                    async def process_claude_stream():
-                        try:
-                            async for event in claude_agent.stream_complete(
-                                messages=messages,
-                                max_tokens=request.max_tokens,
-                                temperature=request.temperature,
-                                enable_thinking=request.enable_thinking,
-                                thinking_budget=request.thinking_budget,
-                                tools=native_tools,  # Only native tools as strings
-                                custom_tools=enabled_tools,  # Custom tools as dicts
-                                system_prompt=system_prompt,
-                            ):
-                                await event_queue.put(event)
-                        finally:
-                            await event_queue.put(None)  # Signal completion
-
-                    # Start the Claude stream processing
-                    _ = asyncio.create_task(process_claude_stream())
-
-                    # Process events
-                    while True:
-                        event = await event_queue.get()
-                        if event is None:  # Stream completed
-                            break
-                        yield f"data: {json.dumps(event)}\n\n"
+                    # Direct streaming without unnecessary queue overhead
+                    # Only use queue if live_url_manager needs it
+                    if live_url_manager and hasattr(live_url_manager, 'set_event_queue'):
+                        event_queue = asyncio.Queue()
+                        live_url_manager.set_event_queue(event_queue)
+                        
+                        # Create task for the Claude stream with queue
+                        async def process_claude_stream():
+                            try:
+                                async for event in claude_agent.stream_complete(
+                                    messages=messages,
+                                    max_tokens=request.max_tokens,
+                                    temperature=request.temperature,
+                                    enable_thinking=request.enable_thinking,
+                                    thinking_budget=request.thinking_budget,
+                                    tools=native_tools,  # Only native tools as strings
+                                    custom_tools=enabled_tools,  # Custom tools as dicts
+                                    system_prompt=system_prompt,
+                                ):
+                                    await event_queue.put(event)
+                            finally:
+                                await event_queue.put(None)  # Signal completion
+                        
+                        _ = asyncio.create_task(process_claude_stream())
+                        
+                        # Process events from queue
+                        while True:
+                            event = await event_queue.get()
+                            if event is None:  # Stream completed
+                                break
+                            yield f"data: {json.dumps(event)}\n\n"
+                    else:
+                        # Direct streaming without queue for better performance
+                        async for event in claude_agent.stream_complete(
+                            messages=messages,
+                            max_tokens=request.max_tokens,
+                            temperature=request.temperature,
+                            enable_thinking=request.enable_thinking,
+                            thinking_budget=request.thinking_budget,
+                            tools=native_tools,  # Only native tools as strings
+                            custom_tools=enabled_tools,  # Custom tools as dicts
+                            system_prompt=system_prompt,
+                        ):
+                            yield f"data: {json.dumps(event)}\n\n"
 
                 except Exception as e:
                     logger.error(f"STREAMING ERROR: {str(e)}")

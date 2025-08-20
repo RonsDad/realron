@@ -12,7 +12,7 @@ const BACKEND_BASE_CANDIDATES: string[] = [
 
 async function sleep(ms: number) { return new Promise(r => setTimeout(r, ms)) }
 
-async function fetchWithRetry(input: string, init: RequestInit, attempts = 6, baseDelayMs = 300) {
+async function fetchWithRetry(input: string, init: RequestInit, attempts = 2, baseDelayMs = 100) {
   let lastErr: any
   for (let i = 0; i < attempts; i++) {
     try {

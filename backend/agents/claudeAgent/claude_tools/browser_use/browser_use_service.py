@@ -9,10 +9,6 @@ import asyncio
 import logging
 from typing import Dict, Any, Optional
 from datetime import datetime
-from dotenv import load_dotenv
-
-# Load environment variables from .env file
-load_dotenv()
 
 # Configure logging
 logging.basicConfig(level=logging.INFO)
@@ -35,7 +31,7 @@ class BrowserUseService:
         self.active_sessions: Dict[str, BrowserSession] = {}
         self.session_metadata: Dict[str, Dict[str, Any]] = {}
         
-    async def create_live_url_session(self, timeout_ms: int = 300000, browser_profile=None, interactive: bool = True) -> Dict[str, Any]:  # 5 minutes max for Scale plan
+    async def create_live_url_session(self, timeout_ms: int = 900000, browser_profile=None, interactive: bool = False) -> Dict[str, Any]:  # 15 minutes
         """
         Create a browser-use session with Browserless and generate LiveURL for iframe embedding.
         Based on the provided code example.
@@ -48,11 +44,10 @@ class BrowserUseService:
         if not browserless_token:
             raise ValueError("BROWSERLESS_API_TOKEN environment variable is required")
         
-        # Allow multiple sessions for now to debug the issue
-        # if len(self.active_sessions) > 0:
-        #     logger.warning(f"Closing {len(self.active_sessions)} existing sessions to maintain single session")
-        #     await self.close_all_sessions()
-        logger.info(f"Currently {len(self.active_sessions)} active sessions")
+        # ENFORCE ONLY ONE SESSION - Close all existing sessions first
+        if len(self.active_sessions) > 0:
+            logger.warning(f"Closing {len(self.active_sessions)} existing sessions to maintain single session")
+            await self.close_all_sessions()
         
         # Generate session ID
         session_id = f"browser_use_session_{datetime.now().timestamp()}"
@@ -60,104 +55,51 @@ class BrowserUseService:
         try:
             logger.info(f"Creating browser-use session {session_id} with Browserless")
             
-            # Use provided browser profile or create enhanced stealth profile
+            # Use provided browser profile or create default one
             from browser_use import BrowserProfile
-            import random
-            
             if browser_profile is None:
                 browser_profile = BrowserProfile(
-                    headless=False,  # Headless is easier to detect
-                    viewport={"width": 1920, "height": 1080},  # Standard desktop size
-                    wait_between_actions=random.uniform(1.0, 2.0),  # Human-like random delays
-                    user_agent="Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
-                    locale="en-US",
-                    timezone_id="America/New_York"
+                    stealth=True,
+                    headless=False,  # For human-in-the-loop workflows
+                    viewport={"width": 1280, "height": 900},
+                    wait_between_actions=0.1  # Reduced from 0.3 for faster actions
                 )
             
-            # Build CDP URL with enhanced anti-detection
-            cdp_params = [
-                f"token={browserless_token}",
-                f"timeout={timeout_ms}",
-                "stealth=true",  # Enable stealth mode
-                "blockAds=true",  # Block ads to reduce fingerprinting
-                "trackingId=false",  # Disable tracking
-            ]
+            # First connect via Playwright for CDP support
+            from playwright.async_api import async_playwright
+            playwright = await async_playwright().start()
+            browser = await playwright.chromium.connect_over_cdp(
+                f"wss://production-sfo.browserless.io/chrome/stealth?token={browserless_token}&timeout={timeout_ms}"
+            )
+            context = browser.contexts[0] if browser.contexts else await browser.new_context()
+            playwright_page = context.pages[0] if context.pages else await context.new_page()
             
-            # Add launch args for better stealth - properly JSON encode
-            launch_args = [
-                "--disable-blink-features=AutomationControlled",
-                "--disable-dev-shm-usage",
-                "--no-sandbox",
-                "--disable-setuid-sandbox"
-            ]
-            # Properly JSON encode the launch parameters
-            import json
-            import urllib.parse
-            launch_config = {"args": launch_args}
-            launch_json = json.dumps(launch_config)
-            # URL encode the JSON for safe transmission
-            launch_encoded = urllib.parse.quote(launch_json)
-            cdp_params.append(f"launch={launch_encoded}")
-            
-            # Add residential proxy if configured
-            if os.getenv('BROWSERLESS_USE_RESIDENTIAL_PROXY') == 'true':
-                cdp_params.append("proxy=residential")
-            
-            # Use stealth endpoint instead of regular chrome endpoint
-            cdp_url = f"wss://production-sfo.browserless.io/chrome/stealth?{'&'.join(cdp_params)}"
-            
-            # Create browser-use session
+            # Now create browser-use session with the Playwright page
             browser_session = BrowserSession(
-                cdp_url=cdp_url,
-                browser_profile=browser_profile,
-                keep_alive=True  # Prevents session from closing after agent.run()
+                page=playwright_page,
+                browser_profile=browser_profile
             )
             
-            # Manually start the session (required when keep_alive=True)
+            # Start the session
             await browser_session.start()
-            
-            # Get the browser and context from the session for CDP access
-            browser = browser_session.browser
-            context = browser_session.browser_context
-            playwright = browser_session.playwright
             
             # Get current page (for browser-use agent)
             page = await browser_session.get_current_page()
             
-            # Add anti-detection scripts
-            await page.add_init_script("""
-                // Override navigator.webdriver
-                Object.defineProperty(navigator, 'webdriver', {
-                    get: () => undefined
-                });
-                
-                // Override navigator.plugins to look more realistic
-                Object.defineProperty(navigator, 'plugins', {
-                    get: () => [1, 2, 3, 4, 5]
-                });
-                
-                // Add chrome runtime
-                window.chrome = {
-                    runtime: {},
-                };
-            """)
-            
-            # Let the browser-use agent decide where to navigate
-            
-            # Create CDP session for LiveURL generation using the page from browser_session
+            # Create CDP session for LiveURL generation using Playwright's CDP
             try:
-                # Use the page from browser_session for CDP
-                cdp = await context.new_cdp_session(page)
+                # Use the Playwright page we created earlier
+                cdp = await context.new_cdp_session(playwright_page)
             except Exception as e:
                 logger.error(f"Failed to create CDP session: {str(e)}")
                 raise ValueError(f"Failed to establish CDP connection to browserless: {str(e)}")
             
-            # Generate LiveURL (interactive by default for user control)
-            logger.info(f"Generating LiveURL for session {session_id} (interactive={interactive})")
+            # Generate LiveURL for agent use (non-interactive initially)
+            logger.info(f"Generating non-interactive LiveURL for session {session_id}")
             try:
                 response = await cdp.send('Browserless.liveURL', {
                     "timeout": timeout_ms,
-                    "interactive": interactive  # Use the passed parameter (default True for user interaction)
+                    "interactive": interactive  # Use the passed parameter (should be False)
                 })
             except Exception as e:
                 logger.error(f"Failed to generate LiveURL: {str(e)}")
@@ -168,7 +110,7 @@ class BrowserUseService:
             live_url_id = response.get("liveURLId")
             logger.info(f"LiveURL generated: {live_url}")
             
-            # Store session and metadata IMMEDIATELY
+            # Store session and metadata
             self.active_sessions[session_id] = browser_session
             session_number = len(self.active_sessions)  # 1, 2, or 3
             self.session_metadata[session_id] = {
@@ -180,16 +122,12 @@ class BrowserUseService:
                 'timeout_ms': timeout_ms,
                 'created_at': datetime.now().isoformat(),
                 'status': 'active',
-                'interactive': interactive,  # Track interactivity state
+                'interactive': False,  # Track interactivity state
                 'cdp_session': cdp,
                 'playwright': playwright,  # Store for cleanup
                 'browser': browser,  # Store for cleanup
                 'context': context  # Store for reference
             }
-            
-            # Verify session was stored correctly
-            logger.info(f"Session {session_id} stored successfully")
-            logger.info(f"Active sessions after storage: {list(self.active_sessions.keys())}")
             
             return {
                 'success': True,
@@ -504,10 +442,7 @@ class BrowserUseService:
     async def execute_browser_task(self, session_id: str, task: str) -> Dict[str, Any]:
         """Execute a browser automation task using the browser-use Agent in the existing session"""
         if session_id not in self.active_sessions:
-            # Provide more detailed error information
-            available_sessions = list(self.active_sessions.keys())
-            logger.error(f"Session {session_id} not found. Available sessions: {available_sessions}")
-            raise ValueError(f"Session {session_id} not found or expired. Available sessions: {available_sessions}")
+            raise ValueError(f"Session {session_id} not found")
         
         try:
             from browser_use import Agent
@@ -529,12 +464,9 @@ class BrowserUseService:
             openai_api_key = os.getenv('OPENAI_API_KEY')
             if not openai_api_key:
                 raise ValueError("OPENAI_API_KEY environment variable is required")
-            
-            # Log that we have the key (first 10 chars only for security)
-            logger.info(f"Using OpenAI API key: {openai_api_key[:10]}...")
                 
             llm = ChatOpenAI(
-                model="gpt-4o",  # Use latest model
+                model="gpt-4.1",
                 api_key=openai_api_key
             )
             
@@ -551,7 +483,6 @@ class BrowserUseService:
             result = await agent.run(max_steps=100)  # Increased max_steps for complex tasks
             
             logger.info(f"Browser-use Agent completed task: {task}")
-            logger.info(f"Session {session_id} still active after agent.run() - keep_alive is working")
             
             # Update metadata
             metadata['last_task'] = task

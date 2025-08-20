@@ -11,19 +11,13 @@ load_dotenv()
 Laminar.initialize()
 
 from browser_use import Agent
-from browser_use.llm import ChatOpenAI
+from browser_use.llm import ChatGoogle
 
-# Get and validate OpenAI API key
-openai_api_key = os.getenv('OPENAI_API_KEY')
-if not openai_api_key:
-    raise ValueError("OPENAI_API_KEY environment variable is required")
+google_api_key = os.getenv('GOOGLE_API_KEY')
+if not google_api_key:
+    raise ValueError("GOOGLE_API_KEY environment variable is required")
 
-# Log that we're using the key (first 10 chars only for security)
-import logging
-logger = logging.getLogger(__name__)
-logger.info(f"Using OpenAI API key: {openai_api_key[:10]}...")
-
-llm = ChatOpenAI(model='gpt-4o', api_key=openai_api_key, temperature=0.0)
+llm = ChatGoogle(model='gemini-2.5-flash', api_key=google_api_key, temperature=0.0)
 
 async def run_agent(task_prompt, max_steps=100):  # Set to 100 for complex tasks
     """

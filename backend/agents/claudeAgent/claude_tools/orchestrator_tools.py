@@ -118,6 +118,7 @@ class AgentOrchestrator:
             collected_text = []
             used_tools = []
             thinking_content = []  # Track thinking for debugging if needed
+            all_events = []  # CAPTURE ALL EVENTS FOR FRONTEND VISIBILITY
             
             async for event in self.claude.stream_complete(
                 messages=agent_config["messages"],
@@ -130,6 +131,9 @@ class AgentOrchestrator:
                 enable_computer_use=False,  # Subagents shouldn't use computer
                 disable_mcp=False  # Enable MCP for subagents (Telnyx, etc.)
             ):
+                # STORE EVERY EVENT FOR VISIBILITY
+                all_events.append(event)
+                
                 etype = event.get("type")
                 if etype == "content_block_delta":
                     delta = event.get("delta", {})
@@ -139,7 +143,7 @@ class AgentOrchestrator:
                             collected_text.append(text)
                     elif delta.get("type") == "thinking_delta":
                         # Track thinking content for potential analysis
-                        thinking_text = delta.get("text", "")
+                        thinking_text = delta.get("thinking", "")  # FIX: It's "thinking" not "text"
                         if thinking_text:
                             thinking_content.append(thinking_text)
                 elif etype == "tool_result":
@@ -191,7 +195,9 @@ class AgentOrchestrator:
                 "text": final_text,
                 "json": parsed_json,
                 "tools_used": used_tools,
-                "thinking_tokens_used": len("".join(thinking_content))
+                "thinking": "".join(thinking_content),  # Include actual thinking
+                "thinking_tokens_used": len("".join(thinking_content)),
+                "events": all_events  # INCLUDE ALL EVENTS FOR FRONTEND
             }
             
         except Exception as e:
