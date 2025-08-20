@@ -9,11 +9,90 @@ import json
 from typing import Dict, Any, List, Optional
 import logging
 from pathlib import Path
+from datetime import datetime
 
 # Import moved inside methods to avoid circular dependency
 from backend.agents.claudeAgent.claude_tools.sub_agents import SubAgentConfig, _combined_catalog, _select_tools
 
 logger = logging.getLogger(__name__)
+
+
+class SharedAgentMemory:
+    """
+    Shared memory for agent handoffs - follows Anthropic's memory persistence pattern.
+    Enables agents to share context and pass information between executions.
+    """
+    
+    def __init__(self, max_context_size: int = 200000):
+        self.global_context: Dict[str, Any] = {}
+        self.agent_outputs: Dict[str, Dict[str, Any]] = {}
+        self.handoff_queue: List[Dict[str, Any]] = []
+        self.max_context_size = max_context_size
+        
+    def store_result(self, agent_id: str, result: Dict[str, Any]) -> None:
+        """Store agent result following structured data handoff pattern"""
+        self.agent_outputs[agent_id] = {
+            "timestamp": datetime.now().isoformat(),
+            "text": result.get("text", ""),
+            "json": result.get("json"),
+            "tools_used": result.get("tools_used", []),
+            "thinking": result.get("thinking", ""),
+            "events_count": len(result.get("events", []))
+        }
+        
+        # Extract structured data for next agents
+        if result.get("json"):
+            self.global_context.update(result["json"])
+    
+    def get_handoff_context(self, from_agent: str, to_agent: str) -> str:
+        """Generate handoff context following Anthropic's prompt chaining pattern"""
+        from_result = self.agent_outputs.get(from_agent, {})
+        
+        return f"""
+## Handoff from {from_agent}
+
+### Previous Agent Output:
+{from_result.get('text', 'No output available')}
+
+### Structured Data:
+{json.dumps(from_result.get('json', {}), indent=2)}
+
+### Tools Used:
+{', '.join([t.get('tool_name', 'unknown') for t in from_result.get('tools_used', [])])}
+
+### Your Task:
+Continue from the previous agent's work. Use the structured data provided.
+"""
+    
+    def get_context_for_agent(self, agent_id: str) -> Dict[str, Any]:
+        """Get relevant context for specific agent"""
+        return {
+            "global_context": self.global_context,
+            "previous_agents": list(self.agent_outputs.keys()),
+            "available_data": self._get_relevant_data(agent_id)
+        }
+    
+    def _get_relevant_data(self, agent_id: str) -> Dict[str, Any]:
+        """Extract data relevant to the requesting agent"""
+        # For now, return all previous outputs
+        # Could be enhanced with smart filtering based on agent type
+        return {
+            aid: {
+                "text": output.get("text", "")[:500],  # First 500 chars
+                "data": output.get("json")
+            }
+            for aid, output in self.agent_outputs.items()
+            if aid != agent_id
+        }
+    
+    def request_handoff(self, from_agent: str, to_agent: str, data: Dict[str, Any]) -> None:
+        """Agent requests handoff to another agent"""
+        self.handoff_queue.append({
+            "from": from_agent,
+            "to": to_agent,
+            "data": data,
+            "timestamp": datetime.now().isoformat()
+        })
 
 
 class AgentOrchestrator:
@@ -26,9 +105,18 @@ class AgentOrchestrator:
     
     def __init__(self):
         self.active_agents: Dict[str, Dict[str, Any]] = {}
+        self.shared_memory = SharedAgentMemory()  # Add shared memory for handoffs
         # Lazy import to avoid circular dependency
         from backend.agents.claudeAgent.claude_completions import ClaudeCompletions
         self.claude = ClaudeCompletions()
+        
+        # Define handoff chains for common workflows
+        self.handoff_chains = {
+            "research_chain": ["research_agent", "data_agent", "writer_agent", "qa_agent"],
+            "analysis_chain": ["data_agent", "visualization_agent", "report_agent"],
+            "medical_chain": ["clinical_agent", "fda_agent", "recommendation_agent"],
+            "simple_chain": ["research_agent", "writer_agent"]
+        }
         
     async def spawn_agent(
         self,
@@ -188,7 +276,7 @@ class AgentOrchestrator:
             
             logger.info(f"✅ Agent {agent_id} completed with enhanced thinking ({len(thinking_content)} thinking tokens)")
             
-            return {
+            result = {
                 "success": True,
                 "agent_id": agent_id,
                 "status": "completed",
@@ -200,6 +288,11 @@ class AgentOrchestrator:
                 "events": all_events  # INCLUDE ALL EVENTS FOR FRONTEND
             }
             
+            # Store in shared memory for potential handoffs
+            self.shared_memory.store_result(agent_id, result)
+            
+            return result
+            
         except Exception as e:
             logger.error(f"Failed to execute agent {agent_id}: {str(e)}")
             self.active_agents[agent_id]["status"] = "error"
@@ -208,6 +301,122 @@ class AgentOrchestrator:
                 "agent_id": agent_id,
                 "error": str(e)
             }
+    
+    async def execute_pipeline(
+        self,
+        chain_name: str,
+        initial_task: str,
+        context: Optional[Dict[str, Any]] = None
+    ) -> Dict[str, Any]:
+        """
+        Execute a predefined agent pipeline with handoffs.
+        Each agent receives the output of the previous agent.
+        """
+        
+        if chain_name not in self.handoff_chains:
+            return {
+                "success": False,
+                "error": f"Unknown chain: {chain_name}. Available: {list(self.handoff_chains.keys())}"
+            }
+        
+        chain = self.handoff_chains[chain_name]
+        results = []
+        current_task = initial_task
+        
+        logger.info(f"🚀 Starting pipeline: {chain_name} with {len(chain)} agents")
+        
+        for i, agent_type in enumerate(chain):
+            agent_id = f"{agent_type}_{datetime.now().timestamp()}"
+            
+            # Get handoff context if not first agent
+            handoff_context = ""
+            if i > 0 and results:
+                prev_agent_id = results[-1]["agent_id"]
+                handoff_context = self.shared_memory.get_handoff_context(
+                    prev_agent_id, agent_id
+                )
+                logger.info(f"📤 Handoff from {prev_agent_id} to {agent_id}")
+            
+            # Determine tools for this agent type
+            agent_tools = self._get_agent_tools(agent_type)
+            
+            # Spawn agent with accumulated context
+            spawn_result = await self.spawn_agent(
+                agent_id=agent_id,
+                system_prompt=self._get_agent_prompt(agent_type),
+                task=f"{handoff_context}\n\nTask: {current_task}",
+                allowed_tools=agent_tools,
+                context={
+                    **(context or {}),
+                    "chain_position": i + 1,
+                    "chain_length": len(chain),
+                    "chain_name": chain_name,
+                    "previous_agents": [r["agent_id"] for r in results]
+                }
+            )
+            
+            if not spawn_result.get("success"):
+                logger.error(f"Failed to spawn {agent_type}")
+                continue
+            
+            # Execute agent
+            logger.info(f"🤖 Executing {agent_type} ({i+1}/{len(chain)})")
+            result = await self.execute_agent(agent_id)
+            
+            results.append({
+                "agent_id": agent_id,
+                "agent_type": agent_type,
+                "success": result.get("success"),
+                "output": result.get("text", ""),
+                "json": result.get("json"),
+                "events_count": len(result.get("events", [])),
+                "thinking_preview": result.get("thinking", "")[:200] + "..." if result.get("thinking") else ""
+            })
+            
+            # Update task for next agent based on output
+            if result.get("json", {}).get("next_task"):
+                current_task = result["json"]["next_task"]
+            elif result.get("json", {}).get("handoff_instructions"):
+                current_task = result["json"]["handoff_instructions"]
+        
+        logger.info(f"✅ Pipeline {chain_name} completed with {len(results)} agents")
+        
+        return {
+            "success": True,
+            "chain": chain_name,
+            "steps": results,
+            "final_output": results[-1]["output"] if results else None,
+            "total_events": sum(r["events_count"] for r in results),
+            "shared_context": self.shared_memory.global_context
+        }
+    
+    def _get_agent_prompt(self, agent_type: str) -> str:
+        """Get the appropriate system prompt for an agent type"""
+        prompts = {
+            "research_agent": "You are a research specialist. Find comprehensive information and cite sources.",
+            "data_agent": "You are a data analysis expert. Process and analyze data to find insights.",
+            "writer_agent": "You are a professional writer. Create clear, well-structured content.",
+            "qa_agent": "You are a quality assurance specialist. Review content for accuracy and completeness.",
+            "clinical_agent": "You are a clinical expert. Provide medical insights based on evidence.",
+            "fda_agent": "You are an FDA regulations specialist. Check drug information and regulations.",
+            "recommendation_agent": "You are a recommendations expert. Provide actionable suggestions.",
+            "visualization_agent": "You are a data visualization expert. Create charts and visual representations."
+        }
+        return prompts.get(agent_type, f"You are a {agent_type}. Complete your assigned task professionally.")
+    
+    def _get_agent_tools(self, agent_type: str) -> List[str]:
+        """Get the appropriate tools for an agent type"""
+        tool_sets = {
+            "research_agent": ["web_search", "perplexity_sonar_pro", "pubmed_search"],
+            "data_agent": ["execute_code", "perplexity_reasoning_pro"],
+            "writer_agent": ["text_editor"],
+            "qa_agent": ["web_search", "perplexity_reasoning_pro"],
+            "clinical_agent": ["clinical_operations", "pubmed_search", "pubmed_fetch_abstracts"],
+            "fda_agent": ["searchDrugLabel", "getDrugInteractions", "getBoxedWarning"],
+            "recommendation_agent": ["clinical_operations", "perplexity_reasoning_pro"],
+            "visualization_agent": ["execute_code"]
+        }
+        return tool_sets.get(agent_type, ["web_search"])
     
     async def execute_parallel_agents(self, agent_ids: List[str]) -> Dict[str, Any]:
         """
@@ -291,6 +500,26 @@ orchestrator = AgentOrchestrator()
 
 
 # Tool functions for Claude to use
+
+async def execute_agent_pipeline(
+    chain_name: str,
+    initial_task: str,
+    context: Optional[Dict[str, Any]] = None
+) -> Dict[str, Any]:
+    """
+    Execute a predefined agent pipeline where agents hand off work to each other.
+    
+    Available chains:
+    - research_chain: Research → Data Analysis → Writing → QA
+    - analysis_chain: Data → Visualization → Report
+    - medical_chain: Clinical → FDA → Recommendations
+    - simple_chain: Research → Writing
+    
+    Each agent in the chain receives the output of the previous agent.
+    """
+    orchestrator = AgentOrchestrator()
+    result = await orchestrator.execute_pipeline(chain_name, initial_task, context)
+    return result
 async def spawn_healthcare_agent(
     agent_id: str,
     specialty: str,

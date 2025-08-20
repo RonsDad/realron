@@ -121,7 +121,7 @@ export function ToolOutputBubble({ toolName, content, timestamp, className }: To
       <CardContent className="px-3 pb-3">
         <div className="overflow-hidden">
           {isExpanded ? (
-            <div className="prose prose-sm max-w-none dark:prose-invert">
+            <div className="prose prose-sm max-w-none dark:prose-invert max-h-64 overflow-y-auto">
               <ReactMarkdown remarkPlugins={[remarkGfm]}>
                 {content}
               </ReactMarkdown>

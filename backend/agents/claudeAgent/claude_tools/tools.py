@@ -25,7 +25,8 @@ from backend.agents.claudeAgent.claude_tools.pubmed.pubmed_tools import (
 )
 from backend.agents.claudeAgent.claude_tools.orchestrator_tools import (
     spawn_healthcare_agent, execute_spawned_agent, execute_agent_team,
-    check_agent_status, cleanup_completed_agent, orchestrate_healthcare_task
+    check_agent_status, cleanup_completed_agent, orchestrate_healthcare_task,
+    execute_agent_pipeline
 )
 
 logger = logging.getLogger(__name__)
@@ -1440,6 +1441,27 @@ TOOLS = {
                 "type": "array",
                 "description": "List of agent IDs to execute in parallel",
                 "required": True
+            }
+        }
+    },
+    "execute_agent_pipeline": {
+        "function": execute_agent_pipeline,
+        "description": "Execute a predefined agent pipeline where agents hand off work sequentially. Available chains: research_chain (Research→Data→Writer→QA), analysis_chain (Data→Visualization→Report), medical_chain (Clinical→FDA→Recommendations), simple_chain (Research→Writer)",
+        "parameters": {
+            "chain_name": {
+                "type": "string",
+                "description": "Name of the pipeline to execute: 'research_chain', 'analysis_chain', 'medical_chain', or 'simple_chain'",
+                "required": True
+            },
+            "initial_task": {
+                "type": "string",
+                "description": "The task to start the pipeline with",
+                "required": True
+            },
+            "context": {
+                "type": "object",
+                "description": "Optional context to pass to the pipeline",
+                "required": False
             }
         }
     },
