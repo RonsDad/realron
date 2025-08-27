@@ -8,7 +8,12 @@ import logging
 import asyncio
 from datetime import datetime
 import os
-from backend.agents.claudeAgent.claude_tools.clinical_agent.healthcare_agent_integration import clinical_operations_query
+from backend.agents.claudeAgent.claude_tools.clinical_ops_agent import run_ron_ai
+
+async def clinical_operations_query(query: str, patient_context: str = None):
+    """Async wrapper for run_ron_ai"""
+    prompt = f"{query}\n\nPatient Context: {patient_context}" if patient_context else query
+    return await asyncio.to_thread(run_ron_ai, prompt)
 from backend.agents.claudeAgent.claude_tools.FDA.fda_drug_tools import (
     searchDrugLabel, searchAdverseEffects, getSpecialPopulations,
     getBoxedWarning, getDrugInteractions, getAbuse, getAbuseTable,
@@ -27,6 +32,12 @@ from backend.agents.claudeAgent.claude_tools.orchestrator_tools import (
     spawn_healthcare_agent, execute_spawned_agent, execute_agent_team,
     check_agent_status, cleanup_completed_agent, orchestrate_healthcare_task,
     execute_agent_pipeline
+)
+from backend.agents.claudeAgent.claude_tools.unified_agent_tools import (
+    create_orchestrator_agent, create_worker_agent, execute_with_orchestrator,
+    execute_pipeline, create_custom_pipeline, send_agent_message,
+    broadcast_to_agents, get_agent_system_status, list_available_agents,
+    get_pipeline_execution_status, get_unified_agent_tool_definitions
 )
 
 logger = logging.getLogger(__name__)
@@ -469,50 +480,152 @@ async def web_search(query: str, num_results: int = 5) -> Dict[str, Any]:
     }
 
 
+# Data visualization tool
+async def create_data_visualization(plot_code: str, filename: str = "visualization.png") -> Dict[str, Any]:
+    """
+    Create a data visualization using matplotlib and save it as an image file.
+    
+    Args:
+        plot_code: The matplotlib plotting code (without import statements or save commands)
+        filename: Output filename for the visualization
+        
+    Returns:
+        Dictionary containing execution results and file information
+    """
+    try:
+        from backend.agents.claudeAgent.claude_tools.anthropic_code_execution import create_visualization
+        
+        logger.info(f"Creating data visualization: {filename}")
+        
+        result = await create_visualization(
+            plot_code=plot_code,
+            filename=filename
+        )
+        
+        return result
+        
+    except Exception as e:
+        logger.error(f"Visualization creation error: {str(e)}")
+        return {
+            "success": False,
+            "output": "",
+            "error": str(e),
+            "files_created": []
+        }
+
+
+# Data analysis tool
+async def analyze_data_with_output(analysis_code: str, output_format: str = "csv") -> Dict[str, Any]:
+    """
+    Execute data analysis code and save results in specified format.
+    
+    Args:
+        analysis_code: The data analysis code (should create a DataFrame named 'df')
+        output_format: Output format - 'csv', 'json', or 'xlsx'
+        
+    Returns:
+        Dictionary containing execution results and file information
+    """
+    try:
+        from backend.agents.claudeAgent.claude_tools.anthropic_code_execution import analyze_data
+        
+        logger.info(f"Executing data analysis with {output_format} output")
+        
+        result = await analyze_data(
+            analysis_code=analysis_code,
+            output_format=output_format
+        )
+        
+        return result
+        
+    except Exception as e:
+        logger.error(f"Data analysis error: {str(e)}")
+        return {
+            "success": False,
+            "output": "",
+            "error": str(e),
+            "files_created": []
+        }
+
+
 # Code execution tool
-async def execute_code(code: str, language: str = "python") -> Dict[str, Any]:
-    """Execute code in a sandboxed environment"""
-    # This would integrate with your code execution service
-    return {
-        "output": f"Executed {language} code",
-        "code": code,
-        "language": language,
-        "error": None
-    }
+async def execute_code(code: str, language: str = "python", create_files: bool = False, download_files: bool = False) -> Dict[str, Any]:
+    """
+    Execute code using Anthropic's code execution API with file handling capabilities.
+    
+    Args:
+        code: The code to execute
+        language: Programming language (default: python)
+        create_files: Whether to allow file creation during execution
+        download_files: Whether to download any files created during execution
+        
+    Returns:
+        Dictionary containing execution results, output, and file information
+    """
+    try:
+        from backend.agents.claudeAgent.claude_tools.anthropic_code_execution import execute_code as anthropic_execute
+        
+        logger.info(f"Executing {language} code via Anthropic API")
+        
+        # Execute code using the Anthropic API
+        result = await anthropic_execute(
+            code=code,
+            language=language,
+            create_files=create_files,
+            download_files=download_files
+        )
+        
+        return result
+        
+    except ImportError as e:
+        logger.error(f"Failed to import Anthropic code execution module: {str(e)}")
+        return {
+            "success": False,
+            "output": "",
+            "error": "Code execution module not available",
+            "language": language
+        }
+    except Exception as e:
+        logger.error(f"Code execution error: {str(e)}")
+        return {
+            "success": False,
+            "output": "",
+            "error": str(e),
+            "language": language
+        }
 
 
 # Perplexity tools
 async def perplexity_sonar_pro(query: str, search_filter: str = None, search_domain_filter: List[str] = None) -> Dict[str, Any]:
-    """Search using Perplexity Sonar Pro for complex multi-criteria analysis"""
+    """Search using Perplexity Sonar Pro for complex multi-criteria analysis with streaming support"""
     import os
     import aiohttp
-    
+    import json
+
     api_key = os.getenv('PERPLEXITY_API_KEY')
     if not api_key:
         return {"error": "PERPLEXITY_API_KEY not configured"}
-    
+
     try:
         headers = {
             "Authorization": f"Bearer {api_key}",
             "Content-Type": "application/json"
         }
-        
+
         payload = {
             "model": "sonar-pro",
             "messages": [
                 {"role": "user", "content": query}
             ],
-            "stream": False
+            "stream": True  # Enable streaming for progressive responses
         }
-        
+
         # Add optional search filters
         if search_filter:
             payload["search_filter"] = search_filter
         if search_domain_filter:
             payload["search_domain_filter"] = search_domain_filter
-        
-        # No timeout - let Perplexity handle it
-        
+
         async with aiohttp.ClientSession() as session:
             async with session.post(
                 "https://api.perplexity.ai/chat/completions",
@@ -520,12 +633,29 @@ async def perplexity_sonar_pro(query: str, search_filter: str = None, search_dom
                 json=payload
             ) as response:
                 if response.status == 200:
-                    data = await response.json()
+                    # Process streaming response
+                    full_content = ""
+                    async for line in response.content:
+                        line = line.decode('utf-8').strip()
+                        if line.startswith('data: '):
+                            data = line[6:]  # Remove 'data: ' prefix
+                            if data == '[DONE]':
+                                break
+                            if data:
+                                try:
+                                    chunk = json.loads(data)
+                                    if chunk.get('choices') and chunk['choices'][0].get('delta', {}).get('content'):
+                                        content = chunk['choices'][0]['delta']['content']
+                                        full_content += content
+                                except json.JSONDecodeError:
+                                    continue
+
                     return {
                         "success": True,
-                        "result": data.get("choices", [{}])[0].get("message", {}).get("content", ""),
+                        "result": full_content,
                         "query": query,
-                        "model": "sonar-pro"
+                        "model": "sonar-pro",
+                        "streamed": True
                     }
                 else:
                     error_text = await response.text()
@@ -534,7 +664,7 @@ async def perplexity_sonar_pro(query: str, search_filter: str = None, search_dom
                         "error": f"API error {response.status}: {error_text}",
                         "query": query
                     }
-                    
+
     except Exception as e:
         logger.error(f"Perplexity Sonar Pro error: {str(e)}")
         return {
@@ -545,36 +675,35 @@ async def perplexity_sonar_pro(query: str, search_filter: str = None, search_dom
 
 
 async def perplexity_reasoning_pro(query: str, search_filter: str = None, search_domain_filter: List[str] = None) -> Dict[str, Any]:
-    """Use Perplexity Reasoning Pro for complex reasoning and multi-criteria analysis"""
+    """Use Perplexity Reasoning Pro for complex reasoning and multi-criteria analysis with streaming support"""
     import os
     import aiohttp
-    
+    import json
+
     api_key = os.getenv('PERPLEXITY_API_KEY')
     if not api_key:
         return {"error": "PERPLEXITY_API_KEY not configured"}
-    
+
     try:
         headers = {
             "Authorization": f"Bearer {api_key}",
             "Content-Type": "application/json"
         }
-        
+
         payload = {
             "model": "sonar-reasoning",
             "messages": [
                 {"role": "user", "content": query}
             ],
-            "stream": False
+            "stream": True  # Enable streaming for progressive responses
         }
-        
+
         # Add optional search filters
         if search_filter:
             payload["search_filter"] = search_filter
         if search_domain_filter:
             payload["search_domain_filter"] = search_domain_filter
-        
-        # No timeout - let Perplexity handle it
-        
+
         async with aiohttp.ClientSession() as session:
             async with session.post(
                 "https://api.perplexity.ai/chat/completions",
@@ -582,12 +711,37 @@ async def perplexity_reasoning_pro(query: str, search_filter: str = None, search
                 json=payload
             ) as response:
                 if response.status == 200:
-                    data = await response.json()
+                    # Process streaming response
+                    full_content = ""
+                    reasoning_content = ""
+
+                    async for line in response.content:
+                        line = line.decode('utf-8').strip()
+                        if line.startswith('data: '):
+                            data = line[6:]  # Remove 'data: ' prefix
+                            if data == '[DONE]':
+                                break
+                            if data:
+                                try:
+                                    chunk = json.loads(data)
+                                    if chunk.get('choices') and chunk['choices'][0].get('delta', {}).get('content'):
+                                        content = chunk['choices'][0]['delta']['content']
+                                        full_content += content
+
+                                        # Extract reasoning tokens if present (sonar-reasoning-pro specific)
+                                        if '<think>' in content or '</think>' in content:
+                                            reasoning_content += content
+
+                                except json.JSONDecodeError:
+                                    continue
+
                     return {
                         "success": True,
-                        "result": data.get("choices", [{}])[0].get("message", {}).get("content", ""),
+                        "result": full_content,
+                        "reasoning": reasoning_content.strip() if reasoning_content else None,
                         "query": query,
-                        "model": "sonar-reasoning"
+                        "model": "sonar-reasoning",
+                        "streamed": True
                     }
                 else:
                     error_text = await response.text()
@@ -596,7 +750,7 @@ async def perplexity_reasoning_pro(query: str, search_filter: str = None, search
                         "error": f"API error {response.status}: {error_text}",
                         "query": query
                     }
-                    
+
     except Exception as e:
         logger.error(f"Perplexity Reasoning Pro error: {str(e)}")
         return {
@@ -607,34 +761,33 @@ async def perplexity_reasoning_pro(query: str, search_filter: str = None, search
 
 
 async def perplexity_deep_research(query: str, reasoning_effort: str = None) -> Dict[str, Any]:
-    """Use Perplexity Deep Research for exhaustive single-topic research"""
+    """Use Perplexity Deep Research for exhaustive single-topic research with streaming support"""
     import os
     import aiohttp
-    
+    import json
+
     api_key = os.getenv('PERPLEXITY_API_KEY')
     if not api_key:
         return {"error": "PERPLEXITY_API_KEY not configured"}
-    
+
     try:
         headers = {
             "Authorization": f"Bearer {api_key}",
             "Content-Type": "application/json"
         }
-        
+
         payload = {
             "model": "sonar-deep-research",
             "messages": [
                 {"role": "user", "content": query}
             ],
-            "stream": False,
+            "stream": True,  # Enable streaming for progressive responses
             "reasoning_effort": reasoning_effort  # Let Claude decide
         }
-        
+
         # Log the start of deep research
         logger.info(f"Starting Perplexity Deep Research with effort: {reasoning_effort}")
-        
-        # No timeout - let Perplexity handle it
-        
+
         async with aiohttp.ClientSession() as session:
             async with session.post(
                 "https://api.perplexity.ai/chat/completions",
@@ -642,14 +795,47 @@ async def perplexity_deep_research(query: str, reasoning_effort: str = None) -> 
                 json=payload
             ) as response:
                 if response.status == 200:
-                    data = await response.json()
+                    # Process streaming response
+                    full_content = ""
+                    citations = []
+                    search_results = []
+                    usage_stats = {}
+
+                    async for line in response.content:
+                        line = line.decode('utf-8').strip()
+                        if line.startswith('data: '):
+                            data = line[6:]  # Remove 'data: ' prefix
+                            if data == '[DONE]':
+                                break
+                            if data:
+                                try:
+                                    chunk = json.loads(data)
+                                    if chunk.get('choices') and chunk['choices'][0].get('delta', {}).get('content'):
+                                        content = chunk['choices'][0]['delta']['content']
+                                        full_content += content
+
+                                    # Extract metadata from final chunk
+                                    if chunk.get('usage'):
+                                        usage_stats = chunk['usage']
+                                    if chunk.get('citations'):
+                                        citations = chunk['citations']
+                                    if chunk.get('search_results'):
+                                        search_results = chunk['search_results']
+
+                                except json.JSONDecodeError:
+                                    continue
+
                     logger.info(f"Perplexity Deep Research completed successfully")
                     return {
                         "success": True,
-                        "result": data.get("choices", [{}])[0].get("message", {}).get("content", ""),
+                        "result": full_content,
+                        "citations": citations,
+                        "search_results": search_results,
+                        "usage": usage_stats,
                         "query": query,
                         "model": "sonar-deep-research",
-                        "reasoning_effort": reasoning_effort
+                        "reasoning_effort": reasoning_effort,
+                        "streamed": True
                     }
                 else:
                     error_text = await response.text()
@@ -658,7 +844,7 @@ async def perplexity_deep_research(query: str, reasoning_effort: str = None) -> 
                         "error": f"API error {response.status}: {error_text}",
                         "query": query
                     }
-                    
+
     except Exception as e:
         logger.error(f"Perplexity Deep Research error: {str(e)}")
         return {
@@ -668,33 +854,51 @@ async def perplexity_deep_research(query: str, reasoning_effort: str = None) -> 
         }
 
 
-# Claude Code SDK: Generate healthcare tool and return LiveURL
-async def claude_code_generate_tool(message: str, patient_id: str, patient_data: Dict[str, Any] = None) -> Dict[str, Any]:
-    """Generate a healthcare tool using Claude Code SDK and return a LiveURL for preview."""
-    try:
-        from backend.agents.claudeAgent.claude_tools.claude_code_sdk.patient_handler import patient_request_handler
-        result = await patient_request_handler.handle_request(
-            message=message,
-            patient_id=patient_id,
-            patient_data=patient_data,
-        )
-        return {
-            "success": bool(result.get("success")),
-            "tool_id": result.get("tool_id"),
-            "live_url": result.get("live_url") or result.get("tool_url"),
-            "share_url": result.get("share_url"),
-            "message": result.get("message"),
-            "timestamp": result.get("timestamp"),
-            "session_id": result.get("session_id"),
-            "error": result.get("error"),
-        }
-    except Exception as e:
-        logger.error(f"Claude Code SDK generation failed: {str(e)}")
-        return {"success": False, "error": str(e)}
 
+# Import proper Claude Code SDK implementation
+from backend.agents.claudeAgent.claude_tools.claude_code_sdk_proper import (
+    use_claude_code,
+    stream_claude_code,
+    continue_claude_code_session,
+    execute_claude_code_plan,
+    list_claude_code_sessions,
+    get_claude_code_session,
+    clear_claude_code_sessions
+)
 
 # Tool registry
 TOOLS = {
+    "use_claude_code": {
+        "function": use_claude_code,
+        "description": "Use Claude Code SDK to create, debug, test, or deploy code with multi-turn conversation support",
+        "parameters": {
+            "prompt": {
+                "type": "string",
+                "description": "The task or prompt to execute with Claude Code",
+                "required": True
+            },
+            "max_turns": {
+                "type": "integer",
+                "description": "Maximum conversation turns (default: 5)",
+                "required": False
+            },
+            "session_id": {
+                "type": "string",
+                "description": "Optional session ID for continuing a conversation",
+                "required": False
+            },
+            "continue_session": {
+                "type": "boolean",
+                "description": "Whether to continue an existing session",
+                "required": False
+            },
+            "mode": {
+                "type": "string",
+                "description": "Mode of operation: create, test, debug, or deploy (default: create)",
+                "required": False
+            }
+        }
+    },
     "clinical_operations": {
         "function": clinical_operations_query,
         "description": "Query the fine-tuned Clinical Operations AI model with integrated FDA, PubMed, web search, and clinical guidelines vector store for evidence-based clinical and care coordination answers",
@@ -873,7 +1077,7 @@ TOOLS = {
     },
     "execute_code": {
         "function": execute_code,
-        "description": "Execute code in a sandboxed environment",
+        "description": "Execute code using Anthropic's sandboxed environment with optional file creation and download capabilities",
         "parameters": {
             "code": {
                 "type": "string",
@@ -882,9 +1086,55 @@ TOOLS = {
             },
             "language": {
                 "type": "string",
-                "description": "Programming language",
+                "description": "Programming language (python, javascript, etc.)",
                 "required": False,
                 "default": "python"
+            },
+            "create_files": {
+                "type": "boolean",
+                "description": "Whether to allow file creation during code execution",
+                "required": False,
+                "default": False
+            },
+            "download_files": {
+                "type": "boolean",
+                "description": "Whether to download any files created during execution",
+                "required": False,
+                "default": False
+            }
+        }
+    },
+    "create_data_visualization": {
+        "function": create_data_visualization,
+        "description": "Create a data visualization using matplotlib and save it as an image file. The code will be wrapped with necessary imports and save commands.",
+        "parameters": {
+            "plot_code": {
+                "type": "string",
+                "description": "The matplotlib plotting code (e.g., plt.plot([1,2,3], [4,5,6])). Don't include imports or plt.savefig()",
+                "required": True
+            },
+            "filename": {
+                "type": "string",
+                "description": "Output filename for the visualization (e.g., 'chart.png')",
+                "required": False,
+                "default": "visualization.png"
+            }
+        }
+    },
+    "analyze_data_with_output": {
+        "function": analyze_data_with_output,
+        "description": "Execute data analysis code using pandas and save results. Your code should create a DataFrame named 'df' that will be saved in the specified format.",
+        "parameters": {
+            "analysis_code": {
+                "type": "string",
+                "description": "The data analysis code. Should create a pandas DataFrame named 'df' with the results",
+                "required": True
+            },
+            "output_format": {
+                "type": "string",
+                "description": "Output format for the results: 'csv', 'json', or 'xlsx'",
+                "required": False,
+                "default": "csv"
             }
         }
     },
@@ -942,27 +1192,6 @@ TOOLS = {
             "reasoning_effort": {
                 "type": "string",
                 "description": "Reasoning effort: 'low' for quick overview, 'medium' for balanced research, 'high' for exhaustive analysis. DEFAULT TO 'low' unless user explicitly requests more depth.",
-                "required": False
-            }
-        }
-    },
-    "claude_code_generate_tool": {
-        "function": claude_code_generate_tool,
-        "description": "Generate a personalized healthcare tool using Claude Code SDK and return a LiveURL for instant preview.",
-        "parameters": {
-            "message": {
-                "type": "string",
-                "description": "Patient's natural language request",
-                "required": True
-            },
-            "patient_id": {
-                "type": "string",
-                "description": "Patient identifier",
-                "required": True
-            },
-            "patient_data": {
-                "type": "object",
-                "description": "Optional structured patient context (conditions, meds, etc.)",
                 "required": False
             }
         }
@@ -1520,72 +1749,28 @@ TOOLS = {
 
 
 
-# Claude Code SDK Tool for Healthcare Tool Generation
-async def create_browser_ccsdk(tool_html: str, tool_name: str) -> Dict[str, Any]:
-    """
-    Create a browserless session to display Claude Code SDK generated healthcare tools with LiveURL.
-    Returns LiveURL immediately for inline chat display.
-    """
-    try:
-        from backend.agents.claudeAgent.claude_tools.claude_code_sdk.claude_code_sdk_browserless import claude_code_sdk_browserless
-        
-        logger.info(f"Creating Claude Code SDK tool preview for: {tool_name}")
-        
-        # Create session and get LiveURL
-        result = await claude_code_sdk_browserless.create_browser_ccsdk(
-            tool_html=tool_html,
-            tool_name=tool_name
-        )
-        
-        logger.info(f"Tool preview created with LiveURL: {result['live_url']}")
-        
-        return {
-            "success": True,
-            "session_id": result['session_id'],
-            "live_url": result['live_url'],
-            "tool_name": result['tool_name'],
-            "message": f"Your {tool_name} is ready!"
-        }
-        
-    except Exception as e:
-        logger.error(f"Failed to create tool preview: {str(e)}")
-        return {
-            "success": False,
-            "error": str(e),
-            "message": "Unable to display tool preview. Please try again."
-        }
-
 
 def get_tool_definitions_for_claude():
-    """Get tool definitions in Claude's expected format"""
-    definitions = []
+    """Get tool definitions in Claude's expected format using standardizer"""
+    from .tool_standardizer import standardize_tools_for_claude
     
-    for name, meta in TOOLS.items():
+    # Merge in unified agent tools
+    all_tools = {**TOOLS, **get_unified_agent_tool_definitions()}
+    
+    # Convert to list format for standardizer
+    tool_list = []
+    for name, meta in all_tools.items():
         tool_def = {
             "name": name,
             "description": meta["description"],
-            "input_schema": {
-                "type": "object",
-                "properties": {},
-                "required": []
-            }
+            "parameters": meta["parameters"]  # Standardizer will handle both formats
         }
-        
-        # Add parameters
-        for param_name, param_info in meta["parameters"].items():
-            tool_def["input_schema"]["properties"][param_name] = {
-                "type": param_info["type"],
-                "description": param_info["description"]
-            }
-            if param_info.get("default"):
-                tool_def["input_schema"]["properties"][param_name]["default"] = param_info["default"]
-            
-            if param_info.get("required", False):
-                tool_def["input_schema"]["required"].append(param_name)
-        
-        definitions.append(tool_def)
+        tool_list.append(tool_def)
     
-    return definitions
+    # Use standardizer to ensure proper format
+    standardized = standardize_tools_for_claude(tool_list, add_cache_control=False)
+    
+    return standardized
 
 
 async def execute_tool(tool_name: str, tool_input: Dict[str, Any]) -> Dict[str, Any]:
@@ -1613,3 +1798,6 @@ async def execute_tool(tool_name: str, tool_input: Dict[str, Any]) -> Dict[str, 
             "tool": tool_name,
             "input": tool_input
         }
+
+
+

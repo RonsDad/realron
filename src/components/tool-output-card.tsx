@@ -1,10 +1,11 @@
 "use client"
 
-import { useState } from "react"
+import { useState, useEffect, useRef } from "react"
 import { Card } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { ScrollArea } from "@/components/ui/scroll-area"
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible"
+import { emitTimelineEvent } from "@/components/migration/timeline-adapter"
 import { 
   ChevronDown, 
   ChevronRight, 
@@ -42,6 +43,8 @@ interface ToolOutputCardProps {
   className?: string
   isToolCall?: boolean
   isToolResult?: boolean
+  agentId?: string
+  agentType?: string
 }
 
 // Professional tool configurations with unique icons and colors
@@ -214,13 +217,44 @@ export function ToolOutputCard({
   status = "completed",
   className,
   isToolCall = false,
-  isToolResult = false
+  isToolResult = false,
+  agentId = 'claude-code',
+  agentType = 'claude_code'
 }: ToolOutputCardProps) {
   const [isExpanded, setIsExpanded] = useState(false)
   const [copied, setCopied] = useState(false)
+  const hasEmittedCall = useRef(false)
+  const hasEmittedResult = useRef(false)
   
   const config = getToolConfiguration(toolName)
   const Icon = config.icon
+  
+  // Emit timeline events based on tool state
+  useEffect(() => {
+    if (isToolCall && !hasEmittedCall.current && status === "executing") {
+      emitTimelineEvent('tool-output', {
+        tool: toolName,
+        output: content,
+        success: true,
+        agentId,
+        agentType,
+        isCall: true
+      })
+      hasEmittedCall.current = true
+    }
+    
+    if (isToolResult && !hasEmittedResult.current && (status === "completed" || status === "error")) {
+      emitTimelineEvent('tool-output', {
+        tool: toolName,
+        output: content,
+        success: status === "completed",
+        agentId,
+        agentType,
+        isResult: true
+      })
+      hasEmittedResult.current = true
+    }
+  }, [isToolCall, isToolResult, status, toolName, content, agentId, agentType])
   
   // Format content based on type
   const formatContent = () => {
@@ -290,11 +324,21 @@ export function ToolOutputCard({
                   <>
                     <span className="text-xs text-muted-foreground">•</span>
                     <span className="text-xs text-muted-foreground">
-                      {timestamp.toLocaleTimeString([], { 
-                        hour: '2-digit', 
+                      {timestamp.toLocaleTimeString([], {
+                        hour: '2-digit',
                         minute: '2-digit',
                         second: '2-digit'
                       })}
+                    </span>
+                  </>
+                )}
+                {/* Streaming indicator for Perplexity tools */}
+                {toolName.startsWith('perplexity_') && content && typeof content === 'object' && 'streamed' in content && (content as any).streamed && (
+                  <>
+                    <span className="text-xs text-muted-foreground">•</span>
+                    <span className="text-xs text-cyan-600 dark:text-cyan-400 font-medium flex items-center gap-1">
+                      <span className="inline-flex w-1.5 h-1.5 rounded-full bg-cyan-500 animate-pulse" />
+                      Streamed
                     </span>
                   </>
                 )}
@@ -339,7 +383,7 @@ export function ToolOutputCard({
           <CollapsibleContent>
             <ScrollArea className={cn(
               "w-full",
-              isExpanded ? "max-h-96" : "max-h-40"
+              isExpanded ? "h-64" : "h-32"
             )}>
               <div className="prose prose-sm max-w-none dark:prose-invert">
                 {toolName === "execute_code" || toolName === "bash" ? (

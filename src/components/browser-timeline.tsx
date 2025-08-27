@@ -75,7 +75,7 @@ export function BrowserTimeline({ actions, isActive }: BrowserTimelineProps) {
   const getColorClass = (type: BrowserAction['type']) => {
     switch (type) {
       case 'navigate':
-        return 'bg-blue-500 text-white'
+        return 'bg-gray-600 text-white'
       case 'click':
       case 'left_click':
         return 'bg-purple-500 text-white'
@@ -88,7 +88,7 @@ export function BrowserTimeline({ actions, isActive }: BrowserTimelineProps) {
       case 'error':
         return 'bg-red-500 text-white'
       case 'switch_tab':
-        return 'bg-indigo-500 text-white'
+        return 'bg-gray-500 text-white'
       case 'screenshot':
         return 'bg-cyan-500 text-white'
       case 'thinking':
@@ -113,7 +113,7 @@ export function BrowserTimeline({ actions, isActive }: BrowserTimelineProps) {
   }
 
   return (
-    <div className="bg-white dark:bg-gray-900 rounded-lg border border-gray-200 dark:border-gray-800 p-4">
+    <div className="bg-white dark:bg-neutral-900 rounded-lg border border-gray-200 dark:border-neutral-700 p-4">
       <div className="flex items-center justify-between mb-4">
         <h3 className="text-sm font-semibold text-gray-900 dark:text-gray-100">
           Browser Activity Timeline
@@ -139,7 +139,7 @@ export function BrowserTimeline({ actions, isActive }: BrowserTimelineProps) {
             >
               {/* Timeline line */}
               {index < actions.length - 1 && (
-                <div className="absolute left-4 top-8 w-0.5 h-full bg-gray-200 dark:bg-gray-700" />
+                <div className="absolute left-4 top-8 w-0.5 h-full bg-gray-200 dark:bg-neutral-600" />
               )}
 
               <div className="flex items-start gap-3">
@@ -194,12 +194,12 @@ export function BrowserTimeline({ actions, isActive }: BrowserTimelineProps) {
                         transition={{ duration: 0.2 }}
                         className="overflow-hidden"
                       >
-                        <div className="mt-2 p-3 bg-gray-50 dark:bg-gray-800 rounded-md">
+                        <div className="mt-2 p-3 bg-gray-50 dark:bg-neutral-800 rounded-md">
                           {action.screenshot ? (
                             <img 
                               src={`data:image/png;base64,${action.screenshot}`}
                               alt="Screenshot"
-                              className="w-full rounded border border-gray-200 dark:border-gray-700"
+                              className="w-full rounded border border-gray-200 dark:border-neutral-700"
                             />
                           ) : (
                             <pre className="text-xs text-gray-700 dark:text-gray-300 whitespace-pre-wrap">

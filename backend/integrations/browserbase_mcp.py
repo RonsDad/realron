@@ -18,6 +18,10 @@ import logging
 from typing import Dict, List, Optional, Any, Tuple
 from dataclasses import dataclass
 from enum import Enum
+from dotenv import load_dotenv
+
+# Load environment variables from .env file
+load_dotenv()
 
 logger = logging.getLogger(__name__)
 
@@ -57,7 +61,8 @@ class BrowserbaseConfig:
     model_name: str = "google/gemini-2.0-flash"  # Default per documentation
     model_api_key: Optional[str] = None
     proxies: bool = False
-    advanced_stealth: bool = False    context_id: Optional[str] = None
+    advanced_stealth: bool = False
+    context_id: Optional[str] = None
     browser_width: int = 1024
     browser_height: int = 768
 
@@ -117,7 +122,8 @@ class BrowserbaseMCPServer:
             if self.config.advanced_stealth:
                 cmd.append("--advancedStealth")
             
-            if self.config.context_id:                cmd.extend(["--contextId", self.config.context_id])
+            if self.config.context_id:
+                cmd.extend(["--contextId", self.config.context_id])
             
             cmd.extend([
                 "--browserWidth", str(self.config.browser_width),
@@ -135,18 +141,14 @@ class BrowserbaseMCPServer:
             env["BROWSERBASE_API_KEY"] = self.config.api_key
             env["BROWSERBASE_PROJECT_ID"] = self.config.project_id
             
+            # Pass the GEMINI_API_KEY to the MCP server
             if self.config.model_api_key:
-                # Set appropriate API key based on model provider
-                if "gemini" in self.config.model_name.lower():
-                    env["GEMINI_API_KEY"] = self.config.model_api_key
-                elif "anthropic" in self.config.model_name.lower():
-                    env["ANTHROPIC_API_KEY"] = self.config.model_api_key
-                elif "openai" in self.config.model_name.lower():
-                    env["OPENAI_API_KEY"] = self.config.model_api_key
+                env["GEMINI_API_KEY"] = self.config.model_api_key
             
             # Start the server process
             logger.info(f"Starting Browserbase MCP server: {' '.join(cmd)}")
-            self.process = subprocess.Popen(                cmd,
+            self.process = subprocess.Popen(
+                cmd,
                 env=env,
                 stdout=subprocess.PIPE,
                 stderr=subprocess.PIPE,
@@ -176,7 +178,8 @@ class BrowserbaseMCPServer:
             logger.info("Stopping Browserbase MCP server")
             self.process.terminate()
             try:
-                await asyncio.wait_for(                    asyncio.create_task(self._wait_for_process()),
+                await asyncio.wait_for(
+                    asyncio.create_task(self._wait_for_process()),
                     timeout=5.0
                 )
             except asyncio.TimeoutError:
@@ -206,7 +209,7 @@ class BrowserbaseMCPIntegration:
         """
         # Required environment variables (verified from docs)
         api_key = os.environ.get("BROWSERBASE_API_KEY")
-        project_id = os.environ.get("BROWSERBASE_PROJECT_ID")        
+        project_id = os.environ.get("BROWSERBASE_PROJECT_ID")
         if not api_key or not project_id:
             logger.warning(
                 "Browserbase MCP not configured: Missing BROWSERBASE_API_KEY or BROWSERBASE_PROJECT_ID"
@@ -235,7 +238,8 @@ class BrowserbaseMCPIntegration:
         # Context ID for persistent sessions
         context_id = os.environ.get("BROWSERBASE_CONTEXT_ID")
         
-        self.config = BrowserbaseConfig(            api_key=api_key,
+        self.config = BrowserbaseConfig(
+            api_key=api_key,
             project_id=project_id,
             transport_type=transport_type,
             smithery_url=smithery_url,
@@ -265,7 +269,8 @@ class BrowserbaseMCPIntegration:
         try:
             return self.server.get_mcp_server_config()
         except ValueError as e:
-            logger.error(f"Cannot get MCP config: {e}")            return None
+            logger.error(f"Cannot get MCP config: {e}")
+            return None
     
     async def start_local_server_if_needed(self) -> bool:
         """
@@ -295,7 +300,8 @@ class BrowserbaseMCPIntegration:
 
 def add_browserbase_to_mcp_servers(
     mcp_servers: List[Dict[str, Any]]
-) -> List[Dict[str, Any]]:    """
+) -> List[Dict[str, Any]]:
+    """
     Add Browserbase MCP server to the list of MCP servers
     This function integrates with the existing Ron AI backend
     """
@@ -325,7 +331,7 @@ def add_browserbase_to_mcp_servers(
 
 async def test_browserbase_integration():
     """Test the Browserbase MCP integration"""
-    integration = BrowserbaseMCPIntegration()    
+    integration = BrowserbaseMCPIntegration()
     # Initialize from environment
     if not integration.initialize_from_env():
         print("❌ Failed to initialize Browserbase MCP")

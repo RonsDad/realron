@@ -1,0 +1,113 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>HTML Preview Test</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            max-width: 800px;
+            margin: 0 auto;
+            padding: 20px;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+        }
+        .container {
+            background: white;
+            border-radius: 10px;
+            padding: 30px;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.2);
+        }
+        h1 {
+            color: #667eea;
+            text-align: center;
+            margin-bottom: 30px;
+        }
+        .feature {
+            background: #f7f7f7;
+            padding: 20px;
+            margin: 20px 0;
+            border-radius: 8px;
+            border-left: 4px solid #667eea;
+        }
+        .button {
+            background: #667eea;
+            color: white;
+            padding: 10px 20px;
+            border: none;
+            border-radius: 5px;
+            cursor: pointer;
+            font-size: 16px;
+            transition: background 0.3s;
+        }
+        .button:hover {
+            background: #764ba2;
+        }
+        .demo-section {
+            margin-top: 30px;
+            padding: 20px;
+            background: #e9ecef;
+            border-radius: 8px;
+        }
+        #message {
+            margin-top: 10px;
+            padding: 10px;
+            background: #d4edda;
+            color: #155724;
+            border-radius: 5px;
+            display: none;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>🎉 HTML Preview Feature Test</h1>
+        
+        <p>This is a test HTML file to demonstrate the new preview and download functionality in Ron AI's Claude agent.</p>
+        
+        <div class="feature">
+            <h2>✨ Features Added:</h2>
+            <ul>
+                <li>📁 Render HTML code blocks directly in the chat</li>
+                <li>💾 Download HTML files with one click</li>
+                <li>🔒 Sandboxed preview for security</li>
+                <li>👁️ Toggle preview on/off</li>
+            </ul>
+        </div>
+        
+        <div class="demo-section">
+            <h3>Interactive Demo</h3>
+            <p>Click the button below to see JavaScript in action:</p>
+            <button class="button" onclick="showMessage()">Click Me!</button>
+            <div id="message">
+                🎊 JavaScript is working! The preview supports interactive content.
+            </div>
+        </div>
+        
+        <div class="feature">
+            <h2>🚀 How to Use:</h2>
+            <ol>
+                <li>When Claude generates HTML code, look for the code block</li>
+                <li>Click the "Render" button to see a live preview</li>
+                <li>Click "Download" to save the HTML file</li>
+                <li>The preview updates in real-time</li>
+            </ol>
+        </div>
+        
+        <p style="text-align: center; margin-top: 30px; color: #666;">
+            Made with ❤️ for Ron AI
+        </p>
+    </div>
+    
+    <script>
+        function showMessage() {
+            const messageEl = document.getElementById('message');
+            messageEl.style.display = 'block';
+            setTimeout(() => {
+                messageEl.style.display = 'none';
+            }, 3000);
+        }
+    </script>
+</body>
+</html>

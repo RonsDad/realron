@@ -21,7 +21,7 @@ from browser_use.llm import ChatOpenAI
 openai_api_key = os.getenv('OPENAI_API_KEY')
 if not openai_api_key:
 	raise ValueError("OPENAI_API_KEY environment variable is required")
-llm = ChatOpenAI(model='gpt-5', api_key=openai_api_key, temperature=0.0)
+llm = ChatOpenAI(model='gpt-5', api_key=openai_api_key, temperature=1)
 
 agent = Agent(
 

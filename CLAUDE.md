@@ -4,267 +4,139 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Project Overview
 
-Ron AI Healthcare Copilot is an AI-powered healthcare advocacy assistant integrating Claude Sonnet 4 with advanced tool capabilities for medication management, provider search, and healthcare research.
+Ron AI is a healthcare-focused AI application with:
+- **Frontend**: Next.js React application with TypeScript and Tailwind CSS
+- **Backend**: FastAPI Python service with agent orchestration
+- **AI Integration**: Anthropic Claude, MCP servers, browser automation, and specialized healthcare agents
+
+## Architecture
+
+### Backend Structure
+- `backend/api.py` - Main FastAPI application with WebSocket and SSE support
+- `backend/agents/claudeAgent/` - Claude agent implementation with tools and integrations
+- `backend/agents/claudeAgent/claude_tools/` - Specialized tools (PubMed, FDA, clinical agents, browser automation)
+- `backend/integrations/` - External service integrations (Browserbase MCP, etc.)
+- `backend/memory_integration.py` - Memory management system
+- `backend/database.py` - Database operations
+
+### Frontend Structure
+- `src/app/` - Next.js app directory
+- `src/components/` - React components including computer-use-agent, message-card
+- `src/lib/` - Utility functions and shared logic
 
 ## Development Commands
 
-### Quick Start
-```bash
-# Initial setup (first time only)
-./setup.sh
-
-# Start EVERYTHING with one command (frontend + backend + Telnyx MCP)
-npm run dev:all
-
-# This starts:
-# - Frontend on port 3000 (Next.js dev server)
-# - Backend on port 8001 with automatic Telnyx MCP cloud connection
-# - All 97 tools including 57 Telnyx telephony tools
-# - Hot reload enabled for both frontend and backend
-```
-
-### Backend Development
-```bash
-# Backend is automatically started with npm run dev:all
-# But if you need to run it separately:
-npm run dev:backend
-
-# Or manually:
-cd backend
-source ../venv/bin/activate
-export TELNYX_MCP_URL="https://api.telnyx.com/mcp/sse"
-export TELNYX_MCP_MODE="sse"
-export PYTHONPATH="${PYTHONPATH}:$(pwd)"
-python3 -m uvicorn api:app --reload --port 8001
-```
-
-### Frontend Development
+### Frontend
 ```bash
 # Development server
 npm run dev
 
-# Build for production
+# Build production
 npm run build
 
-# Start production server
+# Run production
 npm start
+
+# Lint
+npm run lint
 ```
 
-### Utility Commands
+### Backend
 ```bash
-# Kill stuck ports
-npm run kill-ports
+# Activate virtual environment
+source venv/bin/activate
 
-# Start Telnyx MCP server
-npm run dev:telnyx
+# Run backend development server
+npm run dev:backend
+# OR directly:
+python3 -m uvicorn backend.api:app --host 0.0.0.0 --port 8001 --reload
 
-# Start computer use Docker
-npm run dev:computer-use
-
-# Start computer use AWS
-npm run dev:computer-use-aws
+# Run all services (frontend + backend)
+npm run dev:all
 ```
 
-## Architecture Overview
-
-### Backend Structure (`/backend`)
-
-The backend is a FastAPI application at `backend/api.py` that serves as the main integration point for all AI agents and tools.
-
-**Key Components:**
-
-1. **Claude Agent** (`agents/claudeAgent/`)
-   - `claude_completions.py`: Core Claude Sonnet 4 integration with streaming support
-   - `claude_tools/`: Tool implementations directory containing:
-     - `tools.py`: Tool definitions and execution logic
-     - `browser_use/`: Browser automation tools
-     - `clinical_agent/`: Healthcare-specific operations
-     - `computer_use/`: Desktop automation with interleaved thinking
-     - FDA drug information tools (23 specialized endpoints)
-
-2. **Deep Research Agent** (`agents/deepResearch/`)
-   - Built on Google ADK (Agent Development Kit)
-   - Multi-agent system for comprehensive research
-   - SSE streaming for long-running tasks
-   - Specialized sub-agents for different research aspects
-
-3. **API Endpoints**:
-   - `POST /chat`: Main chat endpoint with Claude
-   - `POST /healthcare/task`: Healthcare-specific tasks
-   - `POST /code/execute`: Code execution
-   - `POST /search`: Web search
-   - `POST /api/run_sse`: Deep research with SSE
-   - WebSocket `/ws/chat`: Real-time chat streaming
-
-### Frontend Structure (`/src`)
-
-Next.js 15 application with TypeScript and React.
-
-**Key Directories:**
-- `app/`: App router pages (main chat, landing, browser)
-- `components/`: 40+ React components including healthcare-specific UIs
-- `components/ui/`: Shadcn/ui component library
-- `hooks/`: Custom React hooks for state management
-- `lib/`: API utilities and type definitions
-
-### Critical Patterns
-
-#### Adding New Tools
-
-1. Create implementation in `backend/agents/claudeAgent/claude_tools/[tool_name]/`
-2. Add definition to `TOOL_DEFINITIONS` in `tools.py`
-3. Add execution case in `execute_tool` function:
-   ```python
-   elif tool_name == "your_tool":
-       from .your_tool import execute_your_tool
-       return await execute_your_tool(tool_input)
-   ```
-4. Update Claude's system prompt if needed in `claude_completions.py`
-
-#### Browser Session Management
-
-**CRITICAL**: System enforces SINGLE browser session limits:
-- Only one browser session exists at a time
-- Sessions auto-expire after 15 minutes
-- Always use this workflow:
-  1. Call `create_browser_session` to get session_id
-  2. Immediately call `browser_use` with that session_id
-  3. Use `check_browser_session` before reusing
-  4. Use `reuse_browser_session` for follow-up actions
-
-#### Tool Execution Pattern
-
-Tools in `claude_completions.py` follow parallel execution when possible:
-```python
-# Browser tools execute sequentially
-if has_browser_tools:
-    for block in tool_blocks:
-        result = await execute_tool(block.name, block.input)
-        
-# Other tools execute in parallel
-else:
-    tasks = [execute_tool(block.name, block.input) for block in tool_blocks]
-    results = await asyncio.gather(*tasks)
-```
-
-## Environment Configuration
-
-### Required Environment Variables
+### Docker Development
 ```bash
-# In .env file (project root)
-ANTHROPIC_API_KEY=your_actual_api_key_here  # Required
+# Start all services with Docker Compose
+docker-compose up -d
 
-# Optional
-BROWSERLESS_API_TOKEN=your_token  # For browser automation
-GOOGLE_APPLICATION_CREDENTIALS=path/to/credentials.json  # For Google services
+# With Brave MCP integration
+docker-compose -f docker-compose.brave.yml up -d
 ```
 
-### Loading Order
-1. Project root `.env` loads first
-2. `backend/.env` provides overrides if present
-3. Environment variables take precedence
-
-## Key Integration Points
-
-### Claude Tools System
-
-Tools are defined in `backend/agents/claudeAgent/claude_tools/tools.py`:
-- Each tool has a JSON schema definition
-- Async execution functions handle tool logic
-- Tools integrate with Claude via function calling
-
-### Streaming Architecture
-
-Three streaming methods:
-1. **WebSocket**: Real-time chat responses
-2. **SSE**: Deep research long-running tasks
-3. **AsyncGenerator**: Claude response streaming
-
-### API Response Pattern
-
-Standard endpoint structure:
-```python
-@app.post("/endpoint")
-async def handler(request: RequestModel):
-    try:
-        # Input validation
-        # Agent/tool execution
-        # Response formatting
-        return response
-    except Exception as e:
-        logger.error(f"Error: {e}")
-        raise HTTPException(status_code=500, detail=str(e))
-```
-
-## Available Tools
-
-### Healthcare Tools
-- **clinical_operations**: Fine-tuned GPT-4 for clinical queries
-- **FDA tools** (23 endpoints): Drug labels, warnings, interactions
-- **medication_management**: Track and optimize medications
-
-### Browser Automation
-- **create_browser_session**: Initialize browser session
-- **browser_use**: Automate web interactions
-- **reuse_browser_session**: Continue existing session
-- **check_browser_session**: Verify session health
-
-### Research Tools
-- **perplexity_sonar_pro**: Fast web search
-- **perplexity_reasoning_pro**: Advanced analysis
-- **perplexity_deep_research**: Comprehensive research
-
-### System Tools
-- **computer_use**: Desktop automation with thinking
-- **code_execution**: Run Python code
-- **web_search**: General web search
-
-## Performance Optimizations
-
-1. **Prompt Caching**: Claude caches prompts automatically
-2. **Parallel Tool Execution**: Non-browser tools run concurrently
-3. **Session Reuse**: Browser sessions persist for 15 minutes
-4. **Streaming Responses**: Improves perceived performance
-
-## Common Tasks
-
-### Running a Single Test
+### Testing
 ```bash
-# No formal test suite exists
-# Use API docs for manual testing
-open http://localhost:8000/docs
+# Run integration tests
+python test_full_integration.py
+python test_advanced_features.py
+
+# Backend orchestration tests
+python backend/test_orchestration.py
 ```
 
-### Debugging Backend
-```bash
-# Check logs
-tail -f api.log
+## Key Dependencies
 
-# Run with debug logging
-LOG_LEVEL=DEBUG python3 backend/api.py
-```
+### Backend (Python 3.12+)
+- `anthropic` - Claude API client
+- `fastapi` - Web framework
+- `uvicorn` - ASGI server
+- `browser-use` - Browser automation
+- `mcp[cli]` - Model Context Protocol
+- Google Cloud libraries for various services
 
-### Building for Production
-```bash
-# Frontend build
-npm run build
+### Frontend
+- Next.js 15.2.4
+- React 18
+- Radix UI components
+- Tailwind CSS
+- Firebase integration
 
-# Backend doesn't require build
-# Deploy with: uvicorn backend.api:app --host 0.0.0.0 --port 8000
-```
+## Environment Variables
 
-## Project Dependencies
+Required API keys (set in `.env`):
+- `ANTHROPIC_API_KEY`
+- `OPENAI_API_KEY`
+- `GOOGLE_API_KEY`
+- `BRAVE_API_KEY`
+- `BROWSERLESS_API_TOKEN`
+- Various healthcare API keys (FDA, PubMed, etc.)
 
-### Core Python Packages
-- `anthropic`: Claude API client
-- `fastapi` & `uvicorn`: Web framework
-- `browser-use>=0.5.5`: Browser automation
-- `google-adk>=0.1.0`: Agent Development Kit
-- `google-generativeai`: Gemini integration
+## Important Patterns
 
-### Core JavaScript Packages
-- `next@15.2.4`: React framework
-- `react@18`: UI library
-- `@radix-ui/*`: Component primitives
-- `tailwindcss`: Styling
-- `framer-motion`: Animations
+### Agent Communication
+- Uses WebSocket for real-time streaming
+- Server-Sent Events (SSE) as fallback
+- Message format follows structured JSON with role, content, and tool_calls
+
+### Tool Integration
+- Tools are dynamically loaded from `claude_tools/` directory
+- Each tool module exports specific functions with standardized interfaces
+- MCP servers provide additional capabilities
+
+### Memory System
+- Persistent memory stored in `backend/memory_integration.py`
+- API endpoints at `/api/memory/*` for CRUD operations
+
+## Development Workflow
+
+1. **Starting Development**:
+   - Ensure virtual environment is activated
+   - Source environment variables from `.env`
+   - Use `npm run dev:all` for full stack development
+
+2. **Adding New Tools**:
+   - Create tool module in `backend/agents/claudeAgent/claude_tools/`
+   - Follow existing tool patterns for function signatures
+   - Update tool loading in main agent
+
+3. **Frontend Changes**:
+   - Components use TypeScript with strict typing
+   - Follow existing component patterns in `src/components/`
+   - Use Tailwind CSS for styling
+
+## Testing Approach
+
+- Integration tests verify end-to-end functionality
+- Test files at project root test full system integration
+- Backend tests in `backend/` test specific modules
+- No unit test framework specified - check with team for testing requirements

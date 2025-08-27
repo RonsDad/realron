@@ -25,6 +25,9 @@ interface ComputerUseResult {
   success: boolean;
   message: string;
   error?: string;
+  debuggerUrl?: string;
+  debuggerFullscreenUrl?: string;
+  sessionId?: string;
 }
 
 interface ComputerUseIframeProps {
@@ -32,13 +35,15 @@ interface ComputerUseIframeProps {
   isLoading?: boolean;
   onRefresh?: () => void;
   className?: string;
+  onDebuggerUrlReady?: (url: string) => void;
 }
 
 export const ComputerUseIframe: React.FC<ComputerUseIframeProps> = ({
   result,
   isLoading = false,
   onRefresh,
-  className = ""
+  className = "",
+  onDebuggerUrlReady
 }) => {
   const [isExpanded, setIsExpanded] = useState(false);
   const [activeTab, setActiveTab] = useState("iframe");
@@ -51,6 +56,17 @@ export const ComputerUseIframe: React.FC<ComputerUseIframeProps> = ({
       setIsExpanded(true);
     }
   }, [result?.iframe_content]);
+
+  // Handle debugger URL when it becomes available
+  useEffect(() => {
+    if (result?.debuggerUrl && onDebuggerUrlReady) {
+      console.log('[ComputerUseIframe] Debugger URL detected:', result.debuggerUrl);
+      onDebuggerUrlReady(result.debuggerUrl);
+    } else if (result?.debuggerFullscreenUrl && onDebuggerUrlReady) {
+      console.log('[ComputerUseIframe] Fullscreen debugger URL detected:', result.debuggerFullscreenUrl);
+      onDebuggerUrlReady(result.debuggerFullscreenUrl);
+    }
+  }, [result?.debuggerUrl, result?.debuggerFullscreenUrl, onDebuggerUrlReady]);
 
   const downloadIframeContent = (content: string, index: number) => {
     const blob = new Blob([content], { type: 'text/html' });
@@ -120,6 +136,12 @@ export const ComputerUseIframe: React.FC<ComputerUseIframeProps> = ({
               <Badge variant="outline" className="text-xs">
                 <Globe className="w-3 h-3 mr-1" />
                 Browser
+              </Badge>
+            )}
+            {result?.debuggerUrl && (
+              <Badge variant="secondary" className="text-xs">
+                <Eye className="w-3 h-3 mr-1" />
+                Live View Ready
               </Badge>
             )}
           </CardTitle>

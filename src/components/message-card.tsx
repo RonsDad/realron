@@ -1,12 +1,87 @@
 "use client"
 
-import { Bot, User, Sparkles } from "lucide-react"
+import { Bot, User, Sparkles, Eye, Download } from "lucide-react"
 import ReactMarkdown from "react-markdown"
 import remarkGfm from "remark-gfm"
 import { Prism as SyntaxHighlighter } from "react-syntax-highlighter"
 import { oneDark } from "react-syntax-highlighter/dist/esm/styles/prism"
 import { cn } from "@/lib/utils"
 import { Card } from "@/components/ui/card"
+import { Button } from "@/components/ui/button"
+import { useState, useEffect, useRef } from "react"
+import { emitTimelineEvent } from "@/components/migration/timeline-adapter"
+
+// Separate component for HTML code blocks to properly handle state
+function HtmlCodeBlock({ children, language }: { children: any; language: string }) {
+  const [showPreview, setShowPreview] = useState(false)
+  
+  const handleDownload = () => {
+    const htmlContent = String(children).replace(/\n$/, "")
+    const blob = new Blob([htmlContent], { type: 'text/html' })
+    const url = URL.createObjectURL(blob)
+    const a = document.createElement('a')
+    a.href = url
+    a.download = 'output.html'
+    document.body.appendChild(a)
+    a.click()
+    document.body.removeChild(a)
+    URL.revokeObjectURL(url)
+  }
+  
+  return (
+    <div className="my-3 overflow-hidden rounded-lg border border-border/50">
+      <div className="flex items-center justify-between px-3 py-2 bg-muted/50 border-b border-border/50">
+        <span className="text-xs font-medium text-muted-foreground">
+          {language}
+        </span>
+        <div className="flex gap-2">
+          <Button
+            size="sm"
+            variant="outline"
+            onClick={() => setShowPreview(!showPreview)}
+            className="h-6 px-2 text-xs"
+          >
+            <Eye className="w-3 h-3 mr-1" />
+            {showPreview ? 'Hide' : 'Render'}
+          </Button>
+          <Button
+            size="sm"
+            variant="outline"
+            onClick={handleDownload}
+            className="h-6 px-2 text-xs"
+          >
+            <Download className="w-3 h-3 mr-1" />
+            Download
+          </Button>
+        </div>
+      </div>
+      <SyntaxHighlighter
+        style={oneDark as any}
+        language={language}
+        PreTag="div"
+        className="!mt-0 !mb-0 !text-xs !bg-transparent"
+        showLineNumbers={true}
+      >
+        {String(children).replace(/\n$/, "")}
+      </SyntaxHighlighter>
+      {showPreview && (
+        <div className="border-t border-border/50">
+          <div className="px-3 py-2 bg-muted/30">
+            <span className="text-xs font-medium text-muted-foreground">Preview</span>
+          </div>
+          <div className="p-4 bg-white">
+            <iframe
+              srcDoc={String(children).replace(/\n$/, "")}
+              className="w-full min-h-[300px] border-0"
+              sandbox="allow-scripts"
+              title="HTML Preview"
+            />
+          </div>
+        </div>
+      )}
+    </div>
+  )
+}
 
 interface MessageCardProps {
   role: "user" | "assistant"
@@ -14,6 +89,132 @@ interface MessageCardProps {
   timestamp?: Date
   isStreaming?: boolean
   className?: string
+  agentId?: string
+  agentType?: string
+}
+
+import { ScrollArea } from "@/components/ui/scroll-area"
+import { Brain, Wrench, FileCode, MessageSquare, Package } from "lucide-react"
+
+// Helper function to detect content type
+function detectContentType(text: string): Array<{type: string; content: string}> {
+  const sections: Array<{type: string; content: string}> = []
+  const lines = text.split('\n')
+  let currentSection = { type: 'text', content: '' }
+  let inCodeBlock = false
+  
+  for (const line of lines) {
+    // Check for CoT markers
+    if (line.includes('**Reasoning**') || line.includes('**Thinking**') || line.includes('**Analysis**')) {
+      if (currentSection.content) {
+        sections.push(currentSection)
+      }
+      currentSection = { type: 'reasoning', content: line + '\n' }
+    }
+    // Check for tool/function calls
+    else if (line.includes('**Tool:') || line.includes('**Function:') || line.includes('✅') || line.includes('🔧')) {
+      if (currentSection.content) {
+        sections.push(currentSection)
+      }
+      currentSection = { type: 'tool', content: line + '\n' }
+    }
+    // Check for MCP calls
+    else if (line.includes('**MCP:') || line.includes('mcp__')) {
+      if (currentSection.content) {
+        sections.push(currentSection)
+      }
+      currentSection = { type: 'mcp', content: line + '\n' }
+    }
+    // Check for code blocks
+    else if (line.startsWith('```')) {
+      if (!inCodeBlock) {
+        if (currentSection.content) {
+          sections.push(currentSection)
+        }
+        inCodeBlock = true
+        currentSection = { type: 'code', content: line + '\n' }
+      } else {
+        currentSection.content += line + '\n'
+        sections.push(currentSection)
+        currentSection = { type: 'text', content: '' }
+        inCodeBlock = false
+      }
+    }
+    else {
+      currentSection.content += line + '\n'
+    }
+  }
+  
+  if (currentSection.content) {
+    sections.push(currentSection)
+  }
+  
+  return sections.length > 0 ? sections : [{ type: 'text', content: text }]
+}
+
+function TimelineIcon({ type }: { type: string }) {
+  switch (type) {
+    case 'reasoning':
+      return <Brain className="w-4 h-4" />
+    case 'tool':
+      return <Wrench className="w-4 h-4" />
+    case 'mcp':
+      return <Package className="w-4 h-4" />
+    case 'code':
+      return <FileCode className="w-4 h-4" />
+    default:
+      return <MessageSquare className="w-4 h-4" />
+  }
+}
+
+function getTypeColor(type: string): string {
+  switch (type) {
+    case 'reasoning':
+      return "bg-purple-500/10 border-purple-500/20 text-purple-700 dark:text-purple-300"
+    case 'tool':
+      return "bg-green-500/10 border-green-500/20 text-green-700 dark:text-green-300"
+    case 'mcp':
+      return "bg-cyan-500/10 border-cyan-500/20 text-cyan-700 dark:text-cyan-300"
+    case 'code':
+      return "bg-indigo-500/10 border-indigo-500/20 text-indigo-700 dark:text-indigo-300"
+    default:
+      return "bg-slate-500/10 border-slate-500/20 text-slate-700 dark:text-slate-300"
+  }
+}
+
+function TimelineSection({ section, isLast }: { section: {type: string; content: string}, isLast: boolean }) {
+  
+  return (
+    <div className="flex gap-3">
+      <div className="flex flex-col items-center">
+        <div className={cn("w-8 h-8 rounded-full flex items-center justify-center border-2", getTypeColor(section.type))}>
+          <TimelineIcon type={section.type} />
+        </div>
+        {!isLast && <div className="w-0.5 flex-1 bg-border/50 mt-2" />}
+      </div>
+      <div className="flex-1 pb-4">
+        <div className={cn("text-xs font-medium px-2 py-0.5 rounded-full inline-block mb-2", getTypeColor(section.type))}>
+          {section.type === 'reasoning' ? 'Chain of Thought' :
+           section.type === 'tool' ? 'Tool Call' :
+           section.type === 'mcp' ? 'MCP Server' :
+           section.type === 'code' ? 'Code' : 'Response'}
+        </div>
+        <div className={cn("p-3 rounded-md", section.type === 'code' ? "bg-slate-900 dark:bg-slate-950" : "bg-slate-50 dark:bg-slate-900/50")}>
+          {section.type === 'code' ? (
+            <pre className="text-xs overflow-x-auto">
+              <code className="text-slate-300">{section.content}</code>
+            </pre>
+          ) : (
+            <div className="prose prose-sm dark:prose-invert max-w-none">
+              <ReactMarkdown remarkPlugins={[remarkGfm]}>
+                {section.content}
+              </ReactMarkdown>
+            </div>
+          )}
+        </div>
+      </div>
+    </div>
+  )
 }
 
 export function MessageCard({ 
@@ -21,9 +222,32 @@ export function MessageCard({
   content, 
   timestamp, 
   isStreaming = false,
-  className 
+  className,
+  agentId,
+  agentType 
 }: MessageCardProps) {
   const isUser = role === "user"
+  const sections = !isUser ? detectContentType(content) : [{ type: 'text', content }]
+  const hasTimeline = !isUser && sections.length > 1
+  const hasEmitted = useRef(false)
+  const previousContent = useRef<string>('')
+  
+  // Emit timeline event when message changes
+  useEffect(() => {
+    if (content && content !== previousContent.current && !isStreaming) {
+      emitTimelineEvent('message-display', {
+        role,
+        content,
+        metadata: {
+          timestamp,
+          agentId: agentId || (isUser ? 'user' : 'claude-code'),
+          agentType: agentType || (isUser ? 'custom' : 'claude_code')
+        }
+      })
+      previousContent.current = content
+      hasEmitted.current = true
+    }
+  }, [content, role, isStreaming, timestamp, agentId, agentType, isUser])
   
   return (
     <div className={cn(
@@ -80,13 +304,22 @@ export function MessageCard({
             ? "bg-primary text-primary-foreground border-primary/20 shadow-md hover:shadow-lg" 
             : "bg-gradient-to-br from-slate-50 to-slate-100 dark:from-slate-900/70 dark:to-slate-800/50 border-slate-200 dark:border-slate-700 shadow-md hover:shadow-lg"
         )}>
-          <div className={cn(
-            "prose prose-sm max-w-none",
-            isUser && "prose-invert",
-            !isUser && "dark:prose-invert",
-            isStreaming && !isUser && "streaming-text",
-            // Adjust prose styles for better readability
-            "[&>*:first-child]:mt-0 [&>*:last-child]:mb-0",
+          {hasTimeline ? (
+            <ScrollArea className="max-h-[600px] pr-2">
+              <div className="space-y-0">
+                {sections.map((section, idx) => (
+                  <TimelineSection key={idx} section={section} isLast={idx === sections.length - 1} />
+                ))}
+              </div>
+            </ScrollArea>
+          ) : (
+            <div className={cn(
+              "prose prose-sm max-w-none",
+              isUser && "prose-invert",
+              !isUser && "dark:prose-invert",
+              isStreaming && !isUser && "streaming-text",
+              // Adjust prose styles for better readability
+              "[&>*:first-child]:mt-0 [&>*:last-child]:mb-0",
             "[&_p]:leading-relaxed",
             "[&_li]:my-1",
             "[&_ul]:my-2",
@@ -102,6 +335,13 @@ export function MessageCard({
               components={{
                 code({ node, inline, className, children, ...props }: any) {
                   const match = /language-(\w+)/.exec(className || "")
+                  
+                  // Use the special component for HTML code blocks
+                  if (!inline && match && match[1] === 'html') {
+                    return <HtmlCodeBlock language={match[1]}>{children}</HtmlCodeBlock>
+                  }
+                  
+                  // Regular code blocks
                   return !inline && match ? (
                     <div className="my-3 overflow-hidden rounded-lg border border-border/50">
                       <div className="flex items-center justify-between px-3 py-2 bg-muted/50 border-b border-border/50">
@@ -201,6 +441,7 @@ export function MessageCard({
               {content}
             </ReactMarkdown>
           </div>
+          )}
         </Card>
       </div>
     </div>

@@ -17,6 +17,17 @@ interface ToolOutputBubbleProps {
 
 // Simplified color scheme - one color per service
 const getToolConfig = (toolName: string) => {
+  // Code execution - Purple
+  if (toolName === 'code_execution') {
+    return {
+      color: "from-purple-500 to-purple-600",
+      borderColor: "border-purple-200",
+      bgColor: "bg-purple-50 dark:bg-purple-950/20",
+      icon: Brain,
+      title: "Python Code Execution"
+    }
+  }
+  
   // Perplexity tools - Green
   if (toolName.startsWith('perplexity_')) {
     return {

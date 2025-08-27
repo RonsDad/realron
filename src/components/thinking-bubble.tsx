@@ -15,6 +15,7 @@ import {
 } from "lucide-react"
 import { cn } from "@/lib/utils"
 import { motion, AnimatePresence } from "framer-motion"
+import { emitTimelineEvent } from "@/components/migration/timeline-adapter"
 
 interface ThinkingBubbleProps {
   content: string
@@ -23,6 +24,7 @@ interface ThinkingBubbleProps {
   isMinimized?: boolean
   onToggleMinimize?: () => void
   className?: string
+  agentId?: string
 }
 
 export function ThinkingBubble({
@@ -31,11 +33,26 @@ export function ThinkingBubble({
   isStreaming = false,
   isMinimized = false,
   onToggleMinimize,
-  className
+  className,
+  agentId = 'claude-code'
 }: ThinkingBubbleProps) {
   const [isExpanded, setIsExpanded] = useState(!isMinimized)
   const [showFullContent, setShowFullContent] = useState(false)
   const scrollRef = useRef<HTMLDivElement>(null)
+  const previousContent = useRef<string>('')
+  
+  // Emit timeline event when content changes
+  useEffect(() => {
+    if (content && content !== previousContent.current) {
+      emitTimelineEvent('thinking-update', {
+        text: content,
+        isComplete: !isStreaming,
+        agentId,
+        tokenCount
+      })
+      previousContent.current = content
+    }
+  }, [content, isStreaming, agentId, tokenCount])
   
   // Auto-scroll to bottom when streaming
   useEffect(() => {

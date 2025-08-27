@@ -1,7 +1,7 @@
 "use client"
 
 import { useState, useEffect, useRef } from "react"
-import { ArrowUp, Bot, BrainCircuit, User, Paperclip, Mic, Monitor, Sparkles } from "lucide-react"
+import { ArrowUp, Bot, BrainCircuit, User, Paperclip, Mic, Monitor, Sparkles, Activity } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Switch } from "@/components/ui/switch"
 import { Textarea } from "@/components/ui/textarea"
@@ -18,10 +18,14 @@ import { claudeAPI, parseSSEStream, type ChatMessage } from "@/lib/api"
 import type { Message } from "@/lib/types"
 import { ThinkingBubble } from "@/components/thinking-bubble"
 import { MessageCard } from "@/components/message-card"
+import { ClinicalOpsMessage } from "@/components/clinical-ops-message"
+import { UniversalAgentOutput } from "@/components/universal-agent-output"
+import { ClaudeCodeOutputCard } from "@/components/claude-code-output-card"
 import { ResearchProgressUnified } from "@/components/research-progress-unified"
 import { ToolOutputCard } from "@/components/tool-output-card"
 import { ClaudeCodePreview } from "@/components/claude-code-preview"
 import { Card } from "@/components/ui/card"
+import { Badge } from "@/components/ui/badge"
 import { ScrollArea } from "@/components/ui/scroll-area"
 import { CommandMenu } from "@/components/command-menu"
 import { PromptBuilderDialog } from "@/components/prompt-builder-dialog"
@@ -29,6 +33,10 @@ import { useUserProfile } from "@/hooks/use-user-profile"
 import type { ProviderSearchData, ProviderSearchResult } from "@/lib/types"
 
 import { AgentOrchestration } from "@/components/agent-orchestration"
+import { AgentTimeline } from "@/components/agent-timeline"
+import { TimelineAdapter } from "@/components/migration/timeline-adapter"
+import { useTimelineIntegration } from "@/hooks/use-timeline-integration"
+import { AgentActivityCard, type AgentActivity as AgentActivityType } from "@/components/agent-activity-card"
 
 interface ThinkingData {
   id: string
@@ -84,6 +92,7 @@ export default function HealthCopilot() {
   const [currentThinkingId, setCurrentThinkingId] = useState<string | null>(null)
   const [codeFiles, setCodeFiles] = useState<CodeFileData[]>([])
   const [codeOutput, setCodeOutput] = useState<string>("")
+  const [claudeCodeOutputs, setClaudeCodeOutputs] = useState<any[]>([])
   const [providerSearchData, setProviderSearchData] = useState<ProviderSearchData | null>(null)
   const [connectionStatus, setConnectionStatus] = useState<'connected' | 'connecting' | 'error' | 'retry'>('connected')
   const [retryCount, setRetryCount] = useState(0)
@@ -91,10 +100,14 @@ export default function HealthCopilot() {
   const [agentActivities, setAgentActivities] = useState<AgentActivity[]>([])
   const [currentOrchestrationAgent, setCurrentOrchestrationAgent] = useState<string | null>(null)
   const [isAgentOrchestrationActive, setIsAgentOrchestrationActive] = useState(false)
+  const [showTimeline, setShowTimeline] = useState(false)
+  const [orchestrationActivities, setOrchestrationActivities] = useState<AgentActivityType[]>([])
+  const [pendingOrchestrationTools, setPendingOrchestrationTools] = useState<any[]>([])
   const messagesEndRef = useRef<HTMLDivElement>(null)
   const inputRef = useRef<HTMLTextAreaElement>(null)
 
   const { agentState, startAgent, stopAgent, updateUrl } = useComputerAgent()
+  const { handleSSEStream, clearTimeline } = useTimelineIntegration()
 
   useEffect(() => {
     setMounted(true)
@@ -115,6 +128,132 @@ export default function HealthCopilot() {
   const handleInputChange = (e: React.ChangeEvent<HTMLTextAreaElement>) => {
     const value = e.target.value
     setInputValue(value)
+  }
+
+  // Helper to check if a tool is an orchestration tool
+  const isOrchestrationTool = (toolName: string): boolean => {
+    const orchestrationTools = [
+      'execute_with_orchestrator',
+      'create_orchestrator_agent', 
+      'create_worker_agent',
+      'execute_pipeline',
+      'create_custom_pipeline',
+      'send_agent_message',
+      'broadcast_to_agents',
+      'list_available_agents'
+    ]
+    return orchestrationTools.includes(toolName)
+  }
+
+  // Execute orchestration tool with streaming
+  const executeOrchestrationTool = async (tool: any) => {
+    console.log('🚀 Executing orchestration tool:', tool.name, tool.input)
+    
+    try {
+      const response = await fetch('http://localhost:8001/execute-agent-tool-stream', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          tool_name: tool.name,
+          tool_input: tool.input
+        })
+      })
+
+      if (!response.ok) {
+        throw new Error(`HTTP ${response.status}`)
+      }
+
+      // Parse SSE stream
+      for await (const event of parseSSEStream(response.body!)) {
+        console.log('📡 Agent event:', event)
+        
+        if (event.type === 'agent_spawned') {
+          const activity: AgentActivityType = {
+            id: event.agent_id,
+            agentId: event.agent_id,
+            agentName: event.name || event.agent_id,
+            agentType: event.agent_type as 'orchestrator' | 'worker',
+            specialization: event.specialization,
+            task: event.task,
+            status: 'spawned',
+            timestamp: new Date(event.timestamp),
+            model: event.model
+          }
+          setOrchestrationActivities(prev => [...prev, activity])
+        }
+        
+        else if (event.type === 'agent_thinking_start') {
+          setOrchestrationActivities(prev => prev.map(a => 
+            a.agentId === event.agent_id 
+              ? {...a, status: 'thinking' as const}
+              : a
+          ))
+        }
+        
+        else if (event.type === 'agent_thinking') {
+          setOrchestrationActivities(prev => prev.map(a => 
+            a.agentId === event.agent_id 
+              ? {...a, thinking: event.cumulative || event.content}
+              : a
+          ))
+        }
+        
+        else if (event.type === 'agent_status') {
+          const statusMap: Record<string, AgentActivityType['status']> = {
+            'planning': 'planning',
+            'executing': 'executing', 
+            'synthesizing': 'thinking'
+          }
+          setOrchestrationActivities(prev => prev.map(a => 
+            a.agentId === event.agent_id 
+              ? {...a, status: statusMap[event.status] || 'executing'}
+              : a
+          ))
+        }
+        
+        else if (event.type === 'agent_tool_use') {
+          // Add tool usage to the activity
+          setToolOutputs(prev => [...prev, {
+            id: `${event.agent_id}-tool-${Date.now()}`,
+            toolName: `${event.agent_name}: ${event.tool_name}`,
+            content: '⚙️ Executing...',
+            timestamp: new Date(),
+            status: 'executing'
+          }])
+        }
+        
+        else if (event.type === 'agent_completed') {
+          setOrchestrationActivities(prev => prev.map(a => 
+            a.agentId === event.agent_id 
+              ? {...a, status: 'completed' as const, result: event.result}
+              : a
+          ))
+        }
+        
+        else if (event.type === 'orchestrator_created' || event.type === 'worker_created') {
+          // Handle agent creation results
+          const result = event.result
+          if (result.success) {
+            setToolOutputs(prev => [...prev, {
+              id: `created-${Date.now()}`,
+              toolName: tool.name,
+              content: `✅ Created ${result.name} (${result.agent_id})`,
+              timestamp: new Date(),
+              status: 'completed'
+            }])
+          }
+        }
+      }
+    } catch (error) {
+      console.error('❌ Error executing orchestration tool:', error)
+      setToolOutputs(prev => [...prev, {
+        id: `error-${Date.now()}`,
+        toolName: tool.name,
+        content: `❌ Error: ${error}`,
+        timestamp: new Date(),
+        status: 'error'
+      }])
+    }
   }
 
   const handleCommandSelect = (prompt: string) => {
@@ -148,10 +287,13 @@ export default function HealthCopilot() {
       setCurrentStreamingMessage("")
       setCurrentReasoning("")
       setReasoningTokens(0)
-      // Clear previous thinking bubbles and tool outputs when starting new message
-      setThinkingBubbles([])
-      setToolOutputs([])
-      setCurrentThinkingId(null)
+      // Clear previous outputs only for fresh messages, not retries
+      if (!messageOverride) {
+        setThinkingBubbles([])
+        setToolOutputs([])
+        setCurrentThinkingId(null)
+      }
+      setClaudeCodeOutputs([])
       // Reset agent orchestration for new message
       setAgentActivities([])
       setIsAgentOrchestrationActive(false)
@@ -376,7 +518,6 @@ export default function HealthCopilot() {
             reader.releaseLock()
           }
         } else {
-          console.log(">>> USING REGULAR CLAUDE CHAT <<<")
           // Use regular Claude chat endpoint
           // Convert messages to API format
           const apiMessages: ChatMessage[] = messages.map(msg => ({
@@ -478,54 +619,100 @@ ${isDeepResearch ? "DEEP RESEARCH MODE: Perform comprehensive research with mult
             // Only log in debug mode to avoid blocking main thread
             // console.log("Received event:", JSON.stringify(event))
             
-            // Handle content block start for thinking
+            // Handle content block start for thinking - CREATE BUBBLE IMMEDIATELY
             if (event.type === 'content_block_start' && event.content_block?.type === 'thinking') {
-              // Just track that we're in a thinking block
+              console.log('💭 Thinking block started')
               fullReasoning = ""
               setCurrentReasoning("")
+              
+              // Create new thinking bubble immediately
+              const thinkingId = `thinking-${Date.now()}`
+              setCurrentThinkingId(thinkingId)
+              setThinkingBubbles(prev => [...prev, {
+                id: thinkingId,
+                content: "💭 Thinking...",
+                timestamp: new Date()
+              }])
             }
             // Handle content deltas (text)
             else if (event.type === 'content_block_delta' && event.delta?.type === 'text_delta') {
               fullContent += event.delta.text || ""
               setCurrentStreamingMessage(fullContent)
             }
-            // Handle thinking deltas
+            // Handle thinking deltas - CAPTURE AND DISPLAY
             else if (event.type === 'content_block_delta' && event.delta?.type === 'thinking_delta') {
               const deltaText = event.delta.thinking || ""
               fullReasoning += deltaText
               setCurrentReasoning(fullReasoning)
+              
+              // Update or create thinking bubble for persistence
+              if (currentThinkingId) {
+                setThinkingBubbles(prev => prev.map(t => 
+                  t.id === currentThinkingId ? {...t, content: fullReasoning} : t
+                ))
+              } else {
+                const thinkingId = `thinking-${Date.now()}`
+                setCurrentThinkingId(thinkingId)
+                setThinkingBubbles([{
+                  id: thinkingId,
+                  content: fullReasoning,
+                  timestamp: new Date()
+                }])
+              }
             }
             // Handle signature deltas
             else if (event.type === 'content_block_delta' && event.delta?.type === 'signature_delta') {
               // Signature is encrypted and we don't need to display it
               // Signature is encrypted, no need to log
             }
-            // Handle tool use start
-            else if (event.type === 'content_block_start' && event.content_block?.type === 'tool_use') {
-              // Tool started - track activity without logging
+            // Handle tool use start (both client and server tools) - WITH VISIBILITY
+            else if (event.type === 'content_block_start' && 
+                    (event.content_block?.type === 'tool_use' || event.content_block?.type === 'server_tool_use')) {
+              const toolName = event.content_block.name
+              const isCodeExecution = toolName === 'code_execution'
+              
+              // LOG FOR VISIBILITY
+              console.log(`🚀 Tool started: ${toolName}`, event.content_block)
+              
+              // Check if it's an orchestration tool that needs execution
+              if (isOrchestrationTool(toolName)) {
+                console.log('🎯 Orchestration tool detected:', toolName)
+                // Store for execution after message completes
+                setPendingOrchestrationTools(prev => [...prev, {
+                  id: event.content_block.id,
+                  name: toolName,
+                  input: {} // Will be filled by input deltas
+                }])
+              }
               
               // Activate agent orchestration and track activity
               setIsAgentOrchestrationActive(true)
-              const agentName = getAgentNameFromTool(event.content_block.name)
+              const agentName = isCodeExecution ? 'Code Executor' : getAgentNameFromTool(toolName)
               setCurrentOrchestrationAgent(agentName)
               
               // Add agent activity
               const activityId = addAgentActivity({
-                type: mapToolNameToActivityType(event.content_block.name),
+                type: isCodeExecution ? 'analysis' : mapToolNameToActivityType(toolName),
                 agent: agentName,
-                description: `Starting ${event.content_block.name}`,
+                description: isCodeExecution ? 'Executing Python code...' : `Starting ${toolName}`,
                 status: 'running'
               })
               
-              // Add tool output with pending status
-              const toolId = `tool-${Date.now()}-${event.content_block.name}`
+              // Add tool output with ENHANCED VISIBILITY
+              const toolId = `tool-${Date.now()}-${toolName}`
               setToolOutputs(prev => [...prev, {
                 id: toolId,
-                toolName: event.content_block.name,
-                content: "Initializing...",
+                toolName: toolName,
+                content: isCodeExecution ? "🐍 Running Python code..." : `⚙️ Executing ${toolName}...`,
                 timestamp: new Date(),
                 status: "executing"
               }])
+              
+              // Also add to message stream for immediate visibility
+              if (!fullContent.includes(toolName)) {
+                fullContent += `\n\n🔧 **Using tool:** ${toolName}\n`
+                setCurrentStreamingMessage(fullContent)
+              }
               
               // Store activity ID for later updates
               setToolOutputs(prev => prev.map(tool => 
@@ -533,11 +720,67 @@ ${isDeepResearch ? "DEEP RESEARCH MODE: Perform comprehensive research with mult
               ))
               
               // Clear browser actions when browser_use tool is detected
-              if (event.content_block.name === 'browser_use') {
+              if (toolName === 'browser_use') {
                 console.log('Browser-use tool detected, waiting for live URL...')
                 // Clear previous browser actions
                 setBrowserActions([])
                 // Don't open the panel yet - wait for the live URL to come in browser_live_url event
+              }
+            }
+            // Handle code execution results
+            else if (event.type === 'code_execution_result') {
+              console.log('Code execution result received:', event.data)
+              
+              const { stdout, stderr, return_code, tool_use_id } = event.data || {}
+              
+              // Create a formatted output for the code execution
+              let codeOutput = ''
+              
+              if (stdout) {
+                codeOutput = `\n\n📊 **Code Execution Output:**\n\`\`\`\n${stdout}\n\`\`\``
+              }
+              
+              if (stderr) {
+                codeOutput += `\n\n❌ **Error Output:**\n\`\`\`\n${stderr}\n\`\`\``
+              }
+              
+              if (return_code !== undefined && return_code !== 0) {
+                codeOutput += `\n\n⚠️ **Exit Code:** ${return_code}`
+              }
+              
+              // Add the output to the message stream
+              if (codeOutput) {
+                fullContent += codeOutput
+                setCurrentStreamingMessage(fullContent)
+              }
+              
+              // Also create a tool output bubble for better visibility
+              const toolId = `code-exec-${Date.now()}`
+              setToolOutputs(prev => [...prev, {
+                id: toolId,
+                toolName: 'code_execution',
+                content: stdout || stderr || 'Code executed',
+                timestamp: new Date(),
+                status: return_code === 0 ? 'completed' : 'error',
+                details: {
+                  stdout,
+                  stderr,
+                  return_code
+                }
+              }])
+              
+              // Update agent activity if tracking
+              const agentName = 'Code Executor'
+              const runningActivity = agentActivities.find(a => 
+                a.agent === agentName && 
+                a.status === 'running'
+              )
+              if (runningActivity) {
+                updateAgentActivity(runningActivity.id, {
+                  status: return_code === 0 ? 'completed' : 'error',
+                  description: return_code === 0 ? 'Code executed successfully' : 'Code execution failed',
+                  details: { stdout, stderr, return_code }
+                })
               }
             }
             // Handle browser live URL - IMMEDIATE!
@@ -560,9 +803,10 @@ ${isDeepResearch ? "DEEP RESEARCH MODE: Perform comprehensive research with mult
                 console.log('Browser panel already open, LiveURL updated to:', event.live_url)
               }
             }
-            // Handle tool results
+            // Handle tool results - WITH FULL VISIBILITY
             else if (event.type === 'tool_result') {
-              // Tool completed - process result without logging
+              console.log(`🎯 Tool completed: ${event.tool_name}`, event.result)
+              // Tool completed - display result prominently
               
               // Update agent activity to completed
               const agentName = getAgentNameFromTool(event.tool_name)
@@ -742,6 +986,50 @@ ${isDeepResearch ? "DEEP RESEARCH MODE: Perform comprehensive research with mult
                 } else if (result.error) {
                   formattedResult += `\n\nError: ${result.error}`
                 }
+              } else if (event.tool_name === 'code_execution' || event.tool_name === 'execute_code') {
+                // Handle code execution output
+                const result = typeof event.result === 'string' ? JSON.parse(event.result) : event.result
+                
+                // Extract code output from result
+                let codeOutput = ''
+                let language = 'python' // default
+                
+                if (result.output) {
+                  codeOutput = result.output
+                } else if (result.stdout) {
+                  codeOutput = result.stdout
+                  if (result.stderr) {
+                    codeOutput += '\n\nErrors:\n' + result.stderr
+                  }
+                } else if (result.result) {
+                  codeOutput = typeof result.result === 'string' ? result.result : JSON.stringify(result.result, null, 2)
+                }
+                
+                // Set the code output state for display
+                setCodeOutput(codeOutput)
+                
+                // If there's code content, also save it
+                if (result.code) {
+                  setCodeFiles([{
+                    name: 'executed_code.' + (result.language || 'py'),
+                    language: result.language || language,
+                    content: result.code
+                  }])
+                }
+                
+                // Add to tool outputs
+                setToolOutputs(prev => [...prev, {
+                  id: toolId,
+                  toolName: event.tool_name,
+                  content: codeOutput || 'Code executed successfully',
+                  timestamp: new Date(),
+                  status: "completed"
+                }])
+                
+                formattedResult = `\n\n✅ **Code execution completed**`
+                if (codeOutput) {
+                  formattedResult += `\n\n\`\`\`\n${codeOutput.substring(0, 200)}${codeOutput.length > 200 ? '...' : ''}\n\`\`\``
+                }
               } else if (event.tool_name === 'claude_code_generate_tool') {
                 // SDK generated tool with LiveURL
                 const result = typeof event.result === 'string' ? JSON.parse(event.result) : event.result
@@ -753,11 +1041,89 @@ ${isDeepResearch ? "DEEP RESEARCH MODE: Perform comprehensive research with mult
                   status: "completed"
                 }])
                 formattedResult = `\n\n✅ **Tool generated**`
+              } else if (event.tool_name === 'use_claude_code') {
+                // Parse the use_claude_code result
+                const result = typeof event.result === 'string' ? JSON.parse(event.result) : event.result
+                
+                if (result.files_created && result.files_created.length > 0) {
+                  // Store the Claude Code output for rendering with the special component
+                  setClaudeCodeOutputs(prev => [...prev, {
+                    id: toolId,
+                    result: result.result || '',
+                    files_created: result.files_created,
+                    files_modified: result.files_modified || [],
+                    console_outputs: result.console_outputs || [],
+                    session: {
+                      session_id: result.session_id,
+                      can_continue: result.can_continue,
+                      turns_used: result.turns_used || 1
+                    },
+                    timestamp: new Date()
+                  }])
+                  
+                  formattedResult = `\n\n✅ **Created ${result.files_created.length} file${result.files_created.length > 1 ? 's' : ''}**\n\nSee the files below 👇`
+                } else {
+                  formattedResult = `\n\n✅ **Code task completed**`
+                  if (result.result) {
+                    formattedResult += `\n\n${result.result}`
+                  }
+                }
+              } else if (event.tool_name === 'clinical_operations') {
+                // Special handling for clinical_operations responses
+                try {
+                  const result = typeof event.result === 'string' ? JSON.parse(event.result) : event.result
+                  
+                  // Store the full clinical ops response for special rendering
+                  if (result && result.output) {
+                    // This is a full clinical ops response
+                    setMessages(prev => {
+                      const lastMsg = prev[prev.length - 1]
+                      if (lastMsg && lastMsg.role === "assistant") {
+                        return prev.slice(0, -1).concat({
+                          ...lastMsg,
+                          type: 'clinical_ops',
+                          data: result
+                        })
+                      }
+                      return prev
+                    })
+                    formattedResult = "" // Don't add text to message since we'll use special component
+                  } else {
+                    // Fallback for simpler responses
+                    if (result.error) {
+                      toolContent = `Error: ${result.error}`
+                    } else if (result.result) {
+                      toolContent = result.result
+                    } else if (result.content) {
+                      toolContent = result.content
+                    } else {
+                      toolContent = JSON.stringify(result, null, 2)
+                    }
+                    
+                    setToolOutputs(prev => [...prev, {
+                      id: toolId,
+                      toolName: event.tool_name,
+                      content: toolContent,
+                      timestamp: new Date(),
+                      status: "completed"
+                    }])
+                    formattedResult = `\n\n✅ **Clinical Operations completed**`
+                  }
+                } catch (e) {
+                  toolContent = typeof event.result === 'string' ? event.result : JSON.stringify(event.result)
+                  setToolOutputs(prev => [...prev, {
+                    id: toolId,
+                    toolName: event.tool_name,
+                    content: toolContent,
+                    timestamp: new Date(),
+                    status: "completed"
+                  }])
+                  formattedResult = `\n\n✅ **Clinical Operations completed**`
+                }
               } else if (event.tool_name?.startsWith('perplexity_') ||
                          event.tool_name?.startsWith('pubmed_') ||
                          event.tool_name?.startsWith('search') ||
-                         event.tool_name?.startsWith('get') ||
-                         event.tool_name === 'clinical_operations') {
+                         event.tool_name?.startsWith('get')) {
                 // Parse result to get content
                 try {
                   const result = typeof event.result === 'string' ? JSON.parse(event.result) : event.result
@@ -919,6 +1285,15 @@ ${isDeepResearch ? "DEEP RESEARCH MODE: Perform comprehensive research with mult
                   timestamp: new Date()
                 }])
               }
+              
+              // Execute any pending orchestration tools
+              if (pendingOrchestrationTools.length > 0) {
+                console.log(`🎯 Executing ${pendingOrchestrationTools.length} orchestration tools`)
+                for (const tool of pendingOrchestrationTools) {
+                  await executeOrchestrationTool(tool)
+                }
+                setPendingOrchestrationTools([])
+              }
             }
           }
         }
@@ -1061,10 +1436,11 @@ ${isDeepResearch ? "DEEP RESEARCH MODE: Perform comprehensive research with mult
   }
 
   return (
-    <div className="flex min-h-screen bg-background text-foreground">
-      <SidebarMinimal isOpen={isOpen} onOpenChange={setIsOpen} />
+    <TimelineAdapter>
+      <div className="h-screen bg-background text-foreground overflow-hidden">
+        <SidebarMinimal isOpen={isOpen} onOpenChange={setIsOpen} />
 
-      <div className={`flex-1 flex flex-col transition-all duration-300 ease-out bg-background h-screen ${isOpen ? 'ml-64' : 'ml-16'}`}>
+      <div className={`h-full bg-background ${isOpen ? 'ml-64' : 'ml-16'}`}>
         <div className="md:hidden">
           <ComputerUseAgent
             isVisible={agentState.isActive}
@@ -1076,12 +1452,12 @@ ${isDeepResearch ? "DEEP RESEARCH MODE: Perform comprehensive research with mult
           />
 
           <div className="transition-all duration-500">
-            <header className="sticky top-0 z-10 flex items-center justify-between py-4 px-4 pl-20 bg-background/95 backdrop-blur-sm border-b border-border">
+            <header className="sticky top-0 z-10 flex items-center justify-between py-4 px-4 pl-20 bg-background/80 backdrop-blur-xl border-b border-primary/10 shadow-lg">
               <div className="flex items-center gap-2">
-                <div className="w-8 h-8 rounded-full bg-primary/10 flex items-center justify-center">
+                <div className="w-8 h-8 rounded-full bg-gradient-to-br from-primary/20 to-accent/20 flex items-center justify-center border border-primary/30">
                   <Bot className="w-4 h-4 text-primary" />
                 </div>
-                <h1 className="text-lg font-bold tracking-tight">Ron AI</h1>
+                <h1 className="text-lg font-bold bg-gradient-to-r from-primary to-accent bg-clip-text text-transparent">Ron AI</h1>
               </div>
               <div className="flex items-center gap-2">
                 <Button
@@ -1117,19 +1493,56 @@ ${isDeepResearch ? "DEEP RESEARCH MODE: Perform comprehensive research with mult
 
             {showCareTeam && <CareTeamPanel onClose={() => setShowCareTeam(false)} />}
 
-            <main className="flex-1 pb-24 px-4 py-6 overflow-y-auto">
+            <main className="messages-container px-4 py-6 pb-24">
               <div className={`mx-auto transition-all duration-500 ${
                 agentState.isActive ? "max-w-full pr-2" : "max-w-4xl"
               }`}>
-                {messages.length === 0 ? (
-                  <div className="text-center py-8 animate-fade-in">
-                    <h2 className="text-3xl sm:text-4xl md:text-5xl lg:text-6xl font-bold tracking-tight leading-tight mb-4">
-                      Your Health Advocacy{" "}
-                      <span className="text-primary text-glow bg-gradient-to-r from-primary to-accent bg-clip-text text-transparent">
+                {/* Timeline/Message View Toggle */}
+                {messages.length > 0 && (
+                  <div className="flex justify-center mb-4">
+                    <div className="inline-flex rounded-lg border border-border p-1 bg-background/50 backdrop-blur">
+                      <Button
+                        variant={showTimeline ? "ghost" : "secondary"}
+                        size="sm"
+                        onClick={() => setShowTimeline(false)}
+                        className="text-xs"
+                      >
+                        Messages
+                      </Button>
+                      <Button
+                        variant={showTimeline ? "secondary" : "ghost"}
+                        size="sm"
+                        onClick={() => setShowTimeline(true)}
+                        className="text-xs"
+                      >
+                        <Activity className="w-3 h-3 mr-1" />
+                        Timeline
+                      </Button>
+                    </div>
+                  </div>
+                )}
+                
+                {showTimeline && messages.length > 0 ? (
+                  <div className="animate-fade-in">
+                    <AgentTimeline
+                      className="rounded-xl border border-border bg-card/50 backdrop-blur"
+                      onClose={() => setShowTimeline(false)}
+                    />
+                  </div>
+                ) : messages.length === 0 ? (
+                  <div className="text-center py-6">
+                                      <h2 className={`font-semibold leading-tight mb-3 ${
+                    agentState.isActive ? "text-2xl sm:text-3xl" : "text-3xl sm:text-4xl"
+                  }`}>
+                    Your Health Advocacy
+                      <br />
+                      <span className="text-transparent bg-gradient-to-r from-primary via-primary/80 to-accent bg-clip-text text-glow">
                         Co-Pilot
                       </span>
                     </h2>
-                    <p className="text-muted-foreground max-w-2xl mx-auto leading-relaxed text-lg sm:text-xl px-4 animate-fade-in-delay">
+                                      <p className={`text-muted-foreground max-w-xl mx-auto px-4 ${
+                    agentState.isActive ? "text-sm" : "text-base"
+                  }`}>
                       Get clarity and confidence in your healthcare decisions with AI-powered insights and expert
                       recommendations.
                     </p>
@@ -1167,19 +1580,40 @@ ${isDeepResearch ? "DEEP RESEARCH MODE: Perform comprehensive research with mult
                     )}
                     
                     {/* Show tool outputs */}
-                    {toolOutputs.map((output) => (
-                      <div key={output.id} className="animate-slide-up mb-4">
-                        <ToolOutputCard
-                          toolName={output.toolName}
-                          content={output.content}
-                          timestamp={output.timestamp}
-                          status={output.status}
-                          className=""
-                        />
-                      </div>
-                    ))}
+                    <div className="space-y-4">
+                      {toolOutputs.map((output) => (
+                        <div key={output.id} className="animate-slide-up">
+                          <ToolOutputCard
+                            toolName={output.toolName}
+                            content={output.content}
+                            timestamp={output.timestamp}
+                            status={output.status}
+                            className=""
+                          />
+                        </div>
+                      ))}
+                    </div>
                     
   
+                    {/* Display orchestration activities */}
+                    {orchestrationActivities.length > 0 && (
+                      <div className="mb-6 space-y-3">
+                        <h3 className="text-lg font-semibold flex items-center gap-2 mb-3">
+                          <span>🤖</span>
+                          <span>Agent Orchestration</span>
+                          <Badge variant="secondary" className="ml-2">
+                            {orchestrationActivities.length} agent{orchestrationActivities.length !== 1 ? 's' : ''}
+                          </Badge>
+                        </h3>
+                        {orchestrationActivities.map(activity => (
+                          <AgentActivityCard 
+                            key={activity.id} 
+                            activity={activity} 
+                          />
+                        ))}
+                      </div>
+                    )}
+
                     {messages.map((msg, i) => (
                       <div key={i} className="animate-slide-up">
                         {/* Show thinking view for messages with reasoning */}
@@ -1191,12 +1625,20 @@ ${isDeepResearch ? "DEEP RESEARCH MODE: Perform comprehensive research with mult
                             className="mb-4"
                           />
                         )}
-                        <MessageCard
-                          role={msg.role}
-                          content={msg.content}
-                          timestamp={msg.timestamp}
-                          isStreaming={false}
-                        />
+                        {msg.type && msg.data ? (
+                          <UniversalAgentOutput
+                            agentType={msg.type}
+                            response={msg.data}
+                            timestamp={msg.timestamp}
+                          />
+                        ) : (
+                          <MessageCard
+                            role={msg.role}
+                            content={msg.content}
+                            timestamp={msg.timestamp}
+                            isStreaming={false}
+                          />
+                        )}
                         {/* Show approval buttons for research plans */}
                         {msg.role === "assistant" && 
                          isDeepResearch && 
@@ -1235,6 +1677,19 @@ ${isDeepResearch ? "DEEP RESEARCH MODE: Perform comprehensive research with mult
                       </div>
                     ))}
                     
+                    {/* Show Claude Code outputs */}
+                    {claudeCodeOutputs.map((output) => (
+                      <div key={output.id} className="animate-slide-up mb-4">
+                        <ClaudeCodeOutputCard
+                          result={output.result}
+                          files_created={output.files_created}
+                          files_modified={output.files_modified}
+                          console_outputs={output.console_outputs}
+                          session={output.session}
+                        />
+                      </div>
+                    ))}
+                    
                     {/* Show streaming assistant message ONLY when content arrives */}
                     {currentStreamingMessage && (
                       <div className="animate-slide-up">
@@ -1258,7 +1713,7 @@ ${isDeepResearch ? "DEEP RESEARCH MODE: Perform comprehensive research with mult
 
             <div className="fixed bottom-0 left-0 right-0 z-50">
               <div className="max-w-4xl mx-auto">
-                <Card className="bg-card/95 backdrop-blur-xl shadow-2xl border-border/50">
+                <Card className="bg-card/90 backdrop-blur-xl border-t border-primary/10 glow-card">
                   <div className="p-4">
                   <div className="flex items-end gap-3">
                     <PromptBuilderDialog onSendPrompt={handleSendMessage} />
@@ -1267,8 +1722,8 @@ ${isDeepResearch ? "DEEP RESEARCH MODE: Perform comprehensive research with mult
                           ref={inputRef}
                           value={inputValue}
                           onChange={handleInputChange}
-                          placeholder="Ask about symptoms, treatments, or find a specialist..."
-                          className="w-full resize-none focus-visible:ring-1 focus-visible:ring-primary/50 placeholder:text-muted-foreground/60 min-h-[50px] max-h-[120px] bg-background/50 border-border/50"
+                          placeholder="Message Ron AI..."
+                          className="w-full text-sm resize-none bg-input/80 border border-primary/20 placeholder:text-muted-foreground/60 min-h-[44px] max-h-[100px] transition-all duration-200 rounded-lg px-3 py-2.5 input-glow"
                           rows={2}
                           onKeyDown={(e) => {
                             if (e.key === "Enter" && !e.shiftKey) {
@@ -1282,21 +1737,21 @@ ${isDeepResearch ? "DEEP RESEARCH MODE: Perform comprehensive research with mult
                         <Button
                           variant="outline"
                           size="icon"
-                          className="h-10 w-10 border-border/50"
+                          className="h-10 w-10 border-primary/20 hover:border-primary/40 bg-card/50 backdrop-blur-sm hover:bg-primary/10 transition-all duration-300"
                         >
-                          <Paperclip className="w-4 h-4" />
+                          <Paperclip className="w-4 h-4 text-primary/70 hover:text-primary" />
                         </Button>
                         <Button
                           variant="outline"
                           size="icon"
-                          className="h-10 w-10 border-border/50"
+                          className="h-10 w-10 border-primary/20 hover:border-primary/40 bg-card/50 backdrop-blur-sm hover:bg-primary/10 transition-all duration-300"
                         >
-                          <Mic className="w-4 h-4" />
+                          <Mic className="w-4 h-4 text-primary/70 hover:text-primary" />
                         </Button>
                         <Button
                           onClick={() => handleSendMessage()}
                           size="icon"
-                          className="h-10 w-10 bg-gradient-to-r from-primary to-primary/80 hover:from-primary/90 hover:to-primary/70 text-primary-foreground shadow-lg transition-all duration-200"
+                          className="h-10 w-10 bg-gradient-to-br from-primary via-primary/90 to-accent/80 hover:from-primary/90 hover:to-accent/70 text-primary-foreground shadow-xl transition-all duration-300 button-glow hover:scale-105 active:scale-95"
                           disabled={isProcessing || !inputValue.trim()}
                         >
                           {isProcessing ? (
@@ -1309,7 +1764,7 @@ ${isDeepResearch ? "DEEP RESEARCH MODE: Perform comprehensive research with mult
                     </div>
                   </div>
 
-                  <div className="flex items-center justify-between pt-2 mt-2 border-t border-border">
+                  <div className="flex items-center justify-between px-4 pb-3 pt-2 mt-2 border-t border-primary/10 relative">
                     {/* Connection Status and Retry Button */}
                     <div className="flex items-center gap-3">
                       {connectionStatus === 'connecting' && (
@@ -1365,9 +1820,9 @@ ${isDeepResearch ? "DEEP RESEARCH MODE: Perform comprehensive research with mult
                             }
                           }
                         }}
-                        className="text-xs font-medium hover:text-primary transition-colors duration-200"
+                        className="text-xs font-medium hover:text-primary transition-all duration-200 px-2 py-1 rounded-md hover:bg-primary/10"
                       >
-                        <Monitor className="w-3 h-3 mr-1" />
+                        <Monitor className="w-3 h-3 mr-1 text-primary/70" />
                         {agentState.isActive ? "Close Browser" : "Browser"}
                       </Button>
                       <div className="flex items-center gap-2">
@@ -1389,7 +1844,7 @@ ${isDeepResearch ? "DEEP RESEARCH MODE: Perform comprehensive research with mult
                               setDeepResearchMessages([])
                             }
                           }}
-                          className="data-[state=checked]:bg-primary scale-75"
+                          className="data-[state=checked]:bg-gradient-to-r data-[state=checked]:from-primary data-[state=checked]:to-accent shadow-lg transition-all duration-300 scale-75"
                         />
                       </div>
                     </div>
@@ -1405,24 +1860,24 @@ ${isDeepResearch ? "DEEP RESEARCH MODE: Perform comprehensive research with mult
             agentState.isActive ? "w-1/2" : "w-full"
           }`}>
           <header
-            className={`fixed top-0 z-10 flex items-center justify-between py-8 px-6 pl-20 bg-background/80 backdrop-blur-sm border-b border-border transition-all duration-500 ${
+            className={`fixed top-0 z-10 flex items-center justify-between py-5 px-6 pl-20 bg-background/80 backdrop-blur-xl border-b border-primary/10 shadow-lg transition-all duration-300 ${
               agentState.isActive ? "left-0 right-1/2" : "left-0 right-0"
             }`}
           >
             <div className="flex items-center gap-3">
-              <div className="w-10 h-10 rounded-full bg-primary/10 flex items-center justify-center">
-                <Bot className="w-6 h-6 text-primary" />
+                          <div className="w-10 h-10 rounded-full bg-gradient-to-br from-primary/20 to-accent/20 flex items-center justify-center border border-primary/30 shadow-lg">
+              <Bot className="w-5 h-5 text-primary" />
               </div>
-              <h1 className="text-2xl font-bold tracking-tight">Ron AI</h1>
+              <h1 className="text-2xl font-bold bg-gradient-to-r from-primary to-accent bg-clip-text text-transparent">Ron AI</h1>
             </div>
             <div className="flex items-center gap-4">
               <Button
                 variant="ghost"
                 size="sm"
                 onClick={() => setShowCareTeam(!showCareTeam)}
-                className="text-sm font-medium hover:text-primary"
-              >
-                Care Team
+                              className="text-sm font-medium hover:text-primary transition-colors px-3 py-1.5 rounded-lg hover:bg-primary/10"
+            >
+              Care Team
               </Button>
               <Button
                 variant="ghost"
@@ -1453,15 +1908,50 @@ ${isDeepResearch ? "DEEP RESEARCH MODE: Perform comprehensive research with mult
             className="flex-1 pb-32 pt-32 overflow-y-auto"
           >
             <div className="container max-w-7xl mx-auto px-6">
-              {messages.length === 0 ? (
-                <div className="text-center ml-px mb-0 py-0 animate-fade-in mt-0">
-                  <h2 className="leading-tight font-bold tracking-tight mx-2.5 py-0 text-7xl">
-                    Your Health Advocacy{" "}
-                    <span className="text-primary text-glow bg-gradient-to-r from-primary to-accent bg-clip-text text-transparent">
+              {/* Timeline/Message View Toggle */}
+              {messages.length > 0 && (
+                <div className="flex justify-center mb-6">
+                  <div className="inline-flex rounded-lg border border-border p-1 bg-background/50 backdrop-blur">
+                    <Button
+                      variant={showTimeline ? "ghost" : "secondary"}
+                      size="default"
+                      onClick={() => setShowTimeline(false)}
+                    >
+                      Messages
+                    </Button>
+                    <Button
+                      variant={showTimeline ? "secondary" : "ghost"}
+                      size="default"
+                      onClick={() => setShowTimeline(true)}
+                    >
+                      <Activity className="w-4 h-4 mr-2" />
+                      Timeline
+                    </Button>
+                  </div>
+                </div>
+              )}
+              
+              {showTimeline && messages.length > 0 ? (
+                <div className="animate-fade-in">
+                  <AgentTimeline
+                    className="rounded-xl border border-border bg-card/50 backdrop-blur min-h-[600px]"
+                    onClose={() => setShowTimeline(false)}
+                  />
+                </div>
+              ) : messages.length === 0 ? (
+                <div className="text-center py-8">
+                                    <h2 className={`font-semibold mx-2.5 ${
+                    agentState.isActive ? "text-3xl lg:text-4xl" : "text-4xl lg:text-5xl"
+                  }`}>
+                    Your Health Advocacy
+                    <br />
+                    <span className="text-transparent bg-gradient-to-r from-primary via-primary/80 to-accent bg-clip-text text-glow">
                       Co-Pilot
                     </span>
                   </h2>
-                  <p className="text-muted-foreground max-w-2xl mx-auto leading-relaxed px-0 text-2xl mt-0 mb-0 py-[19px] animate-fade-in-delay">
+                  <p className={`text-muted-foreground max-w-xl mx-auto px-4 mt-4 mb-8 ${
+                    agentState.isActive ? "text-base" : "text-lg"
+                  }`}>
                     Get clarity and confidence in your healthcare decisions with AI-powered insights and expert
                     recommendations.
                   </p>
@@ -1537,12 +2027,20 @@ ${isDeepResearch ? "DEEP RESEARCH MODE: Perform comprehensive research with mult
                           className="mb-6"
                         />
                       )}
-                      <MessageCard
-                        role={msg.role}
-                        content={msg.content}
-                        timestamp={msg.timestamp}
-                        isStreaming={false}
-                      />
+                      {msg.type && msg.data ? (
+                        <UniversalAgentOutput
+                          agentType={msg.type}
+                          response={msg.data}
+                          timestamp={msg.timestamp}
+                        />
+                      ) : (
+                        <MessageCard
+                          role={msg.role}
+                          content={msg.content}
+                          timestamp={msg.timestamp}
+                          isStreaming={false}
+                        />
+                      )}
                       {/* Show approval buttons for research plans */}
                       {msg.role === "assistant" && 
                        isDeepResearch && 
@@ -1611,9 +2109,9 @@ ${isDeepResearch ? "DEEP RESEARCH MODE: Perform comprehensive research with mult
             } ${isOpen ? "ml-64" : "ml-16"}`}
           >
             <div className="container max-w-5xl mx-auto">
-              <Card className="bg-card/95 backdrop-blur-xl shadow-2xl border-border/50">
-                <div className="p-6">
-                  <div className="flex items-end gap-4">
+              <Card className="bg-card/90 backdrop-blur-xl border-t border-primary/10 glow-card shadow-2xl">
+                <div className="p-5">
+                  <div className="flex items-end gap-3">
                     <PromptBuilderDialog onSendPrompt={handleSendMessage} />
                     <div className="flex-1">
                       <Textarea
@@ -1621,7 +2119,7 @@ ${isDeepResearch ? "DEEP RESEARCH MODE: Perform comprehensive research with mult
                         value={inputValue}
                         onChange={handleInputChange}
                         placeholder="Ask about symptoms, treatments, or find a specialist..."
-                        className="w-full text-base resize-none focus-visible:ring-1 focus-visible:ring-primary/50 placeholder:text-muted-foreground/60 min-h-[60px] max-h-[150px] bg-background/50 border-border/50"
+                        className="w-full text-sm resize-none bg-input/80 border border-primary/20 placeholder:text-muted-foreground/60 min-h-[48px] max-h-[120px] transition-all duration-200 rounded-lg px-4 py-3 input-glow"
                         rows={2}
                         onKeyDown={(e) => {
                           if (e.key === "Enter" && !e.shiftKey) {
@@ -1635,34 +2133,34 @@ ${isDeepResearch ? "DEEP RESEARCH MODE: Perform comprehensive research with mult
                       <Button
                         variant="outline"
                         size="icon"
-                        className="h-12 w-12 border-border/50"
+                        className="h-10 w-10 border-primary/20 hover:border-primary/40 hover:bg-primary/10 transition-all"
                       >
-                        <Paperclip className="w-5 h-5" />
+                        <Paperclip className="w-4 h-4 text-muted-foreground" />
                       </Button>
                       <Button
                         variant="outline"
                         size="icon"
-                        className="h-12 w-12 border-border/50"
+                        className="h-10 w-10 border-primary/20 hover:border-primary/40 hover:bg-primary/10 transition-all"
                       >
-                        <Mic className="w-5 h-5" />
+                        <Mic className="w-4 h-4 text-muted-foreground" />
                       </Button>
                       <Button
                         onClick={() => handleSendMessage()}
                         size="icon"
-                        className="h-12 w-12 bg-gradient-to-r from-primary to-primary/80 hover:from-primary/90 hover:to-primary/70 text-primary-foreground shadow-lg transition-all duration-200"
+                        className="h-10 w-10 bg-gradient-to-r from-primary to-accent hover:from-primary/90 hover:to-accent/90 text-primary-foreground shadow-lg glow-button transition-all hover:scale-105 active:scale-95"
                         disabled={isProcessing || !inputValue.trim()}
                       >
                         {isProcessing ? (
-                          <Sparkles className="w-5 h-5 animate-pulse" />
+                          <Sparkles className="w-3.5 h-3.5 animate-pulse" />
                         ) : (
-                          <ArrowUp className="w-5 h-5" />
+                          <ArrowUp className="w-3.5 h-3.5" />
                         )}
                       </Button>
                     </div>
                   </div>
                 </div>
 
-                <div className="flex items-center justify-between pt-4 mt-4 border-t border-border">
+                <div className="flex items-center justify-between px-5 py-3 border-t border-primary/10">
                   <div className="flex items-center gap-6">
                     <Button
                       variant="ghost"
@@ -1678,9 +2176,9 @@ ${isDeepResearch ? "DEEP RESEARCH MODE: Perform comprehensive research with mult
                           }
                         }
                       }}
-                      className="text-sm font-medium hover:text-primary transition-colors duration-200"
+                      className="text-xs font-medium hover:text-primary transition-colors"
                     >
-                      <Monitor className="w-4 h-4 mr-2" />
+                      <Monitor className="w-4 h-4 mr-1.5" />
                       {agentState.isActive ? "Close Browser" : "Browser"}
                     </Button>
                     <div className="flex items-center gap-3">
@@ -1702,7 +2200,7 @@ ${isDeepResearch ? "DEEP RESEARCH MODE: Perform comprehensive research with mult
                             setDeepResearchMessages([])
                           }
                         }}
-                        className="data-[state=checked]:bg-primary shadow-xl"
+                        className="data-[state=checked]:bg-primary"
                       />
                     </div>
                   </div>
@@ -1727,5 +2225,6 @@ ${isDeepResearch ? "DEEP RESEARCH MODE: Perform comprehensive research with mult
         </div>
       </div>
     </div>
+    </TimelineAdapter>
   )
 }
