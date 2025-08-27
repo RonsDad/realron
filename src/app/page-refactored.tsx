@@ -30,6 +30,8 @@ import { ScrollArea } from "@/components/ui/scroll-area"
 import { CommandMenu } from "@/components/command-menu"
 import { PromptBuilderDialog } from "@/components/prompt-builder-dialog"
 import { useUserProfile } from "@/hooks/use-user-profile"
+import { useRonAIStore } from "@/store"
+import { useMessageHandler } from "@/hooks/use-message-handler"
 import type { ProviderSearchData, ProviderSearchResult } from "@/lib/types"
 
 import { AgentOrchestration } from "@/components/agent-orchestration"
@@ -70,44 +72,96 @@ interface AgentActivity {
 }
 
 export default function HealthCopilot() {
-  const { userProfile } = useUserProfile()
-  const [isDeepResearch, setIsDeepResearch] = useState(false)
-  const [messages, setMessages] = useState<Message[]>([])
-  const [inputValue, setInputValue] = useState("")
-  const [showCareTeam, setShowCareTeam] = useState(false)
-  const [isOpen, setIsOpen] = useState(false)
-  const [mounted, setMounted] = useState(false)
-  const [deepResearchSessionId, setDeepResearchSessionId] = useState<string | null>(null)
-  const [deepResearchUserId, setDeepResearchUserId] = useState<string | null>(null)
-  const [isProcessing, setIsProcessing] = useState(false)
-  const [currentStreamingMessage, setCurrentStreamingMessage] = useState("")
-  const [currentReasoning, setCurrentReasoning] = useState("")
-  const [reasoningTokens, setReasoningTokens] = useState(0)
-  const [deepResearchOutputs, setDeepResearchOutputs] = useState<any>({})
-  const [deepResearchMessages, setDeepResearchMessages] = useState<any[]>([])
-  const [showCommandMenu, setShowCommandMenu] = useState(false)
-  const [browserActions, setBrowserActions] = useState<any[]>([])
-  const [thinkingBubbles, setThinkingBubbles] = useState<ThinkingData[]>([])
-  const [toolOutputs, setToolOutputs] = useState<ToolOutputData[]>([])
-  const [currentThinkingId, setCurrentThinkingId] = useState<string | null>(null)
-  const [codeFiles, setCodeFiles] = useState<CodeFileData[]>([])
-  const [codeOutput, setCodeOutput] = useState<string>("")
-  const [claudeCodeOutputs, setClaudeCodeOutputs] = useState<any[]>([])
-  const [providerSearchData, setProviderSearchData] = useState<ProviderSearchData | null>(null)
-  const [connectionStatus, setConnectionStatus] = useState<'connected' | 'connecting' | 'error' | 'retry'>('connected')
-  const [retryCount, setRetryCount] = useState(0)
-  const [lastFailedMessage, setLastFailedMessage] = useState<string>("")
-  const [agentActivities, setAgentActivities] = useState<AgentActivity[]>([])
-  const [currentOrchestrationAgent, setCurrentOrchestrationAgent] = useState<string | null>(null)
-  const [isAgentOrchestrationActive, setIsAgentOrchestrationActive] = useState(false)
-  const [showTimeline, setShowTimeline] = useState(false)
-  const [orchestrationActivities, setOrchestrationActivities] = useState<AgentActivityType[]>([])
-  const [pendingOrchestrationTools, setPendingOrchestrationTools] = useState<any[]>([])
+  // Replace ALL 32 useState hooks with Zustand store - MAINTAINING EXACT VARIABLE NAMES
+  const {
+    // Chat state (6 variables)
+    messages,
+    setMessages,
+    inputValue,
+    setInputValue,
+    isProcessing,
+    setIsProcessing,
+    currentStreamingMessage,
+    setCurrentStreamingMessage,
+    currentReasoning,
+    setCurrentReasoning,
+    reasoningTokens,
+    setReasoningTokens,
+    
+    // Deep Research state (5 variables)
+    isDeepResearch,
+    setIsDeepResearch,
+    deepResearchSessionId,
+    setDeepResearchSessionId,
+    deepResearchUserId,
+    setDeepResearchUserId,
+    deepResearchOutputs,
+    setDeepResearchOutputs,
+    deepResearchMessages,
+    setDeepResearchMessages,
+    
+    // UI state (6 variables)
+    showCareTeam,
+    setShowCareTeam,
+    isOpen,
+    setIsOpen,
+    mounted,
+    setMounted,
+    showCommandMenu,
+    setShowCommandMenu,
+    showTimeline,
+    setShowTimeline,
+    providerSearchData,
+    setProviderSearchData,
+    
+    // Agent state (6 variables)
+    agentActivities,
+    setAgentActivities,
+    currentOrchestrationAgent,
+    setCurrentOrchestrationAgent,
+    isAgentOrchestrationActive,
+    setIsAgentOrchestrationActive,
+    orchestrationActivities,
+    setOrchestrationActivities,
+    pendingOrchestrationTools,
+    setPendingOrchestrationTools,
+    browserActions,
+    setBrowserActions,
+    
+    // Tool state (6 variables)
+    thinkingBubbles,
+    setThinkingBubbles,
+    toolOutputs,
+    setToolOutputs,
+    currentThinkingId,
+    setCurrentThinkingId,
+    codeFiles,
+    setCodeFiles,
+    codeOutput,
+    setCodeOutput,
+    claudeCodeOutputs,
+    setClaudeCodeOutputs,
+    
+    // Connection state (3 variables)
+    connectionStatus,
+    setConnectionStatus,
+    retryCount,
+    setRetryCount,
+    lastFailedMessage,
+    setLastFailedMessage,
+  } = useRonAIStore()
+
+  // Keep useRef hooks as they are - NOT part of store
   const messagesEndRef = useRef<HTMLDivElement>(null)
   const inputRef = useRef<HTMLTextAreaElement>(null)
 
+  // Other hooks remain the same
+  const { userProfile } = useUserProfile()
   const { agentState, startAgent, stopAgent, updateUrl } = useComputerAgent()
   const { handleSSEStream, clearTimeline } = useTimelineIntegration()
+  
+  // Replace the massive handleSendMessage function with the hook
+  const { handleSendMessage, handleRetryMessage } = useMessageHandler()
 
   useEffect(() => {
     setMounted(true)
@@ -116,7 +170,7 @@ export default function HealthCopilot() {
     return () => {
       claudeAPI.abortAllStreams()
     }
-  }, [])
+  }, [setMounted])
 
   // Auto-scroll to bottom when new messages arrive
   useEffect(() => {
@@ -130,132 +184,6 @@ export default function HealthCopilot() {
     setInputValue(value)
   }
 
-  // Helper to check if a tool is an orchestration tool
-  const isOrchestrationTool = (toolName: string): boolean => {
-    const orchestrationTools = [
-      'execute_with_orchestrator',
-      'create_orchestrator_agent', 
-      'create_worker_agent',
-      'execute_pipeline',
-      'create_custom_pipeline',
-      'send_agent_message',
-      'broadcast_to_agents',
-      'list_available_agents'
-    ]
-    return orchestrationTools.includes(toolName)
-  }
-
-  // Execute orchestration tool with streaming
-  const executeOrchestrationTool = async (tool: any) => {
-    console.log('🚀 Executing orchestration tool:', tool.name, tool.input)
-    
-    try {
-      const response = await fetch('http://localhost:8001/execute-agent-tool-stream', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          tool_name: tool.name,
-          tool_input: tool.input
-        })
-      })
-
-      if (!response.ok) {
-        throw new Error(`HTTP ${response.status}`)
-      }
-
-      // Parse SSE stream
-      for await (const event of parseSSEStream(response.body!)) {
-        console.log('📡 Agent event:', event)
-        
-        if (event.type === 'agent_spawned') {
-          const activity: AgentActivityType = {
-            id: event.agent_id,
-            agentId: event.agent_id,
-            agentName: event.name || event.agent_id,
-            agentType: event.agent_type as 'orchestrator' | 'worker',
-            specialization: event.specialization,
-            task: event.task,
-            status: 'spawned',
-            timestamp: new Date(event.timestamp),
-            model: event.model
-          }
-          setOrchestrationActivities(prev => [...prev, activity])
-        }
-        
-        else if (event.type === 'agent_thinking_start') {
-          setOrchestrationActivities(prev => prev.map(a => 
-            a.agentId === event.agent_id 
-              ? {...a, status: 'thinking' as const}
-              : a
-          ))
-        }
-        
-        else if (event.type === 'agent_thinking') {
-          setOrchestrationActivities(prev => prev.map(a => 
-            a.agentId === event.agent_id 
-              ? {...a, thinking: event.cumulative || event.content}
-              : a
-          ))
-        }
-        
-        else if (event.type === 'agent_status') {
-          const statusMap: Record<string, AgentActivityType['status']> = {
-            'planning': 'planning',
-            'executing': 'executing', 
-            'synthesizing': 'thinking'
-          }
-          setOrchestrationActivities(prev => prev.map(a => 
-            a.agentId === event.agent_id 
-              ? {...a, status: statusMap[event.status] || 'executing'}
-              : a
-          ))
-        }
-        
-        else if (event.type === 'agent_tool_use') {
-          // Add tool usage to the activity
-          setToolOutputs(prev => [...prev, {
-            id: `${event.agent_id}-tool-${Date.now()}`,
-            toolName: `${event.agent_name}: ${event.tool_name}`,
-            content: '⚙️ Executing...',
-            timestamp: new Date(),
-            status: 'executing'
-          }])
-        }
-        
-        else if (event.type === 'agent_completed') {
-          setOrchestrationActivities(prev => prev.map(a => 
-            a.agentId === event.agent_id 
-              ? {...a, status: 'completed' as const, result: event.result}
-              : a
-          ))
-        }
-        
-        else if (event.type === 'orchestrator_created' || event.type === 'worker_created') {
-          // Handle agent creation results
-          const result = event.result
-          if (result.success) {
-            setToolOutputs(prev => [...prev, {
-              id: `created-${Date.now()}`,
-              toolName: tool.name,
-              content: `✅ Created ${result.name} (${result.agent_id})`,
-              timestamp: new Date(),
-              status: 'completed'
-            }])
-          }
-        }
-      }
-    } catch (error) {
-      console.error('❌ Error executing orchestration tool:', error)
-      setToolOutputs(prev => [...prev, {
-        id: `error-${Date.now()}`,
-        toolName: tool.name,
-        content: `❌ Error: ${error}`,
-        timestamp: new Date(),
-        status: 'error'
-      }])
-    }
-  }
-
   const handleCommandSelect = (prompt: string) => {
     setInputValue(prompt)
     setShowCommandMenu(false)
@@ -263,1145 +191,14 @@ export default function HealthCopilot() {
     inputRef.current?.focus()
   }
 
-  const handleSendMessage = async (messageOverride?: string) => {
-    const messageToSend = messageOverride || inputValue
-    if (typeof messageToSend === 'string' && messageToSend.trim() && !isProcessing) {
-      // Reset connection status and retry count for new messages
-      if (!messageOverride) {
-        setConnectionStatus('connecting')
-        setRetryCount(0)
-        setLastFailedMessage("")
-      }
-      
-      const newMessage: Message = {
-        role: "user",
-        content: messageToSend,
-        timestamp: new Date(),
-      }
-
-      setMessages((prev) => [...prev, newMessage])
-      if (!messageOverride) {
-        setInputValue("")
-      }
-      setIsProcessing(true)
-      setCurrentStreamingMessage("")
-      setCurrentReasoning("")
-      setReasoningTokens(0)
-      // Clear previous outputs only for fresh messages, not retries
-      if (!messageOverride) {
-        setThinkingBubbles([])
-        setToolOutputs([])
-        setCurrentThinkingId(null)
-      }
-      setClaudeCodeOutputs([])
-      // Reset agent orchestration for new message
-      setAgentActivities([])
-      setIsAgentOrchestrationActive(false)
-      setCurrentOrchestrationAgent(null)
-
-      try {
-        // Removed console.logs for better performance
-        
-        // Check if using deep research mode
-        if (isDeepResearch) {
-          // Using deep research agent
-          
-          let sessionId = deepResearchSessionId
-          let userId = deepResearchUserId
-          
-          // Only create a new session if we don't have one
-          if (!sessionId || !userId) {
-            userId = "user_" + Math.random().toString(36).substr(2, 9)
-            console.log("Creating new deep research session...")
-            sessionId = await claudeAPI.createDeepResearchSession(userId)
-            console.log("Session created with ID:", sessionId)
-            
-            // Save session info for subsequent messages
-            setDeepResearchSessionId(sessionId)
-            setDeepResearchUserId(userId)
-          } else {
-            console.log("Reusing existing session:", sessionId)
-          }
-          
-          // Create assistant message placeholder
-          // DO NOT add empty assistant message - wait for actual content
-          
-          // Stream from deep research endpoint
-          console.log("Calling deepResearch with:", {
-            sessionId,
-            userId,
-            messageCount: messages.length + 1
-          })
-          
-          const stream = await claudeAPI.deepResearch(
-            messageToSend,  // Use the actual message being sent
-            sessionId!,  // We know sessionId is not null here due to the check above
-            userId!  // We know userId is not null here due to the check above
-          )
-          
-          // Set connected status for deep research
-          setConnectionStatus('connected')
-          
-          console.log("Deep research stream received:", stream)
-          
-          if (!stream) {
-            throw new Error("Failed to get stream from deep research API")
-          }
-          
-          let fullContent = ""
-          let fullReasoning = ""
-          console.log("Starting deep research SSE stream...")
-          
-          const reader = stream.getReader()
-          const decoder = new TextDecoder()
-          let buffer = ''
-          
-          try {
-            while (true) {
-              const { done, value } = await reader.read()
-              if (done) break
-              
-              buffer += decoder.decode(value, { stream: true })
-              const lines = buffer.split('\n')
-              buffer = lines.pop() || ''
-              
-              for (const line of lines) {
-                if (line.startsWith('data: ')) {
-                  const data = line.slice(6).trim()
-                  if (data && data !== '[DONE]') {
-                    try {
-                      const event = JSON.parse(data)
-                      
-                      // Extract content from deep research format
-                      if (event.content?.parts) {
-                        for (const part of event.content.parts) {
-                          if (part.text) {
-                            // Direct text content from backend
-                            fullContent = part.text
-                            setCurrentStreamingMessage(fullContent)
-                          }
-                        }
-                      }
-                      
-                      // Handle state delta updates (research plan, final report, etc)
-                      if (event.actions?.stateDelta) {
-                        // Update deep research outputs with proper structure
-                        const stateDelta = event.actions.stateDelta
-                        
-                        if (stateDelta.research_plan) {
-                          setDeepResearchOutputs((prev: any) => ({
-                            ...prev,
-                            plan: stateDelta.research_plan
-                          }))
-                          // Don't show plan in message bubble, show in research component
-                          fullContent = "Creating research plan..."
-                          setCurrentStreamingMessage(fullContent)
-                          setDeepResearchMessages(prev => [...prev, {
-                            type: 'plan',
-                            content: stateDelta.research_plan,
-                            timestamp: new Date()
-                          }])
-                        }
-                        
-                        if (stateDelta.final_report_with_citations) {
-                          setDeepResearchOutputs((prev: any) => ({
-                            ...prev,
-                            finalReport: stateDelta.final_report_with_citations
-                          }))
-                          // Show completion message
-                          fullContent = "Research complete! See the detailed report below."
-                          setCurrentStreamingMessage(fullContent)
-                          setDeepResearchMessages(prev => [...prev, {
-                            type: 'final',
-                            content: stateDelta.final_report_with_citations,
-                            timestamp: new Date()
-                          }])
-                        }
-                        
-                        if (stateDelta.section_research_findings) {
-                          setDeepResearchOutputs((prev: any) => ({
-                            ...prev,
-                            findings: stateDelta.section_research_findings
-                          }))
-                          setDeepResearchMessages(prev => [...prev, {
-                            type: 'findings',
-                            content: stateDelta.section_research_findings,
-                            timestamp: new Date()
-                          }])
-                        }
-                        
-                        if (stateDelta.report_sections) {
-                          setDeepResearchOutputs((prev: any) => ({
-                            ...prev,
-                            outline: stateDelta.report_sections
-                          }))
-                          setDeepResearchMessages(prev => [...prev, {
-                            type: 'outline',
-                            content: stateDelta.report_sections,
-                            timestamp: new Date()
-                          }])
-                        }
-                        
-                        if (stateDelta.research_evaluation) {
-                          setDeepResearchOutputs((prev: any) => ({
-                            ...prev,
-                            evaluation: stateDelta.research_evaluation
-                          }))
-                          setDeepResearchMessages(prev => [...prev, {
-                            type: 'evaluation',
-                            content: JSON.stringify(stateDelta.research_evaluation),
-                            timestamp: new Date()
-                          }])
-                        }
-                        
-                        if (stateDelta.sources) {
-                          setDeepResearchOutputs((prev: any) => ({
-                            ...prev,
-                            sources: stateDelta.sources
-                          }))
-                        }
-                      }
-                      
-                      // Track agent author for current agent display
-                      if (event.author && event.author !== 'unknown') {
-                        // Add thought messages for agent thinking
-                        if (event.content?.parts) {
-                          for (const part of event.content.parts) {
-                            if (part.text) {
-                              setDeepResearchMessages(prev => [...prev, {
-                                type: 'thought',
-                                content: part.text,
-                                agent: event.author,
-                                stage: event.stage || 'research',
-                                timestamp: new Date()
-                              }])
-                            }
-                          }
-                        }
-                      }
-                      
-                      // Track tool usage for transparency
-                      if (event.tool_use) {
-                        setDeepResearchMessages(prev => [...prev, {
-                          type: 'action',
-                          content: `Using ${event.tool_use.name}: ${event.tool_use.input?.task || event.tool_use.input?.query || 'Processing...'}`,
-                          agent: event.author || 'unknown',
-                          metadata: {
-                            toolName: event.tool_use.name,
-                            toolInput: event.tool_use.input
-                          },
-                          timestamp: new Date()
-                        }])
-                      }
-                      
-                      // Update the assistant message
-                      setMessages(prev => {
-                        const newMessages = [...prev]
-                        if (newMessages.length > 0 && newMessages[newMessages.length - 1].role === "assistant") {
-                          newMessages[newMessages.length - 1] = {
-                            ...newMessages[newMessages.length - 1],
-                            content: fullContent,
-                            reasoning: fullReasoning,
-                            reasoningTokens: reasoningTokens
-                          }
-                        }
-                        return newMessages
-                      })
-                    } catch (e) {
-                      console.error('Failed to parse SSE data:', e)
-                    }
-                  }
-                }
-              }
-            }
-          } finally {
-            reader.releaseLock()
-          }
-        } else {
-          // Use regular Claude chat endpoint
-          // Convert messages to API format
-          const apiMessages: ChatMessage[] = messages.map(msg => ({
-            role: msg.role as "user" | "assistant",
-            content: msg.content
-          }))
-          apiMessages.push({ role: "user", content: messageToSend })
-
-          // Determine which tools to enable based on context
-          const tools: string[] = [
-            "text_editor",
-            "create_browser_session",
-            "browser_use",
-            "computer_use",  // Computer desktop control tool
-            "perplexity_deep_research",
-            "perplexity_reasoning_pro",
-            "perplexity_sonar_pro",
-            // Clinical tool
-            "clinical_operations",
-            // PubMed tools
-            "pubmed_search",
-            "pubmed_fetch_abstracts",
-            "pubmed_fetch_summaries",
-            "pubmed_fetch_related",
-            "pubmed_fetch_citations",
-            "pubmed_search_clinical_trials",
-            "pubmed_mesh_search",
-            // FDA tools
-            "searchDrugLabel",
-            "searchAdverseEffects",
-            "getSpecialPopulations",
-            "getBoxedWarning",
-            "getDrugInteractions",
-            "getAbuse",
-            "getAbuseTable",
-            "getActiveIngredient",
-            "getAdverseReactions",
-            "getClinicalPharmacology",
-            "getContraindications",
-            "getDescription",
-            "getDosageAndAdministration",
-            "getWarnings",
-            "getPregnancy",
-            "getPediatricUse",
-            "getGeriatricUse",
-            "getIndicationsAndUsage",
-            "getMechanismOfAction",
-            "getOverdosage",
-            "getPharmacokinetics",
-            "getControlledSubstance",
-            "getNursingMothers"
-          ]
-          if (messageToSend.toLowerCase().includes("bash") || messageToSend.toLowerCase().includes("command")) {
-            tools.push("bash")
-          }
-
-          // Create assistant message placeholder
-          // DO NOT add empty assistant message - wait for actual content
-
-          // Stream the response with interleaved thinking
-          const stream = await claudeAPI.chatStream({
-            messages: apiMessages,
-            temperature: 1.0,
-            max_tokens: 32000,
-            tools: tools,
-            enable_caching: true,
-            cache_ttl: "5m",
-            enable_thinking: true,
-            thinking_budget: 20000,
-            enable_citations: true,
-            stream: true,
-            system_prompt: `You are Ron AI, an advanced healthcare advocacy AI assistant powered by Claude Sonnet 4.
-You help users navigate their healthcare journey with clarity and confidence.
-
-You have access to powerful medical research tools:
-- Clinical Operations: Evidence-based clinical guidance and care coordination
-- PubMed Tools: Search and analyze biomedical literature from the world's largest medical database
-- FDA Drug Tools: Comprehensive drug information including warnings, interactions, and usage guidelines
-- Perplexity Tools: Advanced web search and reasoning capabilities
-
-When helping with healthcare tasks:
-1. Be empathetic and supportive
-2. Provide clear, actionable advice
-3. Use your tools when needed to search for information, analyze documents, or help with tasks
-4. Always prioritize user safety and encourage professional medical consultation when appropriate
-5. If doing deep research, be thorough and cite sources
-6. When using medical tools, explain findings in patient-friendly language
-
-${isDeepResearch ? "DEEP RESEARCH MODE: Perform comprehensive research with multiple sources and detailed analysis." : ""}`
-          })
-
-          // Set connected status once stream starts successfully
-          setConnectionStatus('connected')
-
-          let fullContent = ""
-          let fullReasoning = ""
-          // Removed console.log spam for better performance
-          for await (const event of parseSSEStream(stream)) {
-            // Only log in debug mode to avoid blocking main thread
-            // console.log("Received event:", JSON.stringify(event))
-            
-            // Handle content block start for thinking - CREATE BUBBLE IMMEDIATELY
-            if (event.type === 'content_block_start' && event.content_block?.type === 'thinking') {
-              console.log('💭 Thinking block started')
-              fullReasoning = ""
-              setCurrentReasoning("")
-              
-              // Create new thinking bubble immediately
-              const thinkingId = `thinking-${Date.now()}`
-              setCurrentThinkingId(thinkingId)
-              setThinkingBubbles(prev => [...prev, {
-                id: thinkingId,
-                content: "💭 Thinking...",
-                timestamp: new Date()
-              }])
-            }
-            // Handle content deltas (text)
-            else if (event.type === 'content_block_delta' && event.delta?.type === 'text_delta') {
-              fullContent += event.delta.text || ""
-              setCurrentStreamingMessage(fullContent)
-            }
-            // Handle thinking deltas - CAPTURE AND DISPLAY
-            else if (event.type === 'content_block_delta' && event.delta?.type === 'thinking_delta') {
-              const deltaText = event.delta.thinking || ""
-              fullReasoning += deltaText
-              setCurrentReasoning(fullReasoning)
-              
-              // Update or create thinking bubble for persistence
-              if (currentThinkingId) {
-                setThinkingBubbles(prev => prev.map(t => 
-                  t.id === currentThinkingId ? {...t, content: fullReasoning} : t
-                ))
-              } else {
-                const thinkingId = `thinking-${Date.now()}`
-                setCurrentThinkingId(thinkingId)
-                setThinkingBubbles([{
-                  id: thinkingId,
-                  content: fullReasoning,
-                  timestamp: new Date()
-                }])
-              }
-            }
-            // Handle signature deltas
-            else if (event.type === 'content_block_delta' && event.delta?.type === 'signature_delta') {
-              // Signature is encrypted and we don't need to display it
-              // Signature is encrypted, no need to log
-            }
-            // Handle tool use start (both client and server tools) - WITH VISIBILITY
-            else if (event.type === 'content_block_start' && 
-                    (event.content_block?.type === 'tool_use' || event.content_block?.type === 'server_tool_use')) {
-              const toolName = event.content_block.name
-              const isCodeExecution = toolName === 'code_execution'
-              
-              // LOG FOR VISIBILITY
-              console.log(`🚀 Tool started: ${toolName}`, event.content_block)
-              
-              // Check if it's an orchestration tool that needs execution
-              if (isOrchestrationTool(toolName)) {
-                console.log('🎯 Orchestration tool detected:', toolName)
-                // Store for execution after message completes
-                setPendingOrchestrationTools(prev => [...prev, {
-                  id: event.content_block.id,
-                  name: toolName,
-                  input: {} // Will be filled by input deltas
-                }])
-              }
-              
-              // Activate agent orchestration and track activity
-              setIsAgentOrchestrationActive(true)
-              const agentName = isCodeExecution ? 'Code Executor' : getAgentNameFromTool(toolName)
-              setCurrentOrchestrationAgent(agentName)
-              
-              // Add agent activity
-              const activityId = addAgentActivity({
-                type: isCodeExecution ? 'analysis' : mapToolNameToActivityType(toolName),
-                agent: agentName,
-                description: isCodeExecution ? 'Executing Python code...' : `Starting ${toolName}`,
-                status: 'running'
-              })
-              
-              // Add tool output with ENHANCED VISIBILITY
-              const toolId = `tool-${Date.now()}-${toolName}`
-              setToolOutputs(prev => [...prev, {
-                id: toolId,
-                toolName: toolName,
-                content: isCodeExecution ? "🐍 Running Python code..." : `⚙️ Executing ${toolName}...`,
-                timestamp: new Date(),
-                status: "executing"
-              }])
-              
-              // Also add to message stream for immediate visibility
-              if (!fullContent.includes(toolName)) {
-                fullContent += `\n\n🔧 **Using tool:** ${toolName}\n`
-                setCurrentStreamingMessage(fullContent)
-              }
-              
-              // Store activity ID for later updates
-              setToolOutputs(prev => prev.map(tool => 
-                tool.id === toolId ? { ...tool, activityId } : tool
-              ))
-              
-              // Clear browser actions when browser_use tool is detected
-              if (toolName === 'browser_use') {
-                console.log('Browser-use tool detected, waiting for live URL...')
-                // Clear previous browser actions
-                setBrowserActions([])
-                // Don't open the panel yet - wait for the live URL to come in browser_live_url event
-              }
-            }
-            // Handle code execution results
-            else if (event.type === 'code_execution_result') {
-              console.log('Code execution result received:', event.data)
-              
-              const { stdout, stderr, return_code, tool_use_id } = event.data || {}
-              
-              // Create a formatted output for the code execution
-              let codeOutput = ''
-              
-              if (stdout) {
-                codeOutput = `\n\n📊 **Code Execution Output:**\n\`\`\`\n${stdout}\n\`\`\``
-              }
-              
-              if (stderr) {
-                codeOutput += `\n\n❌ **Error Output:**\n\`\`\`\n${stderr}\n\`\`\``
-              }
-              
-              if (return_code !== undefined && return_code !== 0) {
-                codeOutput += `\n\n⚠️ **Exit Code:** ${return_code}`
-              }
-              
-              // Add the output to the message stream
-              if (codeOutput) {
-                fullContent += codeOutput
-                setCurrentStreamingMessage(fullContent)
-              }
-              
-              // Also create a tool output bubble for better visibility
-              const toolId = `code-exec-${Date.now()}`
-              setToolOutputs(prev => [...prev, {
-                id: toolId,
-                toolName: 'code_execution',
-                content: stdout || stderr || 'Code executed',
-                timestamp: new Date(),
-                status: return_code === 0 ? 'completed' : 'error',
-                details: {
-                  stdout,
-                  stderr,
-                  return_code
-                }
-              }])
-              
-              // Update agent activity if tracking
-              const agentName = 'Code Executor'
-              const runningActivity = agentActivities.find(a => 
-                a.agent === agentName && 
-                a.status === 'running'
-              )
-              if (runningActivity) {
-                updateAgentActivity(runningActivity.id, {
-                  status: return_code === 0 ? 'completed' : 'error',
-                  description: return_code === 0 ? 'Code executed successfully' : 'Code execution failed',
-                  details: { stdout, stderr, return_code }
-                })
-              }
-            }
-            // Handle browser live URL - IMMEDIATE!
-            else if (event.type === 'browser_live_url') {
-              console.log('BROWSER LIVE URL RECEIVED:', event.live_url)
-              
-              // Skip if we already have this URL to avoid redundant updates
-              if (agentState.liveUrl === event.live_url) {
-                console.log('LiveURL already set, skipping update')
-                continue
-              }
-              
-              // Open panel with URL in one operation for faster rendering
-              if (!agentState.isActive) {
-                console.log('Opening browser panel with LiveURL:', event.live_url)
-                startAgent('Claude is using browser', event.live_url)
-              } else {
-                // Only update URL if panel already open
-                updateUrl(event.live_url)
-                console.log('Browser panel already open, LiveURL updated to:', event.live_url)
-              }
-            }
-            // Handle tool results - WITH FULL VISIBILITY
-            else if (event.type === 'tool_result') {
-              console.log(`🎯 Tool completed: ${event.tool_name}`, event.result)
-              // Tool completed - display result prominently
-              
-              // Update agent activity to completed
-              const agentName = getAgentNameFromTool(event.tool_name)
-              // Find the most recent running activity for this agent and tool
-              const runningActivity = agentActivities.find(a => 
-                a.agent === agentName && 
-                a.status === 'running' && 
-                a.description.includes(event.tool_name)
-              )
-              if (runningActivity) {
-                updateAgentActivity(runningActivity.id, {
-                  status: 'completed',
-                  description: `Completed ${event.tool_name}`,
-                  details: typeof event.result === 'object' ? event.result : event.result
-                })
-              }
-              
-              // Create tool output bubble
-              const toolId = `tool-${Date.now()}-${event.tool_name}`
-              let toolContent = ''
-              let formattedResult = ''
-              
-              // Format tool results based on type
-              if (event.tool_name === 'browser_use') {
-                const result = typeof event.result === 'string' ? JSON.parse(event.result) : event.result
-                
-                // Update LiveURL IMMEDIATELY if browser_use tool returns one
-                if (result.live_url) {
-                  console.log('IMMEDIATE: Updating LiveURL from browser_use result:', result.live_url)
-                  
-                  // Open panel AND update URL in one go for faster rendering
-                  if (!agentState.isActive) {
-                    console.log('IMMEDIATE: Opening browser panel with live URL:', result.live_url)
-                    startAgent('Claude is using browser', result.live_url)
-                  } else {
-                    // Only update URL if panel already open
-                    updateUrl(result.live_url)
-                  }
-                }
-                
-                // Parse browser actions from the result
-                if (result.success && result.result) {
-                  const cleanResult = result.result
-                  
-                  // Parse all ActionResults to build timeline
-                  const actionRegex = /ActionResult\([^)]+\)/g
-                  const actionMatches = cleanResult.matchAll(actionRegex)
-                  
-                  const newActions: any[] = []
-                  for (const match of actionMatches) {
-                    const actionStr = match[0]
-                    
-                    // Extract action details
-                    const extractedContent = actionStr.match(/extracted_content='([^']*(?:\\'[^']*)*)'/)
-                    const longTermMemory = actionStr.match(/long_term_memory='([^']*(?:\\'[^']*)*)'/)
-                    const isDone = actionStr.includes('is_done=True')
-                    
-                    const content = (extractedContent?.[1] || longTermMemory?.[1] || '')
-                      .replace(/\\n/g, '\n')
-                      .replace(/\\'/g, "'")
-                    
-                    // Determine action type and create timeline entry
-                    let actionType = 'search'
-                    let description = content.substring(0, 100)
-                    let details = content
-                    let url = null
-                    
-                    if (content.includes('Navigated to')) {
-                      actionType = 'navigate'
-                      const urlMatch = content.match(/Navigated to (.+)/)
-                      url = urlMatch?.[1]
-                      description = `Navigated to ${url || 'page'}`
-                    } else if (content.includes('Clicked')) {
-                      actionType = 'click'
-                      description = content
-                    } else if (content.includes('Extracted content')) {
-                      actionType = 'extract'
-                      description = 'Extracted page content'
-                      // Try to parse the JSON content
-                      try {
-                        const jsonMatch = content.match(/\{[\s\S]*\}/)
-                        if (jsonMatch) {
-                          const parsed = JSON.parse(jsonMatch[0])
-                          details = JSON.stringify(parsed, null, 2)
-                        }
-                      } catch (e) {
-                        // Keep original if parsing fails
-                      }
-                    } else if (content.includes('Switched to tab')) {
-                      actionType = 'switch_tab'
-                      description = content
-                    } else if (isDone) {
-                      actionType = 'complete'
-                      description = 'Task completed'
-                      details = content
-                    }
-                    
-                    if (content && content.length > 0) {
-                      newActions.push({
-                        id: `action-${Date.now()}-${Math.random()}`,
-                        type: actionType,
-                        description: description.substring(0, 100),
-                        timestamp: new Date(),
-                        details: details.length > 100 ? details : null,
-                        url: url,
-                        success: !actionStr.includes('error=')
-                      })
-                    }
-                  }
-                  
-                  // Update browser actions
-                  setBrowserActions(prev => [...prev, ...newActions])
-                  
-                  // Look for the last ActionResult with is_done=True
-                  const isDoneMatch = cleanResult.match(/ActionResult\(is_done=True[^)]*extracted_content='([^']*(?:\\'[^']*)*)'[^)]*\)/)
-                  
-                  if (isDoneMatch && isDoneMatch[1]) {
-                    // Clean up the extracted content
-                    let extractedContent = isDoneMatch[1]
-                      .replace(/\\n/g, '\n')  // Convert \n to actual newlines
-                      .replace(/\\'/g, "'")   // Convert \' to '
-                      .replace(/\s*-\s*\d+\s*more\s*characters$/, '') // Remove "- 1831 more characters" suffix
-                    
-                    formattedResult = `\n\n✅ **Browser task completed**\n\n${extractedContent}`
-                  } else {
-                    // Try to find any meaningful text in the mess
-                    const patterns = [
-                      /Here is.*?(?=\n\nAttachments:|$)/,  // Look for "Here is..." explanations
-                      /extracted_content='([^']+)'/,         // Any extracted content
-                      /long_term_memory='([^']+)'/,          // Memory content
-                    ]
-                    
-                    let found = false
-                    for (const pattern of patterns) {
-                      const match = cleanResult.match(pattern)
-                      if (match && match[1] || match && match[0]) {
-                        const content = match[1] || match[0]
-                        formattedResult = `\n\n✅ **Browser task completed**\n\n${content.replace(/\\n/g, '\n').replace(/\\'/g, "'")}`
-                        found = true
-                        break
-                      }
-                    }
-                    
-                    if (!found) {
-                      formattedResult = `\n\n✅ **Browser task completed**`
-                    }
-                  }
-                } else if (!result.success) {
-                  formattedResult = `\n\n❌ **Browser task failed**`
-                  if (result.error) {
-                    formattedResult += `\n\nError: ${result.error}`
-                  }
-                } else {
-                  formattedResult = `\n\n✅ **Browser task completed**`
-                }
-              } else if (event.tool_name === 'web_search') {
-                const result = typeof event.result === 'string' ? JSON.parse(event.result) : event.result
-                formattedResult = `\n\n🔍 **Web search completed**`
-                if (result.results && Array.isArray(result.results)) {
-                  formattedResult += `\n\nFound ${result.results.length} results`
-                }
-              } else if (event.tool_name === 'provider_search') {
-                try {
-                  const result = typeof event.result === 'string' ? JSON.parse(event.result) : event.result
-                  if (result && result.results) {
-                    setProviderSearchData({ results: result.results, searchQuery: result.searchQuery || '' })
-                  }
-                  formattedResult = `\n\n✅ **Provider search completed**`
-                } catch (e) {
-                  formattedResult = `\n\n❌ **Provider search failed**`
-                }
-              } else if (event.tool_name === 'computer_use') {
-                const result = typeof event.result === 'string' ? JSON.parse(event.result) : event.result
-                formattedResult = `\n\n🖥️ **Computer control task ${result.task_completed ? 'completed' : 'in progress'}**`
-                if (result.final_result) {
-                  formattedResult += `\n\n${result.final_result}`
-                } else if (result.error) {
-                  formattedResult += `\n\nError: ${result.error}`
-                }
-              } else if (event.tool_name === 'code_execution' || event.tool_name === 'execute_code') {
-                // Handle code execution output
-                const result = typeof event.result === 'string' ? JSON.parse(event.result) : event.result
-                
-                // Extract code output from result
-                let codeOutput = ''
-                let language = 'python' // default
-                
-                if (result.output) {
-                  codeOutput = result.output
-                } else if (result.stdout) {
-                  codeOutput = result.stdout
-                  if (result.stderr) {
-                    codeOutput += '\n\nErrors:\n' + result.stderr
-                  }
-                } else if (result.result) {
-                  codeOutput = typeof result.result === 'string' ? result.result : JSON.stringify(result.result, null, 2)
-                }
-                
-                // Set the code output state for display
-                setCodeOutput(codeOutput)
-                
-                // If there's code content, also save it
-                if (result.code) {
-                  setCodeFiles([{
-                    name: 'executed_code.' + (result.language || 'py'),
-                    language: result.language || language,
-                    content: result.code
-                  }])
-                }
-                
-                // Add to tool outputs
-                setToolOutputs(prev => [...prev, {
-                  id: toolId,
-                  toolName: event.tool_name,
-                  content: codeOutput || 'Code executed successfully',
-                  timestamp: new Date(),
-                  status: "completed"
-                }])
-                
-                formattedResult = `\n\n✅ **Code execution completed**`
-                if (codeOutput) {
-                  formattedResult += `\n\n\`\`\`\n${codeOutput.substring(0, 200)}${codeOutput.length > 200 ? '...' : ''}\n\`\`\``
-                }
-              } else if (event.tool_name === 'claude_code_generate_tool') {
-                // SDK generated tool with LiveURL
-                const result = typeof event.result === 'string' ? JSON.parse(event.result) : event.result
-                setToolOutputs(prev => [...prev, {
-                  id: toolId,
-                  toolName: event.tool_name,
-                  content: { live_url: result.live_url, message: result.message },
-                  timestamp: new Date(),
-                  status: "completed"
-                }])
-                formattedResult = `\n\n✅ **Tool generated**`
-              } else if (event.tool_name === 'use_claude_code') {
-                // Parse the use_claude_code result
-                const result = typeof event.result === 'string' ? JSON.parse(event.result) : event.result
-                
-                if (result.files_created && result.files_created.length > 0) {
-                  // Store the Claude Code output for rendering with the special component
-                  setClaudeCodeOutputs(prev => [...prev, {
-                    id: toolId,
-                    result: result.result || '',
-                    files_created: result.files_created,
-                    files_modified: result.files_modified || [],
-                    console_outputs: result.console_outputs || [],
-                    session: {
-                      session_id: result.session_id,
-                      can_continue: result.can_continue,
-                      turns_used: result.turns_used || 1
-                    },
-                    timestamp: new Date()
-                  }])
-                  
-                  formattedResult = `\n\n✅ **Created ${result.files_created.length} file${result.files_created.length > 1 ? 's' : ''}**\n\nSee the files below 👇`
-                } else {
-                  formattedResult = `\n\n✅ **Code task completed**`
-                  if (result.result) {
-                    formattedResult += `\n\n${result.result}`
-                  }
-                }
-              } else if (event.tool_name === 'clinical_operations') {
-                // Special handling for clinical_operations responses
-                try {
-                  const result = typeof event.result === 'string' ? JSON.parse(event.result) : event.result
-                  
-                  // Store the full clinical ops response for special rendering
-                  if (result && result.output) {
-                    // This is a full clinical ops response
-                    setMessages(prev => {
-                      const lastMsg = prev[prev.length - 1]
-                      if (lastMsg && lastMsg.role === "assistant") {
-                        return prev.slice(0, -1).concat({
-                          ...lastMsg,
-                          type: 'clinical_ops',
-                          data: result
-                        })
-                      }
-                      return prev
-                    })
-                    formattedResult = "" // Don't add text to message since we'll use special component
-                  } else {
-                    // Fallback for simpler responses
-                    if (result.error) {
-                      toolContent = `Error: ${result.error}`
-                    } else if (result.result) {
-                      toolContent = result.result
-                    } else if (result.content) {
-                      toolContent = result.content
-                    } else {
-                      toolContent = JSON.stringify(result, null, 2)
-                    }
-                    
-                    setToolOutputs(prev => [...prev, {
-                      id: toolId,
-                      toolName: event.tool_name,
-                      content: toolContent,
-                      timestamp: new Date(),
-                      status: "completed"
-                    }])
-                    formattedResult = `\n\n✅ **Clinical Operations completed**`
-                  }
-                } catch (e) {
-                  toolContent = typeof event.result === 'string' ? event.result : JSON.stringify(event.result)
-                  setToolOutputs(prev => [...prev, {
-                    id: toolId,
-                    toolName: event.tool_name,
-                    content: toolContent,
-                    timestamp: new Date(),
-                    status: "completed"
-                  }])
-                  formattedResult = `\n\n✅ **Clinical Operations completed**`
-                }
-              } else if (event.tool_name?.startsWith('perplexity_') ||
-                         event.tool_name?.startsWith('pubmed_') ||
-                         event.tool_name?.startsWith('search') ||
-                         event.tool_name?.startsWith('get')) {
-                // Parse result to get content
-                try {
-                  const result = typeof event.result === 'string' ? JSON.parse(event.result) : event.result
-                  if (result.error) {
-                    toolContent = `Error: ${result.error}`
-                  } else if (result.result) {
-                    toolContent = result.result
-                  } else if (result.content) {
-                    toolContent = result.content
-                  } else if (typeof result === 'string') {
-                    toolContent = result
-                  } else {
-                    toolContent = JSON.stringify(result, null, 2)
-                  }
-                } catch (e) {
-                  toolContent = typeof event.result === 'string' ? event.result : JSON.stringify(event.result)
-                }
-                
-                // Add tool output bubble
-                setToolOutputs(prev => [...prev, {
-                  id: toolId,
-                  toolName: event.tool_name,
-                  content: toolContent,
-                  timestamp: new Date(),
-                  status: "completed"
-                }])
-                
-                // Add brief mention in main message
-                formattedResult = `\n\n✅ **Tool completed**`
-              } else {
-                // Default formatting for other tools
-                const resultText = typeof event.result === 'string' ? event.result : JSON.stringify(event.result, null, 2)
-                formattedResult = `\n\n✅ **${event.tool_name} completed**`
-                if (resultText.length > 300) {
-                  formattedResult += `\n\n${resultText.substring(0, 300)}...`
-                } else {
-                  formattedResult += `\n\n${resultText}`
-                }
-              }
-              
-              fullContent += formattedResult
-              setCurrentStreamingMessage(fullContent)
-            }
-            // Handle tool errors
-            else if (event.type === 'tool_error') {
-              console.error(`Tool ${event.tool_name} error:`, event.error)
-              
-              // Update agent activity to error state
-              const agentName = getAgentNameFromTool(event.tool_name)
-              const runningActivity = agentActivities.find(a => 
-                a.agent === agentName && 
-                a.status === 'running' && 
-                a.description.includes(event.tool_name)
-              )
-              if (runningActivity) {
-                updateAgentActivity(runningActivity.id, {
-                  status: 'error',
-                  description: `Error in ${event.tool_name}`,
-                  details: event.error
-                })
-              }
-              
-              fullContent += `\n\n❌ Tool error: ${event.error}`
-              setCurrentStreamingMessage(fullContent)
-            }
-            // Handle message delta with usage information
-            else if (event.type === 'message_delta' && event.usage) {
-              // Just use the output tokens from the API
-              // Thinking tokens are included in the total output_tokens
-              if (event.usage.output_tokens) {
-                // For now, we'll just show a placeholder or hide the token count
-                // since we can't isolate thinking tokens from regular output tokens
-                setReasoningTokens(0)
-              }
-            }
-            // Handle continuation after tool use
-            else if (event.type === 'message_start_continuation') {
-              console.log("Continuing message after tool use")
-              // Don't reset the message - just continue adding to it
-            }
-            // Handle computer_use screenshots
-            else if (event.type === 'computer_screenshot') {
-              console.log('Computer screenshot received:', event.index, 'of', event.total)
-              
-              // Open the agent panel if not already open
-              if (!agentState.isActive) {
-                console.log('Opening computer use panel for screenshots')
-                startAgent('Computer Use - Taking Screenshots', undefined)
-              }
-              
-              // Add screenshot to browser actions timeline
-              setBrowserActions(prev => [...prev, {
-                id: `screenshot-${Date.now()}-${event.index}`,
-                type: 'screenshot',
-                description: `Screenshot ${event.index + 1} of ${event.total}`,
-                timestamp: new Date(),
-                screenshot: event.screenshot,
-                success: true
-              }])
-            }
-            // Handle computer_use actions
-            else if (event.type === 'computer_actions') {
-              console.log('Computer actions received:', event.actions)
-              
-              // Convert computer actions to browser timeline format
-              const newActions = event.actions.map((action: any, index: number) => ({
-                id: `computer-action-${Date.now()}-${index}`,
-                type: action.action || 'action',
-                description: action.action === 'screenshot' ? 'Taking screenshot' :
-                           action.action === 'left_click' ? `Clicked at (${action.input?.coordinate?.[0]}, ${action.input?.coordinate?.[1]})` :
-                           action.action === 'type' ? `Typed: ${action.input?.text}` :
-                           action.action === 'key' ? `Pressed key: ${action.input?.key}` :
-                           action.action === 'scroll' ? `Scrolled ${action.input?.scroll_direction}` :
-                           action.action === 'left_click_drag' ? 'Dragged mouse' :
-                           `${action.action}`,
-                timestamp: new Date(),
-                success: true
-              }))
-              
-              setBrowserActions(prev => [...prev, ...newActions])
-            }
-            // Handle computer_use thinking
-            else if (event.type === 'computer_thinking') {
-              console.log('Computer thinking:', event.thought)
-              
-              // Add thinking to timeline
-              setBrowserActions(prev => [...prev, {
-                id: `thinking-${Date.now()}`,
-                type: 'thinking',
-                description: 'Analyzing next action...',
-                details: event.thought,
-                timestamp: new Date(),
-                success: true
-              }])
-            }
-            // Handle agent status updates
-            else if (event.type === 'agent_status') {
-              console.log("Agent status:", event.data)
-              // Show status in UI
-              if (event.data?.status === 'executing_tools') {
-                fullContent += `\n\n⚙️ **${event.data.message || 'Processing tool requests...'}**`
-                setCurrentStreamingMessage(fullContent)
-              } else if (event.data?.status === 'thinking') {
-                fullContent += `\n\n💭 **${event.data.message || 'Analyzing results...'}**`
-                setCurrentStreamingMessage(fullContent)
-              }
-            }
-            // Handle message completion
-            else if (event.type === 'message_stop') {
-              console.log("Message completed", event.data?.final ? "(final)" : "")
-              
-              // Add final message to array ONLY when streaming is complete
-              if (fullContent) {
-                setMessages(prev => [...prev, {
-                  role: "assistant",
-                  content: fullContent,
-                  reasoning: fullReasoning,
-                  reasoningTokens: reasoningTokens,
-                  timestamp: new Date()
-                }])
-              }
-              
-              // Execute any pending orchestration tools
-              if (pendingOrchestrationTools.length > 0) {
-                console.log(`🎯 Executing ${pendingOrchestrationTools.length} orchestration tools`)
-                for (const tool of pendingOrchestrationTools) {
-                  await executeOrchestrationTool(tool)
-                }
-                setPendingOrchestrationTools([])
-              }
-            }
-          }
-        }
-
-      } catch (error) {
-        console.error("Error calling Claude API:", error)
-        
-        // Enhanced error handling for different error types
-        let errorMessage = "I apologize, but I encountered an error while processing your request."
-        let shouldShowRetry = false
-        
-        if (error instanceof Error) {
-          if (error.message.includes('net::ERR_INCOMPLETE_CHUNKED_ENCODING') ||
-              error.message.includes('Network connection interrupted')) {
-            errorMessage = "The connection was interrupted. Please try sending your message again."
-            shouldShowRetry = true
-            setConnectionStatus('error')
-          } else if (error.message.includes('timed out') || 
-                     error.message.includes('aborted')) {
-            errorMessage = "The request took too long to complete. Please try again with a shorter message or check your internet connection."
-            shouldShowRetry = true
-            setConnectionStatus('error')
-          } else if (error.message.includes('Stream failed after')) {
-            errorMessage = "I'm having trouble maintaining a stable connection. Please wait a moment and try again."
-            shouldShowRetry = true
-            setConnectionStatus('error')
-          } else if (error.message.includes('429') || 
-                     error.message.includes('rate limit')) {
-            errorMessage = "I'm currently handling a lot of requests. Please wait a moment and try again."
-            shouldShowRetry = true
-            setConnectionStatus('error')
-          } else if (error.message.includes('500') || 
-                     error.message.includes('502') ||
-                     error.message.includes('503') || 
-                     error.message.includes('504')) {
-            errorMessage = "The server is temporarily unavailable. Please try again in a few moments."
-            shouldShowRetry = true
-            setConnectionStatus('error')
-          } else {
-            setConnectionStatus('error')
-          }
-        }
-        
-        // Store the failed message for retry
-        if (shouldShowRetry) {
-          setLastFailedMessage(messageToSend)
-          setRetryCount(prev => prev + 1)
-        }
-        
-        setMessages(prev => [
-          ...prev,
-          {
-            role: "assistant",
-            content: errorMessage + (shouldShowRetry ? " Click the retry button below to try again." : ""),
-            timestamp: new Date(),
-          }
-        ])
-        
-        // Clean up any active streams on error
-        claudeAPI.abortAllStreams()
-      } finally {
-        setIsProcessing(false)
-        setCurrentStreamingMessage("")
-        setCurrentReasoning("")
-      }
-    }
+  // Wrap handleSendMessage to pass agent state
+  const wrappedHandleSendMessage = async (messageOverride?: string) => {
+    await handleSendMessage(messageOverride, agentState, startAgent, updateUrl)
   }
 
-  // Helper functions for agent orchestration
-  const addAgentActivity = (activity: Omit<AgentActivity, 'id' | 'timestamp'>) => {
-    const newActivity: AgentActivity = {
-      ...activity,
-      id: `activity-${Date.now()}-${Math.random()}`,
-      timestamp: new Date()
-    };
-    setAgentActivities(prev => [...prev, newActivity]);
-    return newActivity.id;
-  };
-
-  const updateAgentActivity = (id: string, updates: Partial<AgentActivity>) => {
-    setAgentActivities(prev => prev.map(activity => 
-      activity.id === id ? { ...activity, ...updates } : activity
-    ));
-  };
-
-  const mapToolNameToActivityType = (toolName: string): AgentActivity['type'] => {
-    if (toolName.startsWith('pubmed_search')) return 'search';
-    if (toolName.startsWith('pubmed_fetch')) return 'fetch';
-    if (toolName.startsWith('clinical_operations')) return 'synthesis';
-    if (toolName.startsWith('perplexity_')) return 'analysis';
-    if (toolName.startsWith('web_search')) return 'search';
-    return 'tool';
-  };
-
-  const getAgentNameFromTool = (toolName: string): string => {
-    if (toolName.startsWith('pubmed_')) return 'Research Agent';
-    if (toolName.startsWith('clinical_')) return 'Clinical Agent';
-    if (toolName.startsWith('perplexity_')) return 'Analysis Agent';
-    if (toolName.startsWith('web_search')) return 'Web Search Agent';
-    return 'System Agent';
-  };
-
-  const handleRetryMessage = async () => {
-    if (lastFailedMessage && !isProcessing) {
-      setConnectionStatus('retry')
-      console.log(`Retrying message (attempt ${retryCount + 1}):`, lastFailedMessage)
-      await handleSendMessage(lastFailedMessage)
-    }
+  // Wrap handleRetryMessage to pass agent state  
+  const wrappedHandleRetryMessage = async () => {
+    await handleRetryMessage(agentState, startAgent, updateUrl)
   }
 
   const renderAgentInterface = () => {
@@ -1415,7 +212,7 @@ ${isDeepResearch ? "DEEP RESEARCH MODE: Perform comprehensive research with mult
           isProcessing={isProcessing}
           onSendMessage={(message: string) => {
             setInputValue(message)
-            handleSendMessage()
+            wrappedHandleSendMessage()
           }}
         />
       )
@@ -1557,7 +354,7 @@ ${isDeepResearch ? "DEEP RESEARCH MODE: Perform comprehensive research with mult
                         onDeepResearchRequested={(providers: any[]) => {
                           setIsDeepResearch(true)
                           setInputValue(`Run deep research comparing: ${providers.map((p:any)=>p.name).join(', ')}`)
-                          handleSendMessage()
+                          wrappedHandleSendMessage()
                         }}
                       />
                     )}
@@ -1652,7 +449,7 @@ ${isDeepResearch ? "DEEP RESEARCH MODE: Perform comprehensive research with mult
                               size="sm"
                               onClick={async () => {
                                 // Send the approval message
-                                await handleSendMessage("Looks good, run it")
+                                await wrappedHandleSendMessage("Looks good, run it")
                               }}
                               className="bg-primary hover:bg-primary/90"
                             >
@@ -1665,7 +462,7 @@ ${isDeepResearch ? "DEEP RESEARCH MODE: Perform comprehensive research with mult
                                 // Directly handle the rejection
                                 const savedInput = inputValue
                                 setInputValue("No, please revise the plan")
-                                handleSendMessage()
+                                wrappedHandleSendMessage()
                                 setInputValue(savedInput)
                               }}
                               className="border-border hover:bg-accent"
@@ -1716,7 +513,7 @@ ${isDeepResearch ? "DEEP RESEARCH MODE: Perform comprehensive research with mult
                 <Card className="bg-card/90 backdrop-blur-xl border-t border-primary/10 glow-card">
                   <div className="p-4">
                   <div className="flex items-end gap-3">
-                    <PromptBuilderDialog onSendPrompt={handleSendMessage} />
+                    <PromptBuilderDialog onSendPrompt={wrappedHandleSendMessage} />
                       <div className="flex-1">
                         <Textarea
                           ref={inputRef}
@@ -1728,7 +525,7 @@ ${isDeepResearch ? "DEEP RESEARCH MODE: Perform comprehensive research with mult
                           onKeyDown={(e) => {
                             if (e.key === "Enter" && !e.shiftKey) {
                               e.preventDefault()
-                              handleSendMessage()
+                              wrappedHandleSendMessage()
                             }
                           }}
                         />
@@ -1749,7 +546,7 @@ ${isDeepResearch ? "DEEP RESEARCH MODE: Perform comprehensive research with mult
                           <Mic className="w-4 h-4 text-primary/70 hover:text-primary" />
                         </Button>
                         <Button
-                          onClick={() => handleSendMessage()}
+                          onClick={() => wrappedHandleSendMessage()}
                           size="icon"
                           className="h-10 w-10 bg-gradient-to-br from-primary via-primary/90 to-accent/80 hover:from-primary/90 hover:to-accent/70 text-primary-foreground shadow-xl transition-all duration-300 button-glow hover:scale-105 active:scale-95"
                           disabled={isProcessing || !inputValue.trim()}
@@ -1789,7 +586,7 @@ ${isDeepResearch ? "DEEP RESEARCH MODE: Perform comprehensive research with mult
                             <Button
                               variant="outline"
                               size="sm"
-                              onClick={handleRetryMessage}
+                              onClick={wrappedHandleRetryMessage}
                               disabled={isProcessing}
                               className="text-xs h-6 px-2"
                             >
@@ -1967,7 +764,7 @@ ${isDeepResearch ? "DEEP RESEARCH MODE: Perform comprehensive research with mult
                         // Let user know we're starting deep research
                         setIsDeepResearch(true)
                         setInputValue(`Run deep research comparing: ${providers.map(p=>p.name).join(', ')}`)
-                        handleSendMessage()
+                        wrappedHandleSendMessage()
                       }}
                     />
                   )}
@@ -2056,7 +853,7 @@ ${isDeepResearch ? "DEEP RESEARCH MODE: Perform comprehensive research with mult
                               // Directly handle the approval
                               const savedInput = inputValue
                               setInputValue("Looks good, run it")
-                              handleSendMessage()
+                              wrappedHandleSendMessage()
                               setInputValue(savedInput)
                             }}
                             className="bg-primary hover:bg-primary/90"
@@ -2070,7 +867,7 @@ ${isDeepResearch ? "DEEP RESEARCH MODE: Perform comprehensive research with mult
                               // Directly handle the rejection
                               const savedInput = inputValue
                               setInputValue("No, please revise the plan")
-                              handleSendMessage()
+                              wrappedHandleSendMessage()
                               setInputValue(savedInput)
                             }}
                             className="border-border hover:bg-accent"
@@ -2112,7 +909,7 @@ ${isDeepResearch ? "DEEP RESEARCH MODE: Perform comprehensive research with mult
               <Card className="bg-card/90 backdrop-blur-xl border-t border-primary/10 glow-card shadow-2xl">
                 <div className="p-5">
                   <div className="flex items-end gap-3">
-                    <PromptBuilderDialog onSendPrompt={handleSendMessage} />
+                    <PromptBuilderDialog onSendPrompt={wrappedHandleSendMessage} />
                     <div className="flex-1">
                       <Textarea
                         ref={inputRef}
@@ -2124,7 +921,7 @@ ${isDeepResearch ? "DEEP RESEARCH MODE: Perform comprehensive research with mult
                         onKeyDown={(e) => {
                           if (e.key === "Enter" && !e.shiftKey) {
                             e.preventDefault()
-                            handleSendMessage()
+                            wrappedHandleSendMessage()
                           }
                         }}
                       />
@@ -2145,7 +942,7 @@ ${isDeepResearch ? "DEEP RESEARCH MODE: Perform comprehensive research with mult
                         <Mic className="w-4 h-4 text-muted-foreground" />
                       </Button>
                       <Button
-                        onClick={() => handleSendMessage()}
+                        onClick={() => wrappedHandleSendMessage()}
                         size="icon"
                         className="h-10 w-10 bg-gradient-to-r from-primary to-accent hover:from-primary/90 hover:to-accent/90 text-primary-foreground shadow-lg glow-button transition-all hover:scale-105 active:scale-95"
                         disabled={isProcessing || !inputValue.trim()}
