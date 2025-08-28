@@ -339,6 +339,61 @@ export class ClaudeAPI {
       }
     }
   }
+
+  // Computer Use VNC API methods
+  async initializeComputerUse(): Promise<{
+    success: boolean
+    vnc_url?: string
+    display?: { width: number; height: number }
+    message?: string
+    error?: string
+  }> {
+    try {
+      const response = await this.fetchWithRetry(`${this.baseURL}/computer-use/initialize`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+      })
+      return await response.json()
+    } catch (error) {
+      console.error('Failed to initialize computer use:', error)
+      return { success: false, error: `Failed to initialize computer use: ${error}` }
+    }
+  }
+
+  async getVncUrl(): Promise<{
+    success: boolean
+    vnc_url?: string
+    message?: string
+    error?: string
+  }> {
+    try {
+      const response = await this.fetchWithRetry(`${this.baseURL}/computer-use/vnc-url`, {
+        method: 'GET',
+        headers: { 'Content-Type': 'application/json' },
+      })
+      return await response.json()
+    } catch (error) {
+      console.error('Failed to get VNC URL:', error)
+      return { success: false, error: `Failed to get VNC URL: ${error}` }
+    }
+  }
+
+  async closeComputerUse(): Promise<{
+    success: boolean
+    message?: string
+    error?: string
+  }> {
+    try {
+      const response = await this.fetchWithRetry(`${this.baseURL}/computer-use/close`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+      })
+      return await response.json()
+    } catch (error) {
+      console.error('Failed to close computer use session:', error)
+      return { success: false, error: `Failed to close computer use session: ${error}` }
+    }
+  }
 }
 
 // Export singleton instance

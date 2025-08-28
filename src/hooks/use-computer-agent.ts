@@ -1,12 +1,16 @@
 "use client"
 
 import { useState, useEffect, useRef } from "react"
+import { claudeAPI } from "@/lib/api"
 
 interface ComputerAgentState {
   isActive: boolean
   currentTask: string | null
   liveUrl: string | null
   sessionId: string | null
+  vncInitialized: boolean
+  vncError: string | null
+  isInitializingVnc: boolean
 }
 
 export function useComputerAgent() {
@@ -15,9 +19,34 @@ export function useComputerAgent() {
     currentTask: null,
     liveUrl: null,
     sessionId: null,
+    vncInitialized: false,
+    vncError: null,
+    isInitializingVnc: false,
   })
   
   const pollingIntervalRef = useRef<NodeJS.Timeout | null>(null)
+
+  const closeVnc = async () => {
+    console.log('Closing VNC session...')
+    try {
+      await claudeAPI.closeComputerUse()
+      setAgentState(prev => ({
+        ...prev,
+        vncInitialized: false,
+        vncError: null,
+      }))
+    } catch (error) {
+      console.error('Failed to close VNC session:', error)
+    }
+  }
+
+  // Cleanup VNC when agent becomes inactive
+  useEffect(() => {
+    if (!agentState.isActive && agentState.vncInitialized) {
+      console.log('useComputerAgent: Agent became inactive, cleaning up VNC')
+      closeVnc()
+    }
+  }, [agentState.isActive, agentState.vncInitialized])
 
   const startAgent = async (task: string, url?: string) => {
     // ONLY toggle UI visibility - NO API CALLS
@@ -34,6 +63,11 @@ export function useComputerAgent() {
   // Remove all polling logic
 
   const stopAgent = async () => {
+    // Close VNC session if active
+    if (agentState.vncInitialized) {
+      await closeVnc()
+    }
+    
     // ONLY toggle UI visibility - NO API CALLS
     // Browser sessions are managed by Claude's backend
     setAgentState({
@@ -41,6 +75,9 @@ export function useComputerAgent() {
       currentTask: null,
       liveUrl: null,
       sessionId: null,
+      vncInitialized: false,
+      vncError: null,
+      isInitializingVnc: false,
     })
   }
 
@@ -70,6 +107,47 @@ export function useComputerAgent() {
     throw new Error('Browser tasks can only be executed by Claude')
   }
 
+  const initializeVnc = async () => {
+    console.log('Initializing VNC session...')
+    setAgentState(prev => ({ ...prev, isInitializingVnc: true, vncError: null }))
+    
+    try {
+      const result = await claudeAPI.initializeComputerUse()
+      
+      if (result.success && result.vnc_url) {
+        console.log('VNC initialized successfully:', result.vnc_url)
+        setAgentState(prev => ({
+          ...prev,
+          vncInitialized: true,
+          liveUrl: result.vnc_url!,
+          isInitializingVnc: false,
+          vncError: null,
+        }))
+        return result.vnc_url
+      } else {
+        const error = result.error || 'Unknown VNC initialization error'
+        console.error('VNC initialization failed:', error)
+        setAgentState(prev => ({
+          ...prev,
+          vncInitialized: false,
+          isInitializingVnc: false,
+          vncError: error,
+        }))
+        return null
+      }
+    } catch (error) {
+      const errorMsg = error instanceof Error ? error.message : 'VNC initialization failed'
+      console.error('VNC initialization error:', error)
+      setAgentState(prev => ({
+        ...prev,
+        vncInitialized: false,
+        isInitializingVnc: false,
+        vncError: errorMsg,
+      }))
+      return null
+    }
+  }
+
   return {
     agentState,
     startAgent,
@@ -77,5 +155,7 @@ export function useComputerAgent() {
     updateTask,
     updateUrl,
     executeTask,
+    initializeVnc,
+    closeVnc,
   }
 }

@@ -27,9 +27,13 @@ interface ComputerUseAgentProps {
   onCloseTab?: (tabId: string) => void
   onSwitchTab?: (tabId: string) => void
   browserActions?: any[]
-  mode?: 'browser' | 'preview_tools'
+  mode?: 'browser' | 'preview_tools' | 'computer_use'
   onDeploy?: () => void
   isGenerating?: boolean
+  // VNC-specific props
+  onInitializeVnc?: () => Promise<void>
+  vncError?: string | null
+  isInitializingVnc?: boolean
 }
 
 export function ComputerUseAgent({
@@ -49,6 +53,10 @@ export function ComputerUseAgent({
   mode = 'browser',
   onDeploy,
   isGenerating = false,
+  // VNC-specific props
+  onInitializeVnc,
+  vncError = null,
+  isInitializingVnc = false,
 }: ComputerUseAgentProps) {
   const [isMaximized, setIsMaximized] = useState(false)
   const [mounted, setMounted] = useState(false)
@@ -95,6 +103,23 @@ export function ComputerUseAgent({
       }
     }
   }, [liveUrl, isVisible])
+
+  // VNC initialization effect for computer_use mode
+  useEffect(() => {
+    if (isVisible && mode === 'computer_use' && onInitializeVnc && !liveUrl && !isInitializingVnc && !vncError) {
+      console.log('ComputerUseAgent: Initializing VNC for computer use mode')
+      onInitializeVnc()
+    }
+  }, [isVisible, mode, onInitializeVnc, liveUrl, isInitializingVnc, vncError])
+
+  // Cleanup effect when component unmounts
+  useEffect(() => {
+    return () => {
+      // Component cleanup is handled by the parent's onClose function
+      // which calls stopAgent() which in turn calls closeVnc()
+      console.log('ComputerUseAgent: Component unmounting')
+    }
+  }, [])
 
   if (!mounted) return null
 
@@ -155,7 +180,9 @@ export function ComputerUseAgent({
                 </motion.div>
                 <div>
                   <h3 className="font-semibold text-sm text-gray-900 dark:text-gray-100 flex items-center gap-2">
-                    {mode === 'preview_tools' ? 'Claude Code Magic Preview' : "Ron's Browser Window"}
+                    {mode === 'preview_tools' ? 'Claude Code Magic Preview' : 
+                     mode === 'computer_use' ? "Ron's Desktop Computer Use" : 
+                     "Ron's Browser Window"}
                     {mode === 'preview_tools' && <Sparkles className="w-4 h-4 text-purple-500" />}
                   </h3>
                 </div>
@@ -409,11 +436,7 @@ export function ComputerUseAgent({
                       src={liveUrl}
                       className="w-full h-full border-0"
                       style={{
-                        backgroundColor: '#050505',
-                        colorScheme: 'dark',
-                        filter: typeof window !== 'undefined' && window.matchMedia('(prefers-color-scheme: dark)').matches 
-                          ? 'brightness(0.4) saturate(0.1) contrast(1.3) invert(0.05)' 
-                          : undefined
+                        backgroundColor: '#ffffff'
                       }}
                       title="Computer Use Agent Browser"
                     />
@@ -421,9 +444,41 @@ export function ComputerUseAgent({
                 ) : (
                   <div className="flex items-center justify-center h-full bg-gray-50 dark:bg-neutral-900">
                     <div className="text-center">
-                      <Monitor className="w-12 h-12 mx-auto mb-4 text-gray-400 dark:text-neutral-500" />
-                      <p className="text-sm text-gray-600 dark:text-gray-400">Computer Use Agent Active</p>
-                      <p className="text-xs mt-1 text-gray-500 dark:text-gray-500">{task}</p>
+                      {mode === 'computer_use' ? (
+                        isInitializingVnc ? (
+                          <>
+                            <Loader2 className="w-12 h-12 mx-auto mb-4 text-blue-500 animate-spin" />
+                            <p className="text-sm text-gray-600 dark:text-gray-400">Initializing Desktop Connection...</p>
+                            <p className="text-xs mt-1 text-gray-500 dark:text-gray-500">Starting VNC session for computer use</p>
+                          </>
+                        ) : vncError ? (
+                          <>
+                            <Monitor className="w-12 h-12 mx-auto mb-4 text-red-400" />
+                            <p className="text-sm text-red-600 dark:text-red-400">Desktop Connection Failed</p>
+                            <p className="text-xs mt-1 text-gray-500 dark:text-gray-500">{vncError}</p>
+                            <Button 
+                              variant="outline" 
+                              size="sm" 
+                              className="mt-3"
+                              onClick={onInitializeVnc}
+                            >
+                              Retry Connection
+                            </Button>
+                          </>
+                        ) : (
+                          <>
+                            <Monitor className="w-12 h-12 mx-auto mb-4 text-gray-400 dark:text-neutral-500" />
+                            <p className="text-sm text-gray-600 dark:text-gray-400">Desktop Ready</p>
+                            <p className="text-xs mt-1 text-gray-500 dark:text-gray-500">Waiting for VNC connection...</p>
+                          </>
+                        )
+                      ) : (
+                        <>
+                          <Monitor className="w-12 h-12 mx-auto mb-4 text-gray-400 dark:text-neutral-500" />
+                          <p className="text-sm text-gray-600 dark:text-gray-400">Computer Use Agent Active</p>
+                          <p className="text-xs mt-1 text-gray-500 dark:text-gray-500">{task}</p>
+                        </>
+                      )}
                     </div>
                   </div>
                 )}

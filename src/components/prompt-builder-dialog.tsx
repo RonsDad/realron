@@ -34,15 +34,18 @@ export function PromptBuilderDialog({ onSendPrompt }: PromptBuilderDialogProps) 
   return (
     <Dialog open={open} onOpenChange={setOpen}>
       <DialogTrigger asChild>
-        <Button variant="ghost" size="sm" className="text-xs sm:text-sm font-medium hover:text-primary">
-          <BrainCircuit className="w-3 h-3 sm:w-4 sm:h-4 mr-1 sm:mr-2" />
-          AI Prompt Builder
+        <Button 
+          variant="ghost" 
+          size="icon" 
+          className="h-12 w-12 sm:h-14 sm:w-14 rounded-xl hover:bg-primary/10 transition-all duration-300 hover-lift border border-border/50 group"
+        >
+          <BrainCircuit className="w-5 h-5 sm:w-6 sm:h-6 text-primary group-hover:scale-110 transition-transform" />
         </Button>
       </DialogTrigger>
-      <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">
+      <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto glass-morphism">
         <DialogHeader>
-          <DialogTitle>AI Prompt Builder</DialogTitle>
-          <DialogDescription>Create personalized healthcare search prompts using AI</DialogDescription>
+          <DialogTitle className="text-2xl font-bold">AI Prompt Builder</DialogTitle>
+          <DialogDescription className="text-base">Create personalized healthcare search prompts using AI</DialogDescription>
         </DialogHeader>
         <AIPromptBuilder userProfile={userProfile} onPromptGenerated={handlePromptGenerated} />
       </DialogContent>

@@ -353,6 +353,16 @@ class ClaudeCompletions:
         # CONFIGURATION CACHING - Optimization #1: Load MCP config once at initialization
         self.mcp_servers_cache = self._load_mcp_servers()
         logger.info(f"Initialized with {len(self.mcp_servers_cache)} MCP servers cached")
+        # Start background maintenance tasks (pruning + instrumentation) if available
+        try:
+            from backend.agents.claudeAgent.claude_tools.claude_code_sdk_proper import start_maintenance_tasks
+            try:
+                start_maintenance_tasks()
+            except Exception as e:
+                logger.info(f"Failed to start maintenance tasks: {e}")
+        except Exception:
+            # Optional module may not be present in some deployments
+            pass
     
     def _load_mcp_servers(self) -> List[Dict]:
         """Load and cache MCP server configuration at initialization"""
@@ -474,8 +484,8 @@ class ClaudeCompletions:
                 tool_list.append({
                     "type": "computer_20250124",
                     "name": "computer",
-                    "display_width_px": 1024,
-                    "display_height_px": 768,
+                    "display_width_px": 1920,
+                    "display_height_px": 1080,
                     "display_number": 1
                 })
                 logger.info("Added native computer-use tool")
@@ -525,32 +535,18 @@ class ClaudeCompletions:
             if tool_name == 'computer':
                 action = tool_input.get('action', 'screenshot')
                 
-                # Use browserless for computer display
-                from .claude_tools.browser_use.browser_use_service import browser_use_service
-                active_sessions = await browser_use_service.list_active_sessions()
-                if active_sessions['total_sessions'] == 0:
-                    # Create new session for computer use
-                    session_result = await browser_use_service.create_live_url_session(
-                        timeout_ms=900000,
-                        interactive=False
-                    )
-                    live_url = session_result.get('live_url')
-                    if live_url:
-                        logger.info(f"SENDING LiveURL for computer use: {live_url}")
+                # Use VNC for computer display
+                from .claude_tools.computer_use.vnc_computer_handler import computer_handler
                 
-                # Return simulated result for computer actions
-                if action == 'screenshot':
-                    tool_result = {
-                        "type": "image",
-                        "source": {
-                            "type": "base64",
-                            "media_type": "image/png",
-                            "data": ""
-                        }
-                    }
-                else:
-                    tool_result = {"success": True, "action": action}
-                logger.info(f"Computer action {action} simulated via browserless")
+                # Initialize VNC session if not active
+                if not hasattr(computer_handler, 'vnc_session_active') or not computer_handler.vnc_session_active:
+                    vnc_result = await computer_handler.initialize_session()
+                    if vnc_result.get('success') and vnc_result.get('vnc_url'):
+                        logger.info(f"SENDING VNC URL for computer use: {vnc_result['vnc_url']}")
+                
+                # Execute computer action via VNC
+                tool_result = await computer_handler.execute_action(action, tool_input)
+                logger.info(f"Computer action {action} executed via VNC")
             else:
                 # Use unified executor for regular tools
                 from .claude_tools.claude_tool_handler import execute_tool
@@ -612,9 +608,36 @@ class ClaudeCompletions:
                     disable_mcp=disable_mcp
                 )
                 
+                # Optional debug hook: dump outgoing request params and optionally force code_execution
+                try:
+                    debug_flag = os.getenv("RONAI_DEBUG_CLAUDE", "")
+                    if debug_flag:
+                        logger.warning(f"RONAI_DEBUG_CLAUDE enabled: {debug_flag}")
+                        try:
+                            logger.debug("Outgoing request_params: %s", json.dumps(request_params, default=str)[:4000])
+                        except Exception:
+                            logger.debug("Outgoing request_params (repr): %s", repr(request_params))
+
+                        # Force inclusion of code_execution tool when requested
+                        if "force_code_execution" in debug_flag or "force_code_exec" in debug_flag:
+                            tools_list = request_params.get("tools", [])
+                            if not isinstance(tools_list, list):
+                                tools_list = [tools_list]
+                            already = False
+                            for t in tools_list:
+                                if (isinstance(t, dict) and t.get("name") == "code_execution") or (isinstance(t, str) and t == "code_execution"):
+                                    already = True
+                                    break
+                            if not already:
+                                tools_list.append({"type": "code_execution_20250522", "name": "code_execution", "cache_control": {"type": "ephemeral"}})
+                                request_params["tools"] = tools_list
+                                logger.warning("Forced inclusion of code_execution tool into request_params")
+                except Exception as e:
+                    logger.warning(f"Debug hook failure: {e}")
+
                 # Log messages being sent
                 logger.info(f"Sending {len(conversation_messages)} messages to Claude")
-                
+
                 # Try with MCP servers, retry without if it fails
                 try:
                     async with self.client.beta.messages.stream(**request_params) as stream:
@@ -983,10 +1006,15 @@ class ClaudeCompletions:
                                         block['input'] = {}
                                     cleaned_content.append(block)
                             
+                            # Append assistant response and cap conversation history to prevent leaks
                             conversation_messages.append({
                                 'role': 'assistant',
                                 'content': cleaned_content
                             })
+                            MAX_CONVERSATION_HISTORY = int(os.getenv("RONAI_MAX_CONVERSATION_HISTORY", "200"))
+                            if len(conversation_messages) > MAX_CONVERSATION_HISTORY:
+                                # Keep the most recent messages only
+                                conversation_messages = conversation_messages[-MAX_CONVERSATION_HISTORY:]
                             
                             # Collect ONLY client-side tool use blocks (not server tools or MCP tools)
                             tool_blocks = []
@@ -1006,6 +1034,19 @@ class ClaudeCompletions:
                                     logger.info(f"Code execution result already received - stdout length: {len(block.get('stdout', ''))}")
                             
                             if tool_blocks:
+                                # Check if we have computer use tools
+                                has_computer_use = any(
+                                    block.get('name') == 'computer' 
+                                    for block in tool_blocks
+                                )
+                                
+                                if has_computer_use:
+                                    # Return VNC desktop URL
+                                    yield {
+                                        'type': 'computer_use_active',
+                                        'vnc_url': 'http://3.137.139.249:6080/vnc.html?host=3.137.139.249&port=6080&autoconnect=true&resize=scale'
+                                    }
+                                
                                 # Check if we have browser tools
                                 has_browser_tools = any(
                                     block.get('name') in ['browser_use', 'reuse_browser_session'] 

@@ -106,7 +106,7 @@ export default function HealthCopilot() {
   const messagesEndRef = useRef<HTMLDivElement>(null)
   const inputRef = useRef<HTMLTextAreaElement>(null)
 
-  const { agentState, startAgent, stopAgent, updateUrl } = useComputerAgent()
+  const { agentState, startAgent, stopAgent, updateUrl, initializeVnc, closeVnc } = useComputerAgent()
   const { handleSSEStream, clearTimeline } = useTimelineIntegration()
 
   useEffect(() => {
@@ -803,6 +803,20 @@ ${isDeepResearch ? "DEEP RESEARCH MODE: Perform comprehensive research with mult
                 console.log('Browser panel already open, LiveURL updated to:', event.live_url)
               }
             }
+            // Handle computer use activation - show VNC browser
+            else if (event.type === 'computer_use_active') {
+              console.log('COMPUTER USE ACTIVE:', event.vnc_url)
+              
+              // Open computer use panel with VNC URL
+              if (!agentState.isActive) {
+                console.log('Opening computer use panel with VNC URL:', event.vnc_url)
+                startAgent('Claude is using computer', event.vnc_url)
+              } else {
+                // Update URL if panel already open
+                updateUrl(event.vnc_url)
+                console.log('Computer use panel already open, VNC URL updated to:', event.vnc_url)
+              }
+            }
             // Handle tool results - WITH FULL VISIBILITY
             else if (event.type === 'tool_result') {
               console.log(`🎯 Tool completed: ${event.tool_name}`, event.result)
@@ -1437,7 +1451,7 @@ ${isDeepResearch ? "DEEP RESEARCH MODE: Perform comprehensive research with mult
 
   return (
     <TimelineAdapter>
-      <div className="h-screen bg-background text-foreground overflow-hidden">
+      <div className="h-screen bg-background text-foreground">
         <SidebarMinimal isOpen={isOpen} onOpenChange={setIsOpen} />
 
       <div className={`h-full bg-background ${isOpen ? 'ml-64' : 'ml-16'}`}>
@@ -1449,6 +1463,10 @@ ${isDeepResearch ? "DEEP RESEARCH MODE: Perform comprehensive research with mult
             liveUrl={agentState.liveUrl || undefined}
             isMobile={true}
             browserActions={browserActions}
+            mode={agentState.currentTask?.toLowerCase().includes('computer') || agentState.currentTask?.toLowerCase().includes('desktop') ? 'computer_use' : 'browser'}
+            onInitializeVnc={initializeVnc}
+            vncError={agentState.vncError}
+            isInitializingVnc={agentState.isInitializingVnc}
           />
 
           <div className="transition-all duration-500">
@@ -1493,7 +1511,7 @@ ${isDeepResearch ? "DEEP RESEARCH MODE: Perform comprehensive research with mult
 
             {showCareTeam && <CareTeamPanel onClose={() => setShowCareTeam(false)} />}
 
-            <main className="messages-container px-4 py-6 pb-24">
+            <main className="messages-container px-4 py-6 pb-24 overflow-y-auto max-h-screen">
               <div className={`mx-auto transition-all duration-500 ${
                 agentState.isActive ? "max-w-full pr-2" : "max-w-4xl"
               }`}>
@@ -1905,7 +1923,7 @@ ${isDeepResearch ? "DEEP RESEARCH MODE: Perform comprehensive research with mult
           {showCareTeam && <CareTeamPanel onClose={() => setShowCareTeam(false)} />}
 
           <main
-            className="flex-1 pb-32 pt-32 overflow-y-auto"
+            className="flex-1 pb-32 pt-32 overflow-y-auto scrollbar-thin scrollbar-thumb-muted-foreground/20 scrollbar-track-transparent"
           >
             <div className="container max-w-7xl mx-auto px-6">
               {/* Timeline/Message View Toggle */}
@@ -2219,6 +2237,10 @@ ${isDeepResearch ? "DEEP RESEARCH MODE: Perform comprehensive research with mult
                 liveUrl={agentState.liveUrl || undefined}
                 isMobile={false}
                 browserActions={browserActions}
+                mode={agentState.currentTask?.toLowerCase().includes('computer') || agentState.currentTask?.toLowerCase().includes('desktop') ? 'computer_use' : 'browser'}
+                onInitializeVnc={initializeVnc}
+                vncError={agentState.vncError}
+                isInitializingVnc={agentState.isInitializingVnc}
               />
             </div>
           )}

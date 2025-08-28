@@ -17,6 +17,92 @@ from claude_code_sdk import (
 
 logger = logging.getLogger(__name__)
 
+# Pruning and instrumentation defaults
+SESSION_TTL_SECONDS = int(os.getenv("RONAI_SESSION_TTL", "3600"))  # 1 hour
+BROWSER_SESSION_TTL_SECONDS = int(os.getenv("RONAI_BROWSER_SESSION_TTL", "3600"))
+PRUNE_INTERVAL_SECONDS = int(os.getenv("RONAI_PRUNE_INTERVAL", "600"))  # 10 minutes
+INSTRUMENTATION_INTERVAL = int(os.getenv("RONAI_INSTRUMENT_INTERVAL", "300"))  # 5 minutes
+try:
+    import resource
+except Exception:
+    resource = None
+
+
+async def _prune_sessions_task():
+    """Background task to prune stale code and browser sessions."""
+    while True:
+        try:
+            now_ts = datetime.now().timestamp()
+            # Prune code sessions
+            removed = 0
+            for sid, sess in list(_sessions.items()):
+                created = sess.get('created_at')
+                if not created:
+                    continue
+                try:
+                    created_ts = float(created)
+                except Exception:
+                    try:
+                        created_ts = datetime.fromisoformat(created).timestamp()
+                    except Exception:
+                        created_ts = now_ts
+                if now_ts - created_ts > SESSION_TTL_SECONDS:
+                    del _sessions[sid]
+                    removed += 1
+            if removed:
+                logger.info(f"Pruned {removed} stale code sessions")
+
+            # Prune browser sessions if object exists in this module
+            try:
+                from backend.agents.claudeAgent.claude_tools.browser_use.browser_use_service import browser_use_service
+                # browser_use_service manages its own sessions; nothing to prune here
+            except Exception:
+                # Fallback: if other modules maintain browser sessions dicts, rely on their cleanup
+                pass
+        except Exception as e:
+            logger.warning(f"Session pruning error: {e}")
+        await asyncio.sleep(PRUNE_INTERVAL_SECONDS)
+
+
+async def _instrumentation_task():
+    """Periodic instrumentation logging for session and memory counts."""
+    while True:
+        try:
+            sessions_count = len(_sessions)
+            # active asyncio tasks
+            tasks_count = len([t for t in asyncio.all_tasks() if not t.done()])
+            mem_info = None
+            if resource is not None:
+                try:
+                    mem_info = resource.getrusage(resource.RUSAGE_SELF).ru_maxrss
+                except Exception:
+                    mem_info = None
+            logger.info(f"Instrumentation: code_sessions={sessions_count}, active_tasks={tasks_count}, ru_maxrss={mem_info}")
+        except Exception as e:
+            logger.warning(f"Instrumentation error: {e}")
+        await asyncio.sleep(INSTRUMENTATION_INTERVAL)
+
+
+def start_maintenance_tasks():
+    """Start background maintenance tasks (pruning + instrumentation).
+
+    Call this from your application startup (e.g., when ClaudeCompletions is initialized).
+    """
+    try:
+        loop = asyncio.get_event_loop()
+    except RuntimeError:
+        loop = None
+    try:
+        if loop and loop.is_running():
+            asyncio.create_task(_prune_sessions_task())
+            asyncio.create_task(_instrumentation_task())
+            logger.info("Started maintenance tasks: pruning + instrumentation")
+        else:
+            # Best-effort: schedule but may be started later by application
+            logger.info("Event loop not running; maintenance tasks will start when event loop is available")
+    except Exception as e:
+        logger.warning(f"Failed to start maintenance tasks: {e}")
+
 # Session storage for conversation persistence
 _sessions: Dict[str, Dict[str, Any]] = {}
 

@@ -8,7 +8,7 @@ import { oneDark } from "react-syntax-highlighter/dist/esm/styles/prism"
 import { cn } from "@/lib/utils"
 import { Card } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
-import { useState, useEffect, useRef } from "react"
+import React, { useState, useEffect, useRef } from "react"
 import { emitTimelineEvent } from "@/components/migration/timeline-adapter"
 
 // Separate component for HTML code blocks to properly handle state
@@ -217,7 +217,7 @@ function TimelineSection({ section, isLast }: { section: {type: string; content:
   )
 }
 
-export function MessageCard({ 
+export const MessageCard = React.memo(function MessageCard({ 
   role, 
   content, 
   timestamp, 
@@ -305,13 +305,11 @@ export function MessageCard({
             : "bg-gradient-to-br from-slate-50 to-slate-100 dark:from-slate-900/70 dark:to-slate-800/50 border-slate-200 dark:border-slate-700 shadow-md hover:shadow-lg"
         )}>
           {hasTimeline ? (
-            <ScrollArea className="max-h-[600px] pr-2">
-              <div className="space-y-0">
-                {sections.map((section, idx) => (
-                  <TimelineSection key={idx} section={section} isLast={idx === sections.length - 1} />
-                ))}
-              </div>
-            </ScrollArea>
+            <div className="space-y-0">
+              {sections.map((section, idx) => (
+                <TimelineSection key={idx} section={section} isLast={idx === sections.length - 1} />
+              ))}
+            </div>
           ) : (
             <div className={cn(
               "prose prose-sm max-w-none",
@@ -446,4 +444,15 @@ export function MessageCard({
       </div>
     </div>
   )
-}
+}, (prevProps, nextProps) => {
+  // Shallow comparison - MessageCard renders frequently but mostly with same content
+  return (
+    prevProps.role === nextProps.role &&
+    prevProps.content === nextProps.content &&
+    prevProps.isStreaming === nextProps.isStreaming &&
+    prevProps.className === nextProps.className &&
+    prevProps.agentId === nextProps.agentId &&
+    prevProps.agentType === nextProps.agentType &&
+    prevProps.timestamp?.getTime() === nextProps.timestamp?.getTime()
+  )
+})
