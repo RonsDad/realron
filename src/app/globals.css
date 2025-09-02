@@ -310,11 +310,7 @@
     animation: slideUpFooter 0.8s ease-out;
   }
 
-  .messages-container {
-    height: 100vh;
-    overflow-y: auto;
-    scroll-behavior: smooth;
-  }
+  /* REMOVED: messages-container - using Tailwind classes instead */
   
   .streaming-text {
     position: relative;

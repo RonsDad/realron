@@ -162,6 +162,15 @@ export function SidebarMinimal({
     onOpenChange?.(newState)
   }
   
+  const handleNavigation = (item: typeof navigationItems[0]) => {
+    setActiveItem(item.id)
+    
+    // Navigate to the href
+    if (item.href && item.href !== window.location.pathname) {
+      window.location.href = item.href
+    }
+  }
+  
   if (!mounted) {
     return null
   }
@@ -224,9 +233,9 @@ export function SidebarMinimal({
                     <TooltipTrigger asChild>
                       <Button
                         variant="ghost"
-                        onClick={() => setActiveItem(item.id)}
+                        onClick={() => handleNavigation(item)}
                         className={cn(
-                          "w-full justify-start h-10 px-3 transition-all",
+                          "w-full justify-start h-10 px-3 transition-all hover:bg-primary/10",
                           isActive && "bg-primary/10 text-primary hover:bg-primary/15",
                           !isExpanded && "justify-center px-0"
                         )}
@@ -272,8 +281,13 @@ export function SidebarMinimal({
                     <Button
                       variant="ghost"
                       size="sm"
+                      onClick={() => {
+                        if (item.href && item.href !== window.location.pathname) {
+                          window.location.href = item.href
+                        }
+                      }}
                       className={cn(
-                        "w-full justify-start h-9 px-3",
+                        "w-full justify-start h-9 px-3 hover:bg-primary/10",
                         !isExpanded && "justify-center px-0"
                       )}
                     >

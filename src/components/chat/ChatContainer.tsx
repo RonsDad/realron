@@ -27,7 +27,7 @@ export function ChatContainer({
 }: ChatContainerProps) {
   if (isMobile) {
     return (
-      <main className="messages-container px-4 py-6 pb-24">
+      <main className="h-full px-4 py-6 pb-24">
         <div className={`mx-auto transition-all duration-500 ${
           agentState.isActive ? "max-w-full pr-2" : "max-w-4xl"
         }`}>
@@ -72,7 +72,7 @@ export function ChatContainer({
   }
 
   return (
-    <main className="flex-1 pb-32 pt-32 overflow-y-auto">
+    <main className="flex-1 pb-32 pt-32">
       <div className="container max-w-7xl mx-auto px-6">
         {/* Timeline/Message View Toggle */}
         {messages.length > 0 && (

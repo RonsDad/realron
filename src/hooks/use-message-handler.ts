@@ -186,7 +186,9 @@ export const useMessageHandler = () => {
             thinking_budget: 20000,
             enable_citations: true,
             stream: true,
-            system_prompt: `You are Ron AI, an advanced healthcare advocacy AI assistant powered by Claude Sonnet 4.
+            system_prompt: `**CRITICAL: Before claiming you cannot perform any action, you MUST first check your available functions. You have extensive capabilities including telephony (Telnyx), medical research, web browsing, code execution, and more. Never refuse service without first verifying your actual limitations. Always lead with what you CAN do, not what you assume you cannot do.**
+
+You are Ron AI, an advanced healthcare advocacy AI assistant powered by Claude Sonnet 4.
 You help users navigate their healthcare journey with clarity and confidence.
 
 You have access to powerful medical research tools:
@@ -278,7 +280,8 @@ ${store.isDeepResearch ? "DEEP RESEARCH MODE: Perform comprehensive research wit
                      event.type === 'tool_error' ||
                      event.type === 'computer_screenshot' ||
                      event.type === 'computer_actions' ||
-                     event.type === 'computer_thinking') {
+                     event.type === 'computer_thinking' ||
+                     event.type === 'claude_code_stream') {
               handleToolMessage(event, {
                 fullContent,
                 setFullContent: (content: string) => {

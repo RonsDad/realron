@@ -2,58 +2,41 @@
 
 // Provider component for Zustand store with Next.js App Router
 // Ensures SSR safety and prevents state leaking across requests
-import { type ReactNode, createContext, useRef, useContext } from 'react'
-import { useStore } from 'zustand'
+import { type ReactNode, createContext, useRef, useContext, useEffect, useState } from 'react'
+import { create } from 'zustand'
 import { 
   type RonAIStore,
-  createRonAIStore,
-  defaultInitState,
-  type RonAIStoreApi
+  defaultInitState
 } from '@/store/store-factory'
+import { createChatSlice } from '@/store/slices/chat'
+import { createAgentSlice } from '@/store/slices/agent'
+import { createDeepResearchSlice } from '@/store/slices/deepResearch'
+import { createUISlice } from '@/store/slices/ui'
+import { createToolSlice } from '@/store/slices/tool'
+import { createConnectionSlice } from '@/store/slices/connection'
 
-// Create context for the store
-export const RonAIStoreContext = createContext<RonAIStoreApi | undefined>(
-  undefined
-)
+// Create a simple Zustand store without context complications
+export const useRonAIStore = create<RonAIStore>()((set, get, api) => ({
+  // Spread initial state
+  ...defaultInitState,
+  
+  // Combine all slice actions
+  ...createChatSlice(set, get, api),
+  ...createAgentSlice(set, get, api),
+  ...createDeepResearchSlice(set, get, api),
+  ...createUISlice(set, get, api),
+  ...createToolSlice(set, get, api),
+  ...createConnectionSlice(set, get, api),
+}))
 
 // Provider props interface
 export interface RonAIStoreProviderProps {
   children: ReactNode
-  // Optional initial state for SSR hydration
-  initialState?: Partial<RonAIStore>
 }
 
-// Provider component
-export const RonAIStoreProvider = ({ 
-  children,
-  initialState 
-}: RonAIStoreProviderProps) => {
-  // Use ref to ensure store is created only once
-  const storeRef = useRef<RonAIStoreApi>()
-  
-  if (!storeRef.current) {
-    // Create store with initial state (from server or defaults)
-    storeRef.current = createRonAIStore(initialState)
-  }
-
-  return (
-    <RonAIStoreContext.Provider value={storeRef.current}>
-      {children}
-    </RonAIStoreContext.Provider>
-  )
-}
-
-// Main hook to use the store with selectors
-export const useRonAIStore = <T,>(
-  selector: (store: RonAIStore) => T
-): T => {
-  const ronAIStoreContext = useContext(RonAIStoreContext)
-
-  if (!ronAIStoreContext) {
-    throw new Error(`useRonAIStore must be used within RonAIStoreProvider`)
-  }
-
-  return useStore(ronAIStoreContext, selector)
+// Simplified provider that doesn't need to do anything special
+export const RonAIStoreProvider = ({ children }: RonAIStoreProviderProps) => {
+  return <>{children}</>
 }
 
 // Helper hooks for specific state slices (EXACT names from page.tsx)

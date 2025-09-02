@@ -1,7 +1,7 @@
 // Store factory using createStore from zustand/vanilla for SSR safety
 // This ensures each request gets its own store instance
 import { createStore } from 'zustand/vanilla'
-import { devtools, persist } from 'zustand/middleware'
+import { devtools } from 'zustand/middleware'
 import { createChatSlice } from './slices/chat'
 import { createAgentSlice } from './slices/agent'
 import { createDeepResearchSlice } from './slices/deepResearch'
@@ -67,39 +67,18 @@ export const createRonAIStore = (
   
   return createStore<RonAIStore>()(
     devtools(
-      persist(
-        (set, get, api) => ({
-          // Spread initial state
-          ...initialState,
-          
-          // Combine all slice actions
-          ...createChatSlice(set, get, api),
-          ...createAgentSlice(set, get, api),
-          ...createDeepResearchSlice(set, get, api),
-          ...createUISlice(set, get, api),
-          ...createToolSlice(set, get, api),
-          ...createConnectionSlice(set, get, api),
-        }),
-        {
-          name: 'ron-ai-storage',
-          // Only persist critical state that should survive page refreshes
-          partialize: (state) => ({
-            // Chat state
-            messages: state.messages,
-            
-            // Deep research session
-            isDeepResearch: state.isDeepResearch,
-            deepResearchSessionId: state.deepResearchSessionId,
-            deepResearchUserId: state.deepResearchUserId,
-            deepResearchOutputs: state.deepResearchOutputs,
-            deepResearchMessages: state.deepResearchMessages,
-            
-            // UI preferences
-            isOpen: state.isOpen,
-            showTimeline: state.showTimeline,
-          })
-        }
-      ),
+      (set, get, api) => ({
+        // Spread initial state
+        ...initialState,
+        
+        // Combine all slice actions
+        ...createChatSlice(set, get, api),
+        ...createAgentSlice(set, get, api),
+        ...createDeepResearchSlice(set, get, api),
+        ...createUISlice(set, get, api),
+        ...createToolSlice(set, get, api),
+        ...createConnectionSlice(set, get, api),
+      }),
       {
         name: 'RonAIStore',
       }

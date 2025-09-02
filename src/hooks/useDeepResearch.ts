@@ -11,6 +11,7 @@
 
 import { useCallback } from 'react'
 import { useRonAIStore } from '@/providers/ron-ai-store-provider'
+import { useShallow } from 'zustand/react/shallow'
 import { claudeAPI } from '@/lib/api'
 import type { Message } from '@/lib/types'
 import type { DeepResearchMessage } from '@/store/types'
@@ -56,22 +57,24 @@ export const useDeepResearch = (): UseDeepResearchReturn => {
     setCurrentStreamingMessage,
     setMessages,
     reasoningTokens,
-  } = useRonAIStore((state) => ({
-    isDeepResearch: state.isDeepResearch,
-    deepResearchSessionId: state.deepResearchSessionId,
-    deepResearchUserId: state.deepResearchUserId,
-    deepResearchOutputs: state.deepResearchOutputs,
-    deepResearchMessages: state.deepResearchMessages,
-    setIsDeepResearch: state.setIsDeepResearch,
-    setDeepResearchSessionId: state.setDeepResearchSessionId,
-    setDeepResearchUserId: state.setDeepResearchUserId,
-    setDeepResearchOutputs: state.setDeepResearchOutputs,
-    setDeepResearchMessages: state.setDeepResearchMessages,
-    setConnectionStatus: state.setConnectionStatus,
-    setCurrentStreamingMessage: state.setCurrentStreamingMessage,
-    setMessages: state.setMessages,
-    reasoningTokens: state.reasoningTokens,
-  }))
+  } = useRonAIStore(
+    useShallow((state) => ({
+      isDeepResearch: state.isDeepResearch,
+      deepResearchSessionId: state.deepResearchSessionId,
+      deepResearchUserId: state.deepResearchUserId,
+      deepResearchOutputs: state.deepResearchOutputs,
+      deepResearchMessages: state.deepResearchMessages,
+      setIsDeepResearch: state.setIsDeepResearch,
+      setDeepResearchSessionId: state.setDeepResearchSessionId,
+      setDeepResearchUserId: state.setDeepResearchUserId,
+      setDeepResearchOutputs: state.setDeepResearchOutputs,
+      setDeepResearchMessages: state.setDeepResearchMessages,
+      setConnectionStatus: state.setConnectionStatus,
+      setCurrentStreamingMessage: state.setCurrentStreamingMessage,
+      setMessages: state.setMessages,
+      reasoningTokens: state.reasoningTokens,
+    }))
+  )
 
   /**
    * Create a new deep research session or reuse existing one

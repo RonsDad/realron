@@ -11,6 +11,7 @@
 
 import { useCallback } from 'react'
 import { useRonAIStore } from '@/providers/ron-ai-store-provider'
+import { useShallow } from 'zustand/react/shallow'
 import type { 
   ToolOutputData, 
   BrowserAction,
@@ -467,6 +468,35 @@ export const useToolExecution = (): ToolExecutionHook => {
           if (result.result) {
             formattedResult += `\n\n${result.result}`
           }
+        }
+      } else if (event.type === 'claude_code_stream') {
+        // Handle streaming Claude Code events
+        const streamEvent = event.event
+        const toolId = event.tool_id
+        
+        if (streamEvent.type === 'status') {
+          // Show status update
+          formattedResult = `\n\n⚡ **${streamEvent.data.message}**`
+        } else if (streamEvent.type === 'text') {
+          // Stream text content - show it in real-time
+          const textContent = streamEvent.data.content
+          formattedResult = `\n\n📝 **Claude Code Output:**\n\n${textContent}`
+        } else if (streamEvent.type === 'complete') {
+          // Final completion - create the Claude Code output card
+          const sessionData = streamEvent.data
+          
+          // Create a mock result for the output card
+          const claudeCodeResult = {
+            id: toolId,
+            result: 'Component generation completed successfully',
+            files_created: [], // Will be populated by Claude Code SDK
+            files_modified: [],
+            console_outputs: [],
+            session: sessionData.session_id
+          }
+          
+          store.setClaudeCodeOutputs(prev => [...prev, claudeCodeResult])
+          formattedResult = `\n\n✅ **Claude Code generation completed**`
         }
       } else if (event.tool_name === 'clinical_operations') {
         // Special handling for clinical_operations responses

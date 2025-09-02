@@ -296,7 +296,7 @@ export const ChatInput = forwardRef<HTMLTextAreaElement, ChatInputProps>(
           }`}>
             <div className={`transition-all duration-500 ${hasMessages ? "p-6" : "p-8"}`}>
               <div className="flex items-end gap-4">
-                <PromptBuilderDialog onSendPrompt={handleSendMessage} />
+                <PromptBuilderDialog onSendPrompt={actualHandleSendMessage} />
                 
                 <DropdownMenu>
                   <DropdownMenuTrigger asChild>
@@ -346,7 +346,7 @@ export const ChatInput = forwardRef<HTMLTextAreaElement, ChatInputProps>(
                     onKeyDown={(e) => {
                       if (e.key === "Enter" && !e.shiftKey) {
                         e.preventDefault()
-                        handleSendMessage()
+                        actualHandleSendMessage()
                       }
                     }}
                   />
@@ -368,7 +368,7 @@ export const ChatInput = forwardRef<HTMLTextAreaElement, ChatInputProps>(
                     <Mic className="w-6 h-6 text-muted-foreground hover:text-primary transition-colors" />
                   </Button>
                   <Button
-                    onClick={handleSendMessage}
+                    onClick={actualHandleSendMessage}
                     size="icon"
                     className="h-14 w-14 rounded-xl bg-gradient-to-br from-primary via-primary/90 to-accent/80 hover:from-primary/90 hover:to-accent/70 text-primary-foreground shadow-xl transition-all duration-300 glow-button hover:scale-105 active:scale-95 disabled:opacity-50 disabled:hover:scale-100"
                     disabled={isProcessing || !inputValue.trim()}
