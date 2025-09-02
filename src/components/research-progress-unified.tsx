@@ -162,15 +162,7 @@ export function ResearchProgressUnified({
   const isThinking = thoughtMessages.length > 0 &&
     thoughtMessages[thoughtMessages.length - 1].timestamp.getTime() > Date.now() - 5000
 
-  // Auto-scroll to active stage
-  useEffect(() => {
-    if (scrollRef.current) {
-      const activeElement = scrollRef.current.querySelector('[data-active="true"]')
-      if (activeElement) {
-        activeElement.scrollIntoView({ behavior: 'smooth', block: 'center' })
-      }
-    }
-  }, [outputs])
+  // REMOVED: Auto-scroll behavior - user controls scrolling
   
   
   // Process thought messages for browser agent

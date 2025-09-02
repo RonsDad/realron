@@ -2,8 +2,8 @@
 // Direct connection to FastAPI for reduced latency (skip Next.js proxy)
 const API_BASE_URL =
   typeof window !== 'undefined'
-    ? (process.env.NEXT_PUBLIC_API_URL ?? 'http://localhost:8001')
-    : (process.env.NEXT_PUBLIC_API_URL ?? (process.env.BACKEND_URL ?? 'http://localhost:8001'))
+    ? (process.env.NEXT_PUBLIC_API_URL ?? 'http://localhost:8000')  // Updated to match backend port
+    : (process.env.NEXT_PUBLIC_API_URL ?? (process.env.BACKEND_URL ?? 'http://localhost:8000'))
 
 export interface ChatMessage {
   role: 'user' | 'assistant'
@@ -337,6 +337,92 @@ export class ClaudeAPI {
       } else {
         throw error;
       }
+    }
+  }
+
+  // Computer Use API methods - Updated for official Anthropic Docker integration
+  async initializeComputerUse(): Promise<{
+    success: boolean
+    vnc_url?: string
+    computer_use_url?: string
+    streamlit_url?: string
+    display?: { width: number; height: number }
+    message?: string
+    error?: string
+  }> {
+    try {
+      // Initialize VNC session without executing a task
+      const response = await this.fetchWithRetry(`${this.baseURL}/api/computer-use`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          task: "Initialize VNC desktop session",
+          max_iterations: 1
+        }),
+      })
+      return await response.json()
+    } catch (error) {
+      console.error('Failed to initialize computer use:', error)
+      return { success: false, error: `Failed to initialize computer use: ${error}` }
+    }
+  }
+
+  async executeComputerUseTask(task: string, maxIterations: number = 10): Promise<{
+    success: boolean
+    vnc_url?: string
+    computer_use_url?: string
+    result?: any
+    error?: string
+  }> {
+    try {
+      const response = await this.fetchWithRetry(`${this.baseURL}/api/computer-use`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          task,
+          max_iterations: maxIterations,
+          tool_name: 'official_computer_use'
+        }),
+      })
+      return await response.json()
+    } catch (error) {
+      console.error('Failed to execute computer use task:', error)
+      return { success: false, error: `Failed to execute computer use task: ${error}` }
+    }
+  }
+
+  async getVncUrl(): Promise<{
+    success: boolean
+    vnc_url?: string
+    message?: string
+    error?: string
+  }> {
+    try {
+      const response = await this.fetchWithRetry(`${this.baseURL}/computer-use/vnc-url`, {
+        method: 'GET',
+        headers: { 'Content-Type': 'application/json' },
+      })
+      return await response.json()
+    } catch (error) {
+      console.error('Failed to get VNC URL:', error)
+      return { success: false, error: `Failed to get VNC URL: ${error}` }
+    }
+  }
+
+  async closeComputerUse(): Promise<{
+    success: boolean
+    message?: string
+    error?: string
+  }> {
+    try {
+      const response = await this.fetchWithRetry(`${this.baseURL}/computer-use/close`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+      })
+      return await response.json()
+    } catch (error) {
+      console.error('Failed to close computer use session:', error)
+      return { success: false, error: `Failed to close computer use session: ${error}` }
     }
   }
 }

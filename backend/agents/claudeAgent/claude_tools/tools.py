@@ -856,14 +856,15 @@ async def perplexity_deep_research(query: str, reasoning_effort: str = None) -> 
 
 
 # Import proper Claude Code SDK implementation
-from backend.agents.claudeAgent.claude_tools.claude_code_sdk_proper import (
+from backend.agents.claudeAgent.claude_tools.claude_code_sdk_v2 import (
     use_claude_code,
     stream_claude_code,
     continue_claude_code_session,
     execute_claude_code_plan,
     list_claude_code_sessions,
     get_claude_code_session,
-    clear_claude_code_sessions
+    clear_claude_code_sessions,
+    start_maintenance_tasks
 )
 
 # Tool registry

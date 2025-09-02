@@ -1,6 +1,6 @@
 "use client"
 
-import { useState, useEffect, useRef } from "react"
+import React, { useState, useEffect, useRef } from "react"
 import { Card } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { ScrollArea } from "@/components/ui/scroll-area"
@@ -210,7 +210,7 @@ const getToolConfiguration = (toolName: string) => {
   }
 }
 
-export function ToolOutputCard({ 
+export const ToolOutputCard = React.memo(function ToolOutputCard({ 
   toolName, 
   content, 
   timestamp, 
@@ -439,4 +439,17 @@ export function ToolOutputCard({
       </div>
     </Card>
   )
-}
+}, (prevProps, nextProps) => {
+  // ToolOutputCard comparison - content changes are significant
+  return (
+    prevProps.toolName === nextProps.toolName &&
+    prevProps.status === nextProps.status &&
+    prevProps.className === nextProps.className &&
+    prevProps.isToolCall === nextProps.isToolCall &&
+    prevProps.isToolResult === nextProps.isToolResult &&
+    prevProps.agentId === nextProps.agentId &&
+    prevProps.agentType === nextProps.agentType &&
+    prevProps.timestamp?.getTime() === nextProps.timestamp?.getTime() &&
+    JSON.stringify(prevProps.content) === JSON.stringify(nextProps.content)
+  )
+})

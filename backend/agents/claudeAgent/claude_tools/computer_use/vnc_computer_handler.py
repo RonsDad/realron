@@ -69,8 +69,8 @@ class VNCComputerHandler:
             # If using EC2, ensure VNC is running there
             if self.ec2_host:
                 await self._ensure_ec2_vnc()
-                # Build NoVNC URL for EC2
-                self.novnc_url = f"http://{self.ec2_host}:{self.novnc_port}/vnc.html?host={self.ec2_host}&port={self.novnc_port}&autoconnect=true"
+                # Build NoVNC URL for EC2 (iframe-embeddable)
+                self.novnc_url = f"http://{self.ec2_host}:{self.novnc_port}/vnc_lite.html?autoconnect=true&resize=scale"
             else:
                 # Local VNC setup
                 await self._ensure_local_vnc()

@@ -54,12 +54,7 @@ export function ThinkingBubble({
     }
   }, [content, isStreaming, agentId, tokenCount])
   
-  // Auto-scroll to bottom when streaming
-  useEffect(() => {
-    if (isStreaming && scrollRef.current) {
-      scrollRef.current.scrollTop = scrollRef.current.scrollHeight
-    }
-  }, [content, isStreaming])
+  // REMOVED: Auto-scroll behavior - user controls scrolling
   
   // Split content into lines for better display
   const lines = content.split('\n').filter(line => line.trim())

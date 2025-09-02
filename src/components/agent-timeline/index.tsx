@@ -62,13 +62,7 @@ export function AgentTimeline({
   const [showFilters, setShowFilters] = useState(false)
   const scrollRef = React.useRef<HTMLDivElement>(null)
   
-  // Auto-scroll to bottom when new events arrive
-  useEffect(() => {
-    if (autoScroll && scrollRef.current) {
-      const scrollContainer = scrollRef.current
-      scrollContainer.scrollTop = scrollContainer.scrollHeight
-    }
-  }, [filteredEvents, autoScroll])
+  // REMOVED: Auto-scroll behavior - user controls scrolling
   
   // Group consecutive events by agent for better visualization
   const groupedEvents = useMemo(() => {

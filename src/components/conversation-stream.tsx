@@ -20,12 +20,7 @@ export function ConversationStream({
   const scrollRef = useRef<HTMLDivElement>(null)
   const endRef = useRef<HTMLDivElement>(null)
   
-  // Auto-scroll to bottom when new events arrive
-  useEffect(() => {
-    if (endRef.current) {
-      endRef.current.scrollIntoView({ behavior: "smooth" })
-    }
-  }, [events.length])
+  // REMOVED: Auto-scroll behavior - user controls scrolling
   
   // Group parallel tool calls
   const processedEvents = events.reduce((acc, event) => {

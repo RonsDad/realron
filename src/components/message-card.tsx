@@ -8,24 +8,118 @@ import { oneDark } from "react-syntax-highlighter/dist/esm/styles/prism"
 import { cn } from "@/lib/utils"
 import { Card } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
-import { useState, useEffect, useRef } from "react"
+import React, { useState, useEffect, useRef } from "react"
 import { emitTimelineEvent } from "@/components/migration/timeline-adapter"
 
-// Separate component for HTML code blocks to properly handle state
-function HtmlCodeBlock({ children, language }: { children: any; language: string }) {
+// Enhanced component for code blocks with preview and download for multiple languages
+function EnhancedCodeBlock({ children, language }: { children: any; language: string }) {
   const [showPreview, setShowPreview] = useState(false)
   
+  const [previewError, setPreviewError] = useState<string | null>(null)
+  
+  // Determine file extension and MIME type based on language
+  const getFileInfo = (lang: string) => {
+    const langMap: Record<string, { ext: string; mime: string }> = {
+      html: { ext: 'html', mime: 'text/html' },
+      javascript: { ext: 'js', mime: 'text/javascript' },
+      jsx: { ext: 'jsx', mime: 'text/javascript' },
+      typescript: { ext: 'ts', mime: 'text/typescript' },
+      tsx: { ext: 'tsx', mime: 'text/typescript' },
+      python: { ext: 'py', mime: 'text/x-python' },
+      react: { ext: 'jsx', mime: 'text/javascript' },
+      py: { ext: 'py', mime: 'text/x-python' },
+      js: { ext: 'js', mime: 'text/javascript' },
+      ts: { ext: 'ts', mime: 'text/typescript' },
+    }
+    return langMap[lang.toLowerCase()] || { ext: 'txt', mime: 'text/plain' }
+  }
+  
   const handleDownload = () => {
-    const htmlContent = String(children).replace(/\n$/, "")
-    const blob = new Blob([htmlContent], { type: 'text/html' })
+    const codeContent = String(children).replace(/\n$/, "")
+    const fileInfo = getFileInfo(language)
+    const blob = new Blob([codeContent], { type: fileInfo.mime })
     const url = URL.createObjectURL(blob)
     const a = document.createElement('a')
     a.href = url
-    a.download = 'output.html'
+    a.download = `code-output.${getFileInfo(language).ext}`
     document.body.appendChild(a)
     a.click()
     document.body.removeChild(a)
     URL.revokeObjectURL(url)
+  }
+  
+  // Check if language supports preview
+  const supportsPreview = ['html', 'jsx', 'tsx', 'react', 'javascript', 'js'].includes(language.toLowerCase())
+  
+  // Create preview content based on language
+  const createPreviewContent = () => {
+    const codeContent = String(children).replace(/\n$/, "")
+    const lang = language.toLowerCase()
+    
+    if (lang === 'html') {
+      return codeContent
+    } else if (['jsx', 'tsx', 'react', 'javascript', 'js'].includes(lang)) {
+      // For React/JSX, wrap in a basic HTML template with React CDN
+      return `
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="UTF-8">
+  <title>React Preview</title>
+  <script crossorigin src="https://unpkg.com/react@18/umd/react.development.js"></script>
+  <script crossorigin src="https://unpkg.com/react-dom@18/umd/react-dom.development.js"></script>
+  <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+  <style>
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+      padding: 20px;
+      margin: 0;
+    }
+    #root {
+      width: 100%;
+      height: 100%;
+    }
+  </style>
+</head>
+<body>
+  <div id="root"></div>
+  <script type="text/babel">
+    ${codeContent.includes('export default') ? codeContent.replace(/export default/g, 'const App =') : codeContent}
+    
+    // If there's an App component, render it
+    if (typeof App !== 'undefined') {
+      ReactDOM.render(<App />, document.getElementById('root'));
+    } else {
+      // Try to render any defined component
+      const components = Object.keys(window).filter(key =>
+        typeof window[key] === 'function' &&
+        key[0] === key[0].toUpperCase() &&
+        key !== 'React' &&
+        key !== 'ReactDOM'
+      );
+      if (components.length > 0) {
+        const Component = window[components[0]];
+        ReactDOM.render(<Component />, document.getElementById('root'));
+      }
+    }
+  </script>
+</body>
+</html>
+      `
+    }
+    return ''
+  }
+  
+  const handlePreviewToggle = () => {
+    if (!showPreview && supportsPreview) {
+      setPreviewError(null)
+      try {
+        createPreviewContent()
+      } catch (err) {
+        setPreviewError('Error creating preview')
+      }
+    }
+    setShowPreview(!showPreview)
   }
   
   return (
@@ -35,15 +129,17 @@ function HtmlCodeBlock({ children, language }: { children: any; language: string
           {language}
         </span>
         <div className="flex gap-2">
-          <Button
-            size="sm"
-            variant="outline"
-            onClick={() => setShowPreview(!showPreview)}
-            className="h-6 px-2 text-xs"
-          >
-            <Eye className="w-3 h-3 mr-1" />
-            {showPreview ? 'Hide' : 'Render'}
-          </Button>
+          {supportsPreview && (
+            <Button
+              size="sm"
+              variant="outline"
+              onClick={handlePreviewToggle}
+              className="h-6 px-2 text-xs"
+            >
+              <Eye className="w-3 h-3 mr-1" />
+              {showPreview ? 'Hide' : 'Preview'}
+            </Button>
+          )}
           <Button
             size="sm"
             variant="outline"
@@ -64,19 +160,33 @@ function HtmlCodeBlock({ children, language }: { children: any; language: string
       >
         {String(children).replace(/\n$/, "")}
       </SyntaxHighlighter>
-      {showPreview && (
+      {showPreview && supportsPreview && (
         <div className="border-t border-border/50">
           <div className="px-3 py-2 bg-muted/30">
-            <span className="text-xs font-medium text-muted-foreground">Preview</span>
+            <span className="text-xs font-medium text-muted-foreground">
+              Preview {language.toLowerCase() === 'python' ? '(Python execution not available in browser)' : ''}
+            </span>
           </div>
           <div className="p-4 bg-white">
-            <iframe
-              srcDoc={String(children).replace(/\n$/, "")}
-              className="w-full min-h-[300px] border-0"
-              sandbox="allow-scripts"
-              title="HTML Preview"
-            />
+            {previewError ? (
+              <div className="text-red-500 text-sm">{previewError}</div>
+            ) : (
+              <iframe
+                srcDoc={createPreviewContent()}
+                className="w-full min-h-[300px] border-0"
+                sandbox="allow-scripts allow-same-origin"
+                title={`${language} Preview`}
+                onError={() => setPreviewError('Preview failed to load')}
+              />
+            )}
           </div>
+        </div>
+      )}
+      {language.toLowerCase() === 'python' && showPreview && (
+        <div className="border-t border-border/50 p-4 bg-yellow-50 dark:bg-yellow-900/20">
+          <p className="text-xs text-yellow-800 dark:text-yellow-200">
+            ⚠️ Python code preview requires a backend runtime. Download the file to run it locally with Python installed.
+          </p>
         </div>
       )}
     </div>
@@ -217,7 +327,7 @@ function TimelineSection({ section, isLast }: { section: {type: string; content:
   )
 }
 
-export function MessageCard({ 
+export const MessageCard = React.memo(function MessageCard({ 
   role, 
   content, 
   timestamp, 
@@ -305,13 +415,11 @@ export function MessageCard({
             : "bg-gradient-to-br from-slate-50 to-slate-100 dark:from-slate-900/70 dark:to-slate-800/50 border-slate-200 dark:border-slate-700 shadow-md hover:shadow-lg"
         )}>
           {hasTimeline ? (
-            <ScrollArea className="max-h-[600px] pr-2">
-              <div className="space-y-0">
-                {sections.map((section, idx) => (
-                  <TimelineSection key={idx} section={section} isLast={idx === sections.length - 1} />
-                ))}
-              </div>
-            </ScrollArea>
+            <div className="space-y-0">
+              {sections.map((section, idx) => (
+                <TimelineSection key={idx} section={section} isLast={idx === sections.length - 1} />
+              ))}
+            </div>
           ) : (
             <div className={cn(
               "prose prose-sm max-w-none",
@@ -336,9 +444,10 @@ export function MessageCard({
                 code({ node, inline, className, children, ...props }: any) {
                   const match = /language-(\w+)/.exec(className || "")
                   
-                  // Use the special component for HTML code blocks
-                  if (!inline && match && match[1] === 'html') {
-                    return <HtmlCodeBlock language={match[1]}>{children}</HtmlCodeBlock>
+                  // Use the enhanced component for supported languages
+                  const supportedLanguages = ['html', 'javascript', 'jsx', 'typescript', 'tsx', 'python', 'react', 'py', 'js', 'ts']
+                  if (!inline && match && supportedLanguages.includes(match[1].toLowerCase())) {
+                    return <EnhancedCodeBlock language={match[1]}>{children}</EnhancedCodeBlock>
                   }
                   
                   // Regular code blocks
@@ -446,4 +555,15 @@ export function MessageCard({
       </div>
     </div>
   )
-}
+}, (prevProps, nextProps) => {
+  // Shallow comparison - MessageCard renders frequently but mostly with same content
+  return (
+    prevProps.role === nextProps.role &&
+    prevProps.content === nextProps.content &&
+    prevProps.isStreaming === nextProps.isStreaming &&
+    prevProps.className === nextProps.className &&
+    prevProps.agentId === nextProps.agentId &&
+    prevProps.agentType === nextProps.agentType &&
+    prevProps.timestamp?.getTime() === nextProps.timestamp?.getTime()
+  )
+})

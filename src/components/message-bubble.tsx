@@ -32,7 +32,7 @@ export function MessageBubble({ role, content, timestamp, className }: MessageBu
       {/* Message bubble */}
       <div
         className={cn(
-          "max-w-[85%] md:max-w-[75%]",
+          "flex-1 w-full",
           isUser && "flex flex-col items-end"
         )}
       >
@@ -44,12 +44,14 @@ export function MessageBubble({ role, content, timestamp, className }: MessageBu
               : "bg-card border border-border"
           )}
         >
-          {/* Markdown content */}
-          <div className={cn(
-            "prose prose-sm max-w-none",
-            isUser && "prose-invert",
-            !isUser && "dark:prose-invert"
-          )}>
+          {/* Markdown content - NO HEIGHT LIMIT */}
+          <div 
+            className={cn(
+              "prose prose-sm max-w-none",
+              isUser && "prose-invert",
+              !isUser && "dark:prose-invert"
+            )}
+          >
             <ReactMarkdown
               remarkPlugins={[remarkGfm]}
               components={{
@@ -84,8 +86,6 @@ export function MessageBubble({ role, content, timestamp, className }: MessageBu
                 p: ({ children }) => <p className="mb-2 last:mb-0">{children}</p>,
                 ul: ({ children }) => <ul className="mb-2 ml-4 list-disc">{children}</ul>,
                 ol: ({ children }) => <ol className="mb-2 ml-4 list-decimal">{children}</ol>,
-                // This is a component factory for ReactMarkdown, not a standalone <li>
-                // The actual <li> elements will be properly nested within <ul>/<ol> during rendering
                 li: ({ children }) => <li className="mb-1">{children}</li>,
                 h1: ({ children }) => <h1 className="text-xl font-bold mb-2">{children}</h1>,
                 h2: ({ children }) => <h2 className="text-lg font-bold mb-2">{children}</h2>,

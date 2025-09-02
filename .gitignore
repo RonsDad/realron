@@ -13,3 +13,19 @@ backend/aethercare-tqine-5e005e537e8f.json
 
 # Certificate files
 *.pem
+__pycache__/
+*.pyc
+*.log
+.DS_Store
+.firebase/
+.serena/
+.claude/
+test_*.py
+deploy-*.sh
+setup-*.sh
+aws-native-implementation/show_generated_code.py
+claude_code_sdk_backup_v1/
+computer-use/
+frontend/
+backend/preview_system/
+

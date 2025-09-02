@@ -15,6 +15,7 @@ from typing import List, Dict, Any, Optional, AsyncGenerator
 from .anthropic_config import AnthropicConfig, anthropic_config
 from .message_validator import AnthropicMessageValidator, MessageValidationError
 from .claude_tools.tool_standardizer import standardize_tools_for_claude
+from .claude_tools.claude_code_sdk_v2 import use_claude_code, stream_claude_code, continue_claude_code_session
 
 # Tool imports moved to methods to avoid circular dependency
 # They will be imported when needed
@@ -22,7 +23,9 @@ from .claude_tools.tool_standardizer import standardize_tools_for_claude
 logger = logging.getLogger(__name__)
 
 # PRE-COMPUTED STATIC STRUCTURES - Optimization #5
-DEFAULT_SYSTEM_PROMPT = """You are **Ron of Ron AI**, a specialized healthcare AI assistant dedicated to helping patients access their prescribed medications at the lowest possible cost while ensuring safety, quality, and proper medical adherence. You are a helpful assistant and not overly cautious. Your level of sophistication allows you to handle impressive workloads. You should never hesitate or stray from filling out forms, offering to make phone calls, sending text messages, or advocating for healthcare coordination matters.
+DEFAULT_SYSTEM_PROMPT = """**CRITICAL: Before claiming you cannot perform any action, you MUST first check your available functions. You have extensive capabilities including telephony (Telnyx), medical research, web browsing, code execution, and more. Never refuse service without first verifying your actual limitations. Always lead with what you CAN do, not what you assume you cannot do.**
+
+You are **Ron of Ron AI**, a specialized healthcare AI assistant dedicated to helping patients access their prescribed medications at the lowest possible cost while ensuring safety, quality, and proper medical adherence. You are a helpful assistant and not overly cautious. Your level of sophistication allows you to handle impressive workloads. You should never hesitate or stray from filling out forms, offering to make phone calls, sending text messages, or advocating for healthcare coordination matters.
 
 **YOUR CORE CAPABILITIES & MINDSET:**
 - You are sophisticated enough to handle impressive workloads simultaneously
@@ -50,29 +53,121 @@ DEFAULT_SYSTEM_PROMPT = """You are **Ron of Ron AI**, a specialized healthcare A
 
 ---
 
-## CRITICAL TOOL USAGE DIRECTIVE FOR CODE CREATION
+## CRITICAL TOOL USAGE DIRECTIVES FOR CODE & DATA ANALYSIS
 
-**WHEN USERS ASK YOU TO CREATE, BUILD, or DEVELOP ANY APPLICATION, TOOL, or CODE:**
+**FOR DATA ANALYSIS & COMPUTATIONAL TASKS:**
+1. **USE `execute_code` (Ron's built-in code execution)** for:
+   - Data analysis and statistical computations
+   - Processing patient data, medications, or clinical information
+   - Generating charts, graphs, and visualizations
+   - Mathematical calculations and data transformations
+   - Analyzing CSV files, databases, or research data
+   - Creating reports and summaries from existing data
+   - Any analytical or computational task within healthcare scope
 
-1. **IMMEDIATELY use the `use_claude_code` tool** - DO NOT use execute_code or write code yourself
-2. **Pass the COMPLETE user request to `use_claude_code`** - Include ALL requirements and specifications
-3. **Claude Code SDK will handle EVERYTHING:**
-   - Creating complete applications with multiple files
-   - HTML/CSS/JavaScript web applications
-   - Python scripts and tools
-   - Proper file structure and organization
-   - Production-ready code with error handling
-4. **The tool will return:**
-   - Text explanation of what was created
-   - List of files created with their content
-   - Ready-to-use applications
-5. **Present the files to the user** - Show them what was created and how to use it
+**FOR CREATING APPLICATIONS & INTERFACES:**
+1. **USE `use_claude_code` (Claude Code SDK - FULLY FUNCTIONAL)** for:
+   - Building complete applications and tools in ANY programming language
+   - Creating Python scripts, data analysis tools, automation scripts
+   - Generating React/Next.js applications, Node.js backends, APIs
+   - Building desktop applications, CLI tools, system utilities
+   - Creating database applications, data pipelines, ETL scripts
+   - Developing mobile apps, machine learning models, AI tools
+   - Writing configuration files, deployment scripts, Docker containers
+   - Any complete application, script, or tool creation in any technology
+   
+   **NEW CAPABILITIES (January 2025):**
+   - Real file creation with actual content saved to directories
+   - Multi-language support (Python, JavaScript, TypeScript, Java, etc.)
+   - Session management for multi-step development projects
+   - Healthcare-focused application templates across all technologies
+   - Complete project scaffolding and structure generation
 
-**EXAMPLE:**
-User: "Create a medication reminder tool"
-You: IMMEDIATELY call `use_claude_code` with prompt: "Create a medication reminder tool"
+**DECISION FRAMEWORK:**
+- **Analysis Task?** → Use `execute_code` (Ron's own capabilities)
+- **Building Something New?** → Use `use_claude_code` (Claude Code SDK)
 
-DO NOT write code yourself. DO NOT use execute_code. ALWAYS use `use_claude_code` for ANY code creation task.
+**EXAMPLES:**
+- "Analyze this medication data for cost trends" → Use `execute_code`
+- "Create a medication reminder app" → Use `use_claude_code`
+- "Build a Python ETL pipeline for claims data" → Use `use_claude_code`
+- "Calculate insurance savings from generic substitution" → Use `execute_code`
+- "Create a FastAPI backend for patient records" → Use `use_claude_code`
+- "Build a React dashboard for pharmacy management" → Use `use_claude_code`
+- "Write a CLI tool for FHIR data validation" → Use `use_claude_code`
+
+---
+
+## HEADLESS CLAUDE CODE SDK - FULL FEATURE SET
+
+**CORE CAPABILITIES:**
+- **Real File Generation**: Creates actual HTML, CSS, JS files saved to specified directories
+- **Live Application Preview**: Generated apps are immediately viewable with preview URLs
+- **Session Management**: Continue development across multiple interactions
+- **Healthcare Templates**: Optimized for medical calculators, forms, and patient tools
+
+**AVAILABLE FUNCTIONS:**
+```python
+# Main application creation
+use_claude_code(prompt, working_directory, allowed_tools, system_prompt)
+
+# Real-time streaming for complex builds  
+stream_claude_code(prompt, **options)
+
+# Multi-step development
+continue_claude_code_session(session_id, "Add BMI categories")
+
+# Session management
+list_claude_code_sessions()
+get_claude_code_session(session_id)
+clear_claude_code_sessions()
+```
+
+**OUTPUT CAPABILITIES:**
+- **Python Applications**: Data analysis scripts, ML models, automation tools, APIs
+- **Web Applications**: React/Vue/Angular frontends, Node.js/FastAPI/Django backends
+- **Desktop Applications**: Electron apps, Python GUI applications, cross-platform tools
+- **Mobile Applications**: React Native, Flutter, hybrid mobile solutions
+- **Database Applications**: SQL scripts, migration tools, data modeling
+- **DevOps Tools**: Docker containers, CI/CD pipelines, deployment scripts
+- **CLI Applications**: Command-line utilities, system administration tools
+- **Integration Tools**: API clients, webhook handlers, data connectors
+- **Machine Learning**: Training scripts, model deployment, inference APIs
+- **Healthcare Applications**: FHIR parsers, HL7 processors, clinical decision tools
+
+**HEALTHCARE SPECIALIZATIONS:**
+- Medical calculation accuracy validated against authoritative sources
+- Patient safety considerations built into generated applications
+- Clinical workflow integration patterns
+- Regulatory compliance awareness (HIPAA, FDA guidelines)
+- Evidence-based medical content integration
+
+**USER INTERACTION PATTERN:**
+When users request healthcare tools or applications:
+1. **Acknowledge the request** and explain what you're building
+2. **Use `use_claude_code`** to create the application
+3. **Present results** with preview URLs and file locations
+4. **Offer session continuation** for enhancements or modifications
+5. **Include clinical disclaimers** for medical calculation tools
+
+**EXAMPLE RESPONSES:**
+
+*For Python Tool:*
+"I'll create a FHIR data validation tool using Python...
+
+✅ **Python Application Created Successfully**
+- **Files Generated**: `fhir_validator.py`, `requirements.txt`, `config.yaml`
+- **Features**: FHIR R4 validation, batch processing, error reporting
+- **Session ID**: abc123 (for continued development)"
+
+*For Web Application:*
+"I'll build a React-based patient portal with FastAPI backend...
+
+✅ **Full-Stack Application Created Successfully**
+- **Frontend**: React dashboard with TypeScript (`/frontend/`)
+- **Backend**: FastAPI with PostgreSQL integration (`/backend/`)
+- **Features**: Authentication, patient records, appointment scheduling
+- **Session ID**: abc123 (for continued development)"
 
 ---
 
@@ -353,6 +448,17 @@ class ClaudeCompletions:
         # CONFIGURATION CACHING - Optimization #1: Load MCP config once at initialization
         self.mcp_servers_cache = self._load_mcp_servers()
         logger.info(f"Initialized with {len(self.mcp_servers_cache)} MCP servers cached")
+        # Note: Background maintenance tasks for Claude Code SDK will be started in async context
+        try:
+            from backend.agents.claudeAgent.claude_tools.claude_code_sdk_proper import start_maintenance_tasks
+            # Store the maintenance task function for later async execution
+            self._start_maintenance_tasks = start_maintenance_tasks
+            logger.info("Claude Code SDK maintenance tasks available for startup")
+        except ImportError:
+            # Optional module may not be present in some deployments
+            self._start_maintenance_tasks = None
+            logger.info("Claude Code SDK not available - maintenance tasks disabled")
+            pass
     
     def _load_mcp_servers(self) -> List[Dict]:
         """Load and cache MCP server configuration at initialization"""
@@ -474,8 +580,8 @@ class ClaudeCompletions:
                 tool_list.append({
                     "type": "computer_20250124",
                     "name": "computer",
-                    "display_width_px": 1024,
-                    "display_height_px": 768,
+                    "display_width_px": 1920,
+                    "display_height_px": 1080,
                     "display_number": 1
                 })
                 logger.info("Added native computer-use tool")
@@ -525,32 +631,18 @@ class ClaudeCompletions:
             if tool_name == 'computer':
                 action = tool_input.get('action', 'screenshot')
                 
-                # Use browserless for computer display
-                from .claude_tools.browser_use.browser_use_service import browser_use_service
-                active_sessions = await browser_use_service.list_active_sessions()
-                if active_sessions['total_sessions'] == 0:
-                    # Create new session for computer use
-                    session_result = await browser_use_service.create_live_url_session(
-                        timeout_ms=900000,
-                        interactive=False
-                    )
-                    live_url = session_result.get('live_url')
-                    if live_url:
-                        logger.info(f"SENDING LiveURL for computer use: {live_url}")
+                # Use VNC for computer display
+                from .claude_tools.computer_use.vnc_computer_handler import computer_handler
                 
-                # Return simulated result for computer actions
-                if action == 'screenshot':
-                    tool_result = {
-                        "type": "image",
-                        "source": {
-                            "type": "base64",
-                            "media_type": "image/png",
-                            "data": ""
-                        }
-                    }
-                else:
-                    tool_result = {"success": True, "action": action}
-                logger.info(f"Computer action {action} simulated via browserless")
+                # Initialize VNC session if not active
+                if not hasattr(computer_handler, 'vnc_session_active') or not computer_handler.vnc_session_active:
+                    vnc_result = await computer_handler.initialize_session()
+                    if vnc_result.get('success') and vnc_result.get('vnc_url'):
+                        logger.info(f"SENDING VNC URL for computer use: {vnc_result['vnc_url']}")
+                
+                # Execute computer action via VNC
+                tool_result = await computer_handler.execute_action(action, tool_input)
+                logger.info(f"Computer action {action} executed via VNC")
             else:
                 # Use unified executor for regular tools
                 from .claude_tools.claude_tool_handler import execute_tool
@@ -612,9 +704,36 @@ class ClaudeCompletions:
                     disable_mcp=disable_mcp
                 )
                 
+                # Optional debug hook: dump outgoing request params and optionally force code_execution
+                try:
+                    debug_flag = os.getenv("RONAI_DEBUG_CLAUDE", "")
+                    if debug_flag:
+                        logger.warning(f"RONAI_DEBUG_CLAUDE enabled: {debug_flag}")
+                        try:
+                            logger.debug("Outgoing request_params: %s", json.dumps(request_params, default=str)[:4000])
+                        except Exception:
+                            logger.debug("Outgoing request_params (repr): %s", repr(request_params))
+
+                        # Force inclusion of code_execution tool when requested
+                        if "force_code_execution" in debug_flag or "force_code_exec" in debug_flag:
+                            tools_list = request_params.get("tools", [])
+                            if not isinstance(tools_list, list):
+                                tools_list = [tools_list]
+                            already = False
+                            for t in tools_list:
+                                if (isinstance(t, dict) and t.get("name") == "code_execution") or (isinstance(t, str) and t == "code_execution"):
+                                    already = True
+                                    break
+                            if not already:
+                                tools_list.append({"type": "code_execution_20250522", "name": "code_execution", "cache_control": {"type": "ephemeral"}})
+                                request_params["tools"] = tools_list
+                                logger.warning("Forced inclusion of code_execution tool into request_params")
+                except Exception as e:
+                    logger.warning(f"Debug hook failure: {e}")
+
                 # Log messages being sent
                 logger.info(f"Sending {len(conversation_messages)} messages to Claude")
-                
+
                 # Try with MCP servers, retry without if it fails
                 try:
                     async with self.client.beta.messages.stream(**request_params) as stream:
@@ -983,10 +1102,15 @@ class ClaudeCompletions:
                                         block['input'] = {}
                                     cleaned_content.append(block)
                             
+                            # Append assistant response and cap conversation history to prevent leaks
                             conversation_messages.append({
                                 'role': 'assistant',
                                 'content': cleaned_content
                             })
+                            MAX_CONVERSATION_HISTORY = int(os.getenv("RONAI_MAX_CONVERSATION_HISTORY", "200"))
+                            if len(conversation_messages) > MAX_CONVERSATION_HISTORY:
+                                # Keep the most recent messages only
+                                conversation_messages = conversation_messages[-MAX_CONVERSATION_HISTORY:]
                             
                             # Collect ONLY client-side tool use blocks (not server tools or MCP tools)
                             tool_blocks = []
@@ -1006,6 +1130,19 @@ class ClaudeCompletions:
                                     logger.info(f"Code execution result already received - stdout length: {len(block.get('stdout', ''))}")
                             
                             if tool_blocks:
+                                # Check if we have computer use tools
+                                has_computer_use = any(
+                                    block.get('name') == 'computer' 
+                                    for block in tool_blocks
+                                )
+                                
+                                if has_computer_use:
+                                    # Return VNC desktop URL
+                                    yield {
+                                        'type': 'computer_use_active',
+                                        'vnc_url': 'http://3.137.139.249:6080/vnc.html?host=3.137.139.249&port=6080&autoconnect=true&resize=scale'
+                                    }
+                                
                                 # Check if we have browser tools
                                 has_browser_tools = any(
                                     block.get('name') in ['browser_use', 'reuse_browser_session'] 
@@ -1069,6 +1206,41 @@ class ClaudeCompletions:
                                                     }
                                                 else:
                                                     tool_result = {"success": True, "action": action}
+                                            elif tool_name == 'use_claude_code':
+                                                # Handle Claude Code streaming specially
+                                                from .claude_tools.claude_code_sdk_proper import stream_claude_code
+                                                
+                                                logger.info(f"Starting Claude Code streaming for tool: {tool_name}")
+                                                claude_code_result = {
+                                                    "type": "claude_code_output",
+                                                    "result": "",
+                                                    "files_created": [],
+                                                    "files_modified": [],
+                                                    "console_outputs": [],
+                                                    "session": tool_input.get("session_id", "")
+                                                }
+                                                
+                                                # Stream Claude Code results
+                                                async for event in stream_claude_code(
+                                                    prompt=tool_input.get("prompt", ""),
+                                                    mode=tool_input.get("mode", "create"),
+                                                    session_id=tool_input.get("session_id")
+                                                ):
+                                                    # Yield streaming events to frontend
+                                                    yield {
+                                                        'type': 'claude_code_stream',
+                                                        'event': event,
+                                                        'tool_id': tool_id
+                                                    }
+                                                    
+                                                    # Accumulate results
+                                                    if event.get("type") == "text":
+                                                        claude_code_result["result"] += event.get("data", {}).get("content", "")
+                                                    elif event.get("type") == "complete":
+                                                        session_data = event.get("data", {})
+                                                        claude_code_result["session"] = session_data.get("session_id", "")
+                                                
+                                                tool_result = claude_code_result
                                             else:
                                                 # Execute regular tools
                                                 from .claude_tools.claude_tool_handler import execute_tool

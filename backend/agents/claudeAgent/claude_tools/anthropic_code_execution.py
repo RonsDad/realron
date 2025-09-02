@@ -1,6 +1,6 @@
 """
-Anthropic Code Execution and File Handling Module
-Implements code execution with file creation/download capabilities using Anthropic's beta APIs
+Anthropic Code Execution Module
+Simple wrapper for Anthropic's official code execution tool
 """
 
 import os
@@ -20,7 +20,7 @@ async def clear_executor_sessions():
 
 
 class AnthropicCodeExecutor:
-    """Handles code execution and file operations using Anthropic's beta APIs"""
+    """Simple wrapper for Anthropic's official code execution tool"""
     
     def __init__(self):
         """Initialize the Anthropic client with API key"""
@@ -29,61 +29,78 @@ class AnthropicCodeExecutor:
             raise ValueError("ANTHROPIC_API_KEY environment variable is not set")
         
         self.client = Anthropic(api_key=api_key)
-        self.model = "claude-opus-4-20250514"  # Using the project's configured model
+        self.model = "claude-opus-4-20250514"
         
-    def extract_file_ids(self, response) -> List[str]:
+    def extract_execution_results(self, response) -> Dict[str, Any]:
         """
-        Extract file IDs from the code execution response
+        Extract execution results from the code execution tool response
         
         Args:
-            response: The response from Anthropic's code execution
+            response: The response from Anthropic's code execution tool
             
         Returns:
-            List of file IDs
+            Dictionary with stdout, stderr, return_code, and any files
         """
-        file_ids = []
-        for item in response.content:
-            if item.type == 'code_execution_tool_result':
-                content_item = item.content
-                if content_item.get('type') == 'code_execution_result':
-                    for file in content_item.get('content', []):
-                        file_ids.append(file['file_id'])
-        return file_ids
+        results = {
+            "stdout": "",
+            "stderr": "",
+            "return_code": 0,
+            "files": []
+        }
+        
+        try:
+            for content_block in response.content:
+                if hasattr(content_block, 'type'):
+                    if content_block.type == 'tool_result':
+                        # This is the tool result from code execution
+                        if hasattr(content_block, 'content'):
+                            for result_item in content_block.content:
+                                if hasattr(result_item, 'type'):
+                                    if result_item.type == 'code_execution_result':
+                                        results["stdout"] = getattr(result_item, 'stdout', '')
+                                        results["stderr"] = getattr(result_item, 'stderr', '')
+                                        results["return_code"] = getattr(result_item, 'return_code', 0)
+                    elif content_block.type == 'text':
+                        # Regular text response
+                        results["stdout"] += content_block.text
+        except Exception as e:
+            logger.error(f"Error extracting execution results: {str(e)}")
+        
+        return results
     
     async def execute_code_with_files(
         self, 
         code: str, 
         language: str = "python",
         create_files: bool = True,
-        download_files: bool = True,
+        download_files: bool = False,
         output_dir: str = "./code_output"
     ) -> Dict[str, Any]:
         """
-        Execute code using Anthropic's code execution API with file handling
+        Execute code using Anthropic's official code execution tool
         
         Args:
             code: The code to execute
-            language: Programming language (default: python)
-            create_files: Whether to allow file creation
-            download_files: Whether to download created files
-            output_dir: Directory to save downloaded files
+            language: Programming language (only python supported)
+            create_files: Whether to allow file creation (always enabled with code execution)
+            download_files: Whether to download created files (not implemented)
+            output_dir: Directory to save downloaded files (not used)
             
         Returns:
-            Dictionary containing execution results and file information
+            Dictionary containing execution results
         """
         try:
-            # Just pass the code directly - the tool will handle file creation automatically
-            logger.info(f"Executing {language} code with file creation: {create_files}")
+            logger.info(f"Executing {language} code using official Anthropic code execution tool")
             
-            # Request code execution with both beta features
+            # Use the official code execution tool
             response = await asyncio.to_thread(
                 self.client.beta.messages.create,
                 model=self.model,
-                betas=["code-execution-2025-05-22", "files-api-2025-04-14"],
+                betas=["code-execution-2025-05-22"],
                 max_tokens=4096,
                 messages=[{
                     "role": "user",
-                    "content": code  # Pass code directly
+                    "content": f"Execute this code:\n\n```python\n{code}\n```"
                 }],
                 tools=[{
                     "type": "code_execution_20250522",
@@ -91,47 +108,32 @@ class AnthropicCodeExecutor:
                 }]
             )
             
-            # Debug the response structure
-            logger.debug(f"Response type: {type(response)}")
-            if hasattr(response, 'content'):
-                logger.debug(f"Response content items: {len(response.content)}")
-                for i, item in enumerate(response.content):
-                    logger.debug(f"Content[{i}] type: {getattr(item, 'type', 'unknown')}")
+            # Extract results using the proper method
+            execution_results = self.extract_execution_results(response)
             
-            # Extract execution results
+            # Format the result
             result = {
-                "success": True,
+                "success": execution_results["return_code"] == 0,
                 "language": language,
                 "executed_at": datetime.utcnow().isoformat(),
-                "output": "",
+                "output": execution_results["stdout"],
+                "stderr": execution_results["stderr"],
+                "return_code": execution_results["return_code"],
                 "files_created": [],
                 "files_downloaded": [],
-                "error": None
+                "error": execution_results["stderr"] if execution_results["return_code"] != 0 else None
             }
             
-            # Process response content
-            for item in response.content:
-                if hasattr(item, 'text'):
-                    result["output"] += item.text + "\n"
+            # Extract any assistant text response
+            assistant_text = ""
+            for content_block in response.content:
+                if hasattr(content_block, 'type') and content_block.type == 'text':
+                    assistant_text += content_block.text
             
-            # Extract and handle files if requested
-            if create_files:
-                file_ids = self.extract_file_ids(response)
-                result["files_created"] = file_ids
-                
-                if download_files and file_ids:
-                    # Create output directory if it doesn't exist
-                    os.makedirs(output_dir, exist_ok=True)
-                    
-                    # Download each file
-                    for file_id in file_ids:
-                        try:
-                            file_info = await self._download_file(file_id, output_dir)
-                            result["files_downloaded"].append(file_info)
-                        except Exception as e:
-                            logger.error(f"Failed to download file {file_id}: {str(e)}")
+            if assistant_text:
+                result["assistant_response"] = assistant_text
             
-            logger.info(f"Code execution completed. Files created: {len(result['files_created'])}")
+            logger.info(f"Code execution completed with return code: {execution_results['return_code']}")
             return result
             
         except Exception as e:
@@ -141,128 +143,31 @@ class AnthropicCodeExecutor:
                 "language": language,
                 "executed_at": datetime.utcnow().isoformat(),
                 "output": "",
+                "stderr": str(e),
+                "return_code": 1,
                 "files_created": [],
                 "files_downloaded": [],
                 "error": str(e)
             }
     
-    async def _download_file(self, file_id: str, output_dir: str) -> Dict[str, Any]:
-        """
-        Download a file created by code execution
-        
-        Args:
-            file_id: The ID of the file to download
-            output_dir: Directory to save the file
-            
-        Returns:
-            Dictionary with file information
-        """
-        # Get file metadata
-        file_metadata = await asyncio.to_thread(
-            self.client.beta.files.retrieve_metadata,
-            file_id
-        )
-        
-        # Download file content
-        file_content = await asyncio.to_thread(
-            self.client.beta.files.download,
-            file_id
-        )
-        
-        # Save file to disk
-        file_path = os.path.join(output_dir, file_metadata.filename)
-        file_content.write_to_file(file_path)
-        
-        logger.info(f"Downloaded file: {file_metadata.filename} to {file_path}")
-        
-        return {
-            "file_id": file_id,
-            "filename": file_metadata.filename,
-            "path": file_path,
-            "size": os.path.getsize(file_path) if os.path.exists(file_path) else 0
-        }
-    
     async def execute_matplotlib_visualization(
         self, 
         plot_code: str,
-        filename: str = "output.png",
-        output_dir: str = "./visualizations"
+        filename: str = "visualization.png"
     ) -> Dict[str, Any]:
         """
-        Execute matplotlib visualization code and save the plot
+        Execute matplotlib visualization code
         
         Args:
             plot_code: The matplotlib code to execute
             filename: Output filename for the plot
-            output_dir: Directory to save the plot
             
         Returns:
-            Dictionary containing execution results and file information
+            Dictionary containing execution results
         """
-        # Wrap the code to ensure it saves the plot
-        wrapped_code = f"""
-import matplotlib.pyplot as plt
-import numpy as np
-
-# User code
-{plot_code}
-
-# Save the plot
-plt.savefig('{filename}', dpi=300, bbox_inches='tight')
-plt.close()
-print(f"Plot saved as {filename}")
-"""
-        
         return await self.execute_code_with_files(
-            code=wrapped_code,
-            language="python",
-            create_files=True,
-            download_files=True,
-            output_dir=output_dir
-        )
-    
-    async def execute_data_analysis(
-        self,
-        analysis_code: str,
-        output_format: str = "csv",
-        output_dir: str = "./analysis_output"
-    ) -> Dict[str, Any]:
-        """
-        Execute data analysis code and save results
-        
-        Args:
-            analysis_code: The data analysis code to execute
-            output_format: Output format (csv, json, xlsx)
-            output_dir: Directory to save results
-            
-        Returns:
-            Dictionary containing execution results and file information
-        """
-        # Add appropriate save logic based on format
-        save_code = {
-            "csv": "df.to_csv('analysis_results.csv', index=False)",
-            "json": "df.to_json('analysis_results.json', orient='records', indent=2)",
-            "xlsx": "df.to_excel('analysis_results.xlsx', index=False)"
-        }.get(output_format, "df.to_csv('analysis_results.csv', index=False)")
-        
-        wrapped_code = f"""
-import pandas as pd
-import numpy as np
-
-# User analysis code
-{analysis_code}
-
-# Save results
-{save_code}
-print(f"Analysis results saved as analysis_results.{output_format}")
-"""
-        
-        return await self.execute_code_with_files(
-            code=wrapped_code,
-            language="python",
-            create_files=True,
-            download_files=True,
-            output_dir=output_dir
+            code=plot_code,
+            language="python"
         )
 
 
@@ -286,13 +191,13 @@ async def execute_code(
     download_files: bool = False
 ) -> Dict[str, Any]:
     """
-    Execute code with optional file handling
+    Execute code using Anthropic's code execution tool
     
     Args:
         code: The code to execute
-        language: Programming language
-        create_files: Whether to allow file creation
-        download_files: Whether to download created files
+        language: Programming language (only python supported)
+        create_files: Ignored (always enabled)
+        download_files: Ignored (not supported)
         
     Returns:
         Execution results dictionary
@@ -300,9 +205,7 @@ async def execute_code(
     executor = get_code_executor()
     return await executor.execute_code_with_files(
         code=code,
-        language=language,
-        create_files=create_files,
-        download_files=download_files
+        language=language
     )
 
 
@@ -311,38 +214,17 @@ async def create_visualization(
     filename: str = "visualization.png"
 ) -> Dict[str, Any]:
     """
-    Create a matplotlib visualization and save it
+    Execute matplotlib code for data visualization
     
     Args:
         plot_code: The matplotlib plotting code
-        filename: Output filename
+        filename: Output filename (informational only)
         
     Returns:
-        Execution results with file information
+        Execution results
     """
     executor = get_code_executor()
     return await executor.execute_matplotlib_visualization(
         plot_code=plot_code,
         filename=filename
-    )
-
-
-async def analyze_data(
-    analysis_code: str,
-    output_format: str = "csv"
-) -> Dict[str, Any]:
-    """
-    Execute data analysis code and save results
-    
-    Args:
-        analysis_code: The analysis code
-        output_format: Output format (csv, json, xlsx)
-        
-    Returns:
-        Execution results with file information
-    """
-    executor = get_code_executor()
-    return await executor.execute_data_analysis(
-        analysis_code=analysis_code,
-        output_format=output_format
     )
