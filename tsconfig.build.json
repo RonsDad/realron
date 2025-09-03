@@ -5,8 +5,8 @@
   "compilerOptions": {
     "rootDir": "./dist/src",
     "paths": {
-      "claims/*": ["dist/src/*"],
-      "claims": ["dist/src/index.ts"]
+      "network-claims-optum/*": ["dist/src/*"],
+      "network-claims-optum": ["dist/src/index.ts"]
     },
     "noEmit": false,
     "declaration": true,

@@ -1,12 +1,12 @@
 {
-  "name": "claims",
+  "name": "network-claims-optum",
   "version": "0.0.1",
   "description": "The official TypeScript library for the Claims API",
   "author": "Claims <>",
   "types": "dist/index.d.ts",
   "main": "dist/index.js",
   "type": "commonjs",
-  "repository": "github:stainless-sdks/claims-typescript",
+  "repository": "github:RonsDad/realron",
   "license": "Apache-2.0",
   "packageManager": "yarn@1.22.22",
   "files": [

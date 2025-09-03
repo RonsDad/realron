@@ -1,5 +1,5 @@
-import { multipartFormRequestOptions, createForm } from 'claims/internal/uploads';
-import { toFile } from 'claims/core/uploads';
+import { multipartFormRequestOptions, createForm } from 'network-claims-optum/internal/uploads';
+import { toFile } from 'network-claims-optum/core/uploads';
 
 describe('form data validation', () => {
   test('valid values do not error', async () => {

@@ -9,8 +9,8 @@
     "esModuleInterop": true,
     "baseUrl": "./",
     "paths": {
-      "claims/*": ["src/*"],
-      "claims": ["src/index.ts"]
+      "network-claims-optum/*": ["src/*"],
+      "network-claims-optum": ["src/index.ts"]
     },
     "noEmit": true,
 

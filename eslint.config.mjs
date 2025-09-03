@@ -25,7 +25,7 @@ export default tseslint.config(
         {
           patterns: [
             {
-              regex: '^claims(/.*)?',
+              regex: '^network-claims-optum(/.*)?',
               message: 'Use a relative import, not a package import.',
             },
           ],
