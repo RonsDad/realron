@@ -1,4 +1,4 @@
-import { createPathTagFunction, encodeURIPath } from 'claims/internal/utils/path';
+import { createPathTagFunction, encodeURIPath } from 'network-claims-optum/internal/utils/path';
 import { inspect } from 'node:util';
 import { runInNewContext } from 'node:vm';
 
