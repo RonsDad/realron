@@ -1,31 +1,10 @@
+.prism.log
 node_modules
-.env
-backend/.env
-.env.*
-
-# Next.js build cache
-.next/
-
-# Google Cloud credentials
-*.json
-backend/*.json
-backend/aethercare-tqine-5e005e537e8f.json
-
-# Certificate files
-*.pem
-__pycache__/
-*.pyc
-*.log
-.DS_Store
-.firebase/
-.serena/
-.claude/
-test_*.py
-deploy-*.sh
-setup-*.sh
-aws-native-implementation/show_generated_code.py
-claude_code_sdk_backup_v1/
-computer-use/
-frontend/
-backend/preview_system/
+yarn-error.log
+codegen.log
+Brewfile.lock.json
+dist
+dist-deno
+/*.tgz
+.idea/
 

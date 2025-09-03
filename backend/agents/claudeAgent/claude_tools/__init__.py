@@ -1,1 +1,0 @@
-# This file makes the claude-tools directory a Python package

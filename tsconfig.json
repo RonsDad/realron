@@ -1,48 +1,38 @@
 {
+  "include": ["src", "tests", "examples"],
+  "exclude": [],
   "compilerOptions": {
-    "target": "ES2017",
-    "lib": [
-      "dom",
-      "dom.iterable",
-      "esnext"
-    ],
-    "allowJs": true,
-    "skipLibCheck": true,
-    "strict": true,
-    "noEmit": true,
-    "incremental": true,
-    "module": "esnext",
-    "esModuleInterop": true,
+    "target": "es2020",
+    "lib": ["es2020"],
+    "module": "commonjs",
     "moduleResolution": "node",
-    "resolveJsonModule": true,
-    "isolatedModules": true,
-    "jsx": "preserve",
-    "baseUrl": ".",
+    "esModuleInterop": true,
+    "baseUrl": "./",
     "paths": {
-      "@/*": ["./src/*"]
+      "network-claims-optum/*": ["src/*"],
+      "network-claims-optum": ["src/index.ts"]
     },
-    "plugins": [
-      {
-        "name": "next"
-      }
-    ]
-  },
-  "include": [
-    "next-env.d.ts",
-    ".next/types/**/*.ts",
-    "**/*.ts",
-    "**/*.tsx"
-  ],
-  "exclude": [
-    "node_modules",
-    "agent-starter-pack/**",
-    "adk-python/**",
-    "claude_code_sdk_backup/**",
-    "claude-computer-use-backup/**",
-    "claude-computer-use/**",
-    "say-hello/**",
-    "brave-search-mcp-server/**",
-    "telnyx-mcp-server/**",
-    "backend/**"
-  ]
+    "noEmit": true,
+
+    "resolveJsonModule": true,
+
+    "forceConsistentCasingInFileNames": true,
+
+    "strict": true,
+    "noImplicitAny": true,
+    "strictNullChecks": true,
+    "strictFunctionTypes": true,
+    "strictBindCallApply": true,
+    "strictPropertyInitialization": true,
+    "noImplicitThis": true,
+    "noImplicitReturns": true,
+    "alwaysStrict": true,
+    "exactOptionalPropertyTypes": true,
+    "noUncheckedIndexedAccess": true,
+    "noImplicitOverride": true,
+    "noPropertyAccessFromIndexSignature": true,
+    "isolatedModules": false,
+
+    "skipLibCheck": true
+  }
 }
