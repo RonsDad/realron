@@ -2,7 +2,7 @@ name: Release Doctor
 on:
   pull_request:
     branches:
-      - refactor-zustand-modular-frontend
+      - main
   workflow_dispatch:
 
 jobs:
