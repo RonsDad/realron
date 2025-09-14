@@ -8,28 +8,56 @@ import logging
 import asyncio
 from datetime import datetime
 import os
-from backend.agents.claudeAgent.claude_tools.clinical_agent.healthcare_agent_integration import clinical_operations_query
+from backend.agents.claudeAgent.claude_tools.clinical_agent.healthcare_agent_integration import (
+    clinical_operations_query,
+)
 from backend.agents.claudeAgent.claude_tools.FDA.fda_drug_tools import (
-    searchDrugLabel, searchAdverseEffects, getSpecialPopulations,
-    getBoxedWarning, getDrugInteractions, getAbuse, getAbuseTable,
-    getActiveIngredient, getAdverseReactions, getClinicalPharmacology,
-    getContraindications, getDescription, getDosageAndAdministration,
-    getWarnings, getPregnancy, getPediatricUse, getGeriatricUse,
-    getIndicationsAndUsage, getMechanismOfAction, getOverdosage,
-    getPharmacokinetics, getControlledSubstance, getNursingMothers
+    searchDrugLabel,
+    searchAdverseEffects,
+    getSpecialPopulations,
+    getBoxedWarning,
+    getDrugInteractions,
+    getAbuse,
+    getAbuseTable,
+    getActiveIngredient,
+    getAdverseReactions,
+    getClinicalPharmacology,
+    getContraindications,
+    getDescription,
+    getDosageAndAdministration,
+    getWarnings,
+    getPregnancy,
+    getPediatricUse,
+    getGeriatricUse,
+    getIndicationsAndUsage,
+    getMechanismOfAction,
+    getOverdosage,
+    getPharmacokinetics,
+    getControlledSubstance,
+    getNursingMothers,
 )
 from backend.agents.claudeAgent.claude_tools.pubmed.pubmed_tools import (
-    pubmed_search, pubmed_fetch_abstracts, pubmed_fetch_summaries,
-    pubmed_fetch_related, pubmed_fetch_citations, pubmed_search_clinical_trials,
-    pubmed_mesh_search
+    pubmed_search,
+    pubmed_fetch_abstracts,
+    pubmed_fetch_summaries,
+    pubmed_fetch_related,
+    pubmed_fetch_citations,
+    pubmed_search_clinical_trials,
+    pubmed_mesh_search,
 )
 from backend.agents.claudeAgent.claude_tools.orchestrator_tools import (
-    spawn_healthcare_agent, execute_spawned_agent, execute_agent_team,
-    check_agent_status, cleanup_completed_agent, orchestrate_healthcare_task,
-    execute_agent_pipeline
+    spawn_healthcare_agent,
+    execute_spawned_agent,
+    execute_agent_team,
+    check_agent_status,
+    cleanup_completed_agent,
+    orchestrate_healthcare_task,
+    execute_agent_pipeline,
+    orchestrator,
 )
 
 logger = logging.getLogger(__name__)
+
 
 # ---------------------------------------------
 # Provider Search (uses Perplexity to fetch data)
@@ -62,7 +90,7 @@ async def provider_search(
     import json as _json
     import re
 
-    api_key = os.getenv('PERPLEXITY_API_KEY')
+    api_key = os.getenv("PERPLEXITY_API_KEY")
     if not api_key:
         return {
             "success": False,
@@ -79,7 +107,9 @@ async def provider_search(
         if preferences.get("languages"):
             pref_parts.append(f"languages: {', '.join(preferences['languages'])}")
         if preferences.get("gender_preference"):
-            pref_parts.append(f"preferred clinician gender: {preferences['gender_preference']}")
+            pref_parts.append(
+                f"preferred clinician gender: {preferences['gender_preference']}"
+            )
         if preferences.get("telehealth") is True:
             pref_parts.append("telehealth available")
         if preferences.get("accepting_new_patients") is True:
@@ -115,14 +145,23 @@ async def provider_search(
     }
 
     async with aiohttp.ClientSession() as session:
-        async with session.post("https://api.perplexity.ai/chat/completions", headers=headers, json=payload) as resp:
+        async with session.post(
+            "https://api.perplexity.ai/chat/completions", headers=headers, json=payload
+        ) as resp:
             text = await resp.text()
             if resp.status != 200:
                 logger.error(f"provider_search API error {resp.status}: {text}")
-                return {"success": False, "error": f"Perplexity error {resp.status}", "results": [], "searchQuery": f"{specialty} in {location}"}
+                return {
+                    "success": False,
+                    "error": f"Perplexity error {resp.status}",
+                    "results": [],
+                    "searchQuery": f"{specialty} in {location}",
+                }
             try:
                 data = await resp.json()
-                content = data.get("choices", [{}])[0].get("message", {}).get("content", "")
+                content = (
+                    data.get("choices", [{}])[0].get("message", {}).get("content", "")
+                )
             except Exception:
                 content = text
 
@@ -154,19 +193,24 @@ async def provider_search(
     normalized: List[Dict[str, Any]] = []
     for i, p in enumerate(results[: top_n or 5]):
         try:
-            normalized.append({
-                "id": str(p.get("id") or p.get("npi") or p.get("name") or f"prov_{i}"),
-                "name": p.get("name") or "Unknown",
-                "specialty": p.get("specialty") or specialty,
-                "rating": float(p.get("rating") or 0),
-                "reviews": int(p.get("reviews") or 0),
-                "location": p.get("location") or "Unknown",
-                "distance": p.get("distance") or "--",
-                "availability": p.get("availability") or "Unknown",
-                "insurance": p.get("insurance") or ([insurance] if insurance else []),
-                "imageUrl": p.get("imageUrl"),
-                "aiSummary": p.get("aiSummary") or "",
-            })
+            normalized.append(
+                {
+                    "id": str(
+                        p.get("id") or p.get("npi") or p.get("name") or f"prov_{i}"
+                    ),
+                    "name": p.get("name") or "Unknown",
+                    "specialty": p.get("specialty") or specialty,
+                    "rating": float(p.get("rating") or 0),
+                    "reviews": int(p.get("reviews") or 0),
+                    "location": p.get("location") or "Unknown",
+                    "distance": p.get("distance") or "--",
+                    "availability": p.get("availability") or "Unknown",
+                    "insurance": p.get("insurance")
+                    or ([insurance] if insurance else []),
+                    "imageUrl": p.get("imageUrl"),
+                    "aiSummary": p.get("aiSummary") or "",
+                }
+            )
         except Exception as e:
             logger.warning(f"Skipping provider due to normalization error: {e}")
 
@@ -182,38 +226,105 @@ async def provider_search(
 # -----------------------------
 async def list_subagents() -> Dict[str, Any]:
     """Expose subagent catalog."""
-    from backend.agents.claudeAgent.claude_tools.sub_agents import list_subagents as _list
+    from backend.agents.claudeAgent.claude_tools.sub_agents import (
+        list_subagents as _list,
+    )
+
     return _list()
 
 
-async def run_subagent(name: str, task: str, context: Dict[str, Any] | None = None, allowed_tools_override: List[str] | None = None, disable_mcp: bool | None = True) -> Dict[str, Any]:
+async def run_subagent(
+    name: str,
+    task: str,
+    context: Dict[str, Any] | None = None,
+    allowed_tools_override: List[str] | None = None,
+    disable_mcp: bool | None = True,
+) -> Dict[str, Any]:
     """Run a single preconfigured subagent."""
     from backend.agents.claudeAgent.claude_tools.sub_agents import run_subagent as _run
-    return await _run(name=name, task=task, context=context, allowed_tools_override=allowed_tools_override, disable_mcp=bool(disable_mcp))
+
+    return await _run(
+        name=name,
+        task=task,
+        context=context,
+        allowed_tools_override=allowed_tools_override,
+        disable_mcp=bool(disable_mcp),
+    )
 
 
-async def run_subagents(task: str, team: List[str] | None = None, context: Dict[str, Any] | None = None, parallel: bool = True, aggregation: str = "consensus", disable_mcp: bool | None = True) -> Dict[str, Any]:
+async def run_subagents(
+    task: str,
+    team: List[str] | None = None,
+    context: Dict[str, Any] | None = None,
+    parallel: bool = True,
+    aggregation: str = "consensus",
+    disable_mcp: bool | None = True,
+) -> Dict[str, Any]:
     """Run a team of subagents and aggregate their outputs."""
-    from backend.agents.claudeAgent.claude_tools.sub_agents import run_subagents as _run_team
-    return await _run_team(task=task, team=team, context=context, parallel=parallel, aggregation=aggregation, disable_mcp=bool(disable_mcp))
+    from backend.agents.claudeAgent.claude_tools.sub_agents import (
+        run_subagents as _run_team,
+    )
+
+    return await _run_team(
+        task=task,
+        team=team,
+        context=context,
+        parallel=parallel,
+        aggregation=aggregation,
+        disable_mcp=bool(disable_mcp),
+    )
 
 
-async def register_subagent(name: str, description: str, role_goal: str, allowed_tools: List[str], instruction_suffix: str | None = None) -> Dict[str, Any]:
+async def register_subagent(
+    name: str,
+    description: str,
+    role_goal: str,
+    allowed_tools: List[str],
+    instruction_suffix: str | None = None,
+) -> Dict[str, Any]:
     """Create a new custom subagent and persist it to the registry."""
-    from backend.agents.claudeAgent.claude_tools.sub_agents import register_subagent as _reg
-    return _reg(name=name, description=description, role_goal=role_goal, allowed_tools=allowed_tools, instruction_suffix=instruction_suffix)
+    from backend.agents.claudeAgent.claude_tools.sub_agents import (
+        register_subagent as _reg,
+    )
+
+    return _reg(
+        name=name,
+        description=description,
+        role_goal=role_goal,
+        allowed_tools=allowed_tools,
+        instruction_suffix=instruction_suffix,
+    )
 
 
-async def update_subagent(name: str, description: str | None = None, role_goal: str | None = None, allowed_tools: List[str] | None = None, instruction_suffix: str | None = None) -> Dict[str, Any]:
+async def update_subagent(
+    name: str,
+    description: str | None = None,
+    role_goal: str | None = None,
+    allowed_tools: List[str] | None = None,
+    instruction_suffix: str | None = None,
+) -> Dict[str, Any]:
     """Update an existing custom subagent."""
-    from backend.agents.claudeAgent.claude_tools.sub_agents import update_subagent as _upd
-    return _upd(name=name, description=description, role_goal=role_goal, allowed_tools=allowed_tools, instruction_suffix=instruction_suffix)
+    from backend.agents.claudeAgent.claude_tools.sub_agents import (
+        update_subagent as _upd,
+    )
+
+    return _upd(
+        name=name,
+        description=description,
+        role_goal=role_goal,
+        allowed_tools=allowed_tools,
+        instruction_suffix=instruction_suffix,
+    )
 
 
 async def delete_subagent(name: str) -> Dict[str, Any]:
     """Delete a custom subagent from the registry."""
-    from backend.agents.claudeAgent.claude_tools.sub_agents import delete_subagent as _del
+    from backend.agents.claudeAgent.claude_tools.sub_agents import (
+        delete_subagent as _del,
+    )
+
     return _del(name=name)
+
 
 # Browser session creation tool - creates session and returns LiveURL immediately
 async def create_browser_session(initial_url: str = "about:blank") -> Dict[str, Any]:
@@ -223,86 +334,99 @@ async def create_browser_session(initial_url: str = "about:blank") -> Dict[str, 
     """
     try:
         from browser_use import BrowserProfile
-        from backend.agents.claudeAgent.claude_tools.browser_use.browser_use_service import browser_use_service
-        
+        from backend.agents.claudeAgent.claude_tools.browser_use.browser_use_service import (
+            browser_use_service,
+        )
+
         logger.info("Creating persistent browser session with keep_alive=True")
-        
+
         # Create optimized browser profile
         browser_profile = BrowserProfile(
             headless=False,  # Required for LiveURL viewing
             viewport={"width": 1280, "height": 900},
-            wait_between_actions=0.1  # Fast actions
+            wait_between_actions=0.1,  # Fast actions
         )
-        
+
         # Create session with keep_alive=True for persistence
         session_result = await browser_use_service.create_live_url_session(
             timeout_ms=900000,  # 15 minutes
             browser_profile=browser_profile,
-            interactive=True  # Allow user interaction with browser
+            interactive=True,  # Allow user interaction with browser
         )
-        
-        logger.info(f"✅ Browser session created with LiveURL: {session_result['live_url']}")
+
+        logger.info(
+            f"✅ Browser session created with LiveURL: {session_result['live_url']}"
+        )
         logger.info(f"Session ID: {session_result['session_id']}")
-        
+
         # Small delay to ensure session is fully registered
         await asyncio.sleep(0.5)  # 500ms for session registration
-        logger.info(f"Session {session_result['session_id']} fully registered and ready")
-        
+        logger.info(
+            f"Session {session_result['session_id']} fully registered and ready"
+        )
+
         # Navigate to initial URL if specified
         if initial_url and initial_url != "about:blank":
             try:
                 logger.info(f"Navigating to initial URL: {initial_url}")
                 nav_result = await browser_use_service.navigate_and_get_live_url(
-                    session_result['session_id'], 
-                    initial_url
+                    session_result["session_id"], initial_url
                 )
                 logger.info(f"Successfully navigated to {initial_url}")
             except Exception as e:
                 logger.warning(f"Failed to navigate to {initial_url}: {e}")
-        
+
         return {
             "success": True,
-            "session_id": session_result['session_id'],
-            "live_url": session_result['live_url'],
-            "session_number": session_result.get('session_number', 1),
-            "display_name": session_result.get('display_name', 'Browser Session'),
+            "session_id": session_result["session_id"],
+            "live_url": session_result["live_url"],
+            "session_number": session_result.get("session_number", 1),
+            "display_name": session_result.get("display_name", "Browser Session"),
             "message": f"✅ Browser session created successfully! The browser panel should be open. Session ID: {session_result['session_id']}",
-            "instructions": "Use browser_use with this session_id to perform tasks"
+            "instructions": "Use browser_use with this session_id to perform tasks",
         }
-        
+
     except Exception as e:
         logger.error(f"Failed to create browser session: {str(e)}")
         return {
             "success": False,
             "error": str(e),
-            "message": f"❌ Failed to create browser session: {str(e)}"
+            "message": f"❌ Failed to create browser session: {str(e)}",
         }
 
 
 # Helper function for retry logic
-async def _browser_use_with_retry(session_id: str, task: str, max_retries: int = 3, delay: float = 1.0) -> Dict[str, Any]:
+async def _browser_use_with_retry(
+    session_id: str, task: str, max_retries: int = 3, delay: float = 1.0
+) -> Dict[str, Any]:
     """
     Execute browser task with retry logic for session registration race conditions.
     """
-    from backend.agents.claudeAgent.claude_tools.browser_use.browser_use_service import browser_use_service
-    
+    from backend.agents.claudeAgent.claude_tools.browser_use.browser_use_service import (
+        browser_use_service,
+    )
+
     for attempt in range(max_retries):
         try:
             # Add a small delay on retries to ensure session is fully registered
             if attempt > 0:
                 logger.info(f"Retry attempt {attempt + 1} for session {session_id}")
                 await asyncio.sleep(delay)
-            
+
             # Try to execute the task
             result = await browser_use_service.execute_browser_task(session_id, task)
-            
+
             # Success - return result
             return result
-            
+
         except Exception as e:
             error_msg = str(e)
-            if ("not found" in error_msg.lower() or "expired" in error_msg.lower()) and attempt < max_retries - 1:
-                logger.warning(f"Session {session_id} not ready, retrying in {delay}s... (attempt {attempt + 1}/{max_retries})")
+            if (
+                "not found" in error_msg.lower() or "expired" in error_msg.lower()
+            ) and attempt < max_retries - 1:
+                logger.warning(
+                    f"Session {session_id} not ready, retrying in {delay}s... (attempt {attempt + 1}/{max_retries})"
+                )
                 continue
             else:
                 # Final attempt failed or different error
@@ -317,49 +441,51 @@ async def browser_use(task: str, session_id: str = None) -> Dict[str, Any]:
     """
     try:
         # Import the centralized browser service
-        from backend.agents.claudeAgent.claude_tools.browser_use.browser_use_service import browser_use_service
-        
+        from backend.agents.claudeAgent.claude_tools.browser_use.browser_use_service import (
+            browser_use_service,
+        )
+
         logger.info(f"Starting browser task: {task}")
-        
+
         # Check if we have an existing session to reuse
         active_sessions = await browser_use_service.list_active_sessions()
-        available_sessions = list(active_sessions.get('sessions', {}).keys())
+        available_sessions = list(active_sessions.get("sessions", {}).keys())
         logger.info(f"Active sessions: {available_sessions}")
-        
+
         # If no session_id provided, try to use the first available session
         if not session_id and available_sessions:
             session_id = available_sessions[0]
-            logger.info(f"No session_id provided, using first available session: {session_id}")
-        
-        if session_id and session_id in active_sessions.get('sessions', {}):
+            logger.info(
+                f"No session_id provided, using first available session: {session_id}"
+            )
+
+        if session_id and session_id in active_sessions.get("sessions", {}):
             # Use existing session with retry logic
             logger.info(f"Using session: {session_id} for task: {task}")
             result = await _browser_use_with_retry(session_id, task)
-            
+
             # Add session_id to result if not present
-            if 'session_id' not in result:
-                result['session_id'] = session_id
-                
+            if "session_id" not in result:
+                result["session_id"] = session_id
+
             return result
         else:
             # No valid session found
-            logger.error(f"browser_use called with session_id={session_id} but session not found")
+            logger.error(
+                f"browser_use called with session_id={session_id} but session not found"
+            )
             logger.error(f"Available sessions: {available_sessions}")
             return {
                 "success": False,
                 "error": "No browser session found. You must call create_browser_session first to open the browser panel.",
                 "instruction": "Please call create_browser_session first, then use browser_use with the returned session_id",
                 "provided_session_id": session_id,
-                "available_sessions": available_sessions
+                "available_sessions": available_sessions,
             }
-        
+
     except Exception as e:
         logger.error(f"Browser task error: {str(e)}")
-        return {
-            "success": False,
-            "error": str(e),
-            "task": task
-        }
+        return {"success": False, "error": str(e), "task": task}
 
 
 # Browser session management tools
@@ -370,8 +496,10 @@ async def check_browser_session(session_id: str = None) -> Dict[str, Any]:
     Otherwise, lists all active sessions.
     """
     try:
-        from backend.agents.claudeAgent.claude_tools.browser_use.browser_use_service import browser_use_service
-        
+        from backend.agents.claudeAgent.claude_tools.browser_use.browser_use_service import (
+            browser_use_service,
+        )
+
         if session_id:
             # Check specific session
             try:
@@ -379,45 +507,45 @@ async def check_browser_session(session_id: str = None) -> Dict[str, Any]:
                 return {
                     "success": True,
                     "session_id": session_id,
-                    "status": session_info.get('status', 'unknown'),
-                    "live_url": session_info.get('live_url'),
-                    "current_url": session_info.get('current_url'),
-                    "created_at": session_info.get('created_at'),
-                    "message": f"Session {session_id} is {session_info.get('status', 'unknown')}"
+                    "status": session_info.get("status", "unknown"),
+                    "live_url": session_info.get("live_url"),
+                    "current_url": session_info.get("current_url"),
+                    "created_at": session_info.get("created_at"),
+                    "message": f"Session {session_id} is {session_info.get('status', 'unknown')}",
                 }
             except Exception as e:
                 return {
                     "success": False,
                     "session_id": session_id,
                     "error": str(e),
-                    "message": f"Session {session_id} not found or expired"
+                    "message": f"Session {session_id} not found or expired",
                 }
         else:
             # List all sessions
             sessions = await browser_use_service.list_active_sessions()
-            session_count = sessions.get('total_sessions', 0)
-            
+            session_count = sessions.get("total_sessions", 0)
+
             if session_count > 0:
                 return {
                     "success": True,
                     "total_sessions": session_count,
-                    "sessions": sessions.get('sessions_list', []),
-                    "message": f"Found {session_count} active browser session(s)"
+                    "sessions": sessions.get("sessions_list", []),
+                    "message": f"Found {session_count} active browser session(s)",
                 }
             else:
                 return {
                     "success": True,
                     "total_sessions": 0,
                     "sessions": [],
-                    "message": "No active browser sessions. Use create_browser_session to start one."
+                    "message": "No active browser sessions. Use create_browser_session to start one.",
                 }
-                
+
     except Exception as e:
         logger.error(f"Failed to check browser sessions: {str(e)}")
         return {
             "success": False,
             "error": str(e),
-            "message": f"Failed to check browser sessions: {str(e)}"
+            "message": f"Failed to check browser sessions: {str(e)}",
         }
 
 
@@ -428,33 +556,35 @@ async def close_browser_session(session_id: str = None) -> Dict[str, Any]:
     Otherwise, closes all active sessions.
     """
     try:
-        from backend.agents.claudeAgent.claude_tools.browser_use.browser_use_service import browser_use_service
-        
+        from backend.agents.claudeAgent.claude_tools.browser_use.browser_use_service import (
+            browser_use_service,
+        )
+
         if session_id:
             # Close specific session
             result = await browser_use_service.close_session(session_id)
             return {
                 "success": True,
                 "session_id": session_id,
-                "message": f"✅ Browser session {session_id} closed successfully"
+                "message": f"✅ Browser session {session_id} closed successfully",
             }
         else:
             # Close all sessions
             result = await browser_use_service.close_all_sessions()
-            closed_count = result.get('total_closed', 0)
+            closed_count = result.get("total_closed", 0)
             return {
                 "success": True,
-                "closed_sessions": result.get('closed_sessions', []),
+                "closed_sessions": result.get("closed_sessions", []),
                 "total_closed": closed_count,
-                "message": f"✅ Closed {closed_count} browser session(s)"
+                "message": f"✅ Closed {closed_count} browser session(s)",
             }
-            
+
     except Exception as e:
         logger.error(f"Failed to close browser session(s): {str(e)}")
         return {
             "success": False,
             "error": str(e),
-            "message": f"❌ Failed to close browser session(s): {str(e)}"
+            "message": f"❌ Failed to close browser session(s): {str(e)}",
         }
 
 
@@ -465,7 +595,7 @@ async def web_search(query: str, num_results: int = 5) -> Dict[str, Any]:
     # For now, return a placeholder
     return {
         "results": [f"Result {i+1} for '{query}'" for i in range(num_results)],
-        "query": query
+        "query": query,
     }
 
 
@@ -477,202 +607,214 @@ async def execute_code(code: str, language: str = "python") -> Dict[str, Any]:
         "output": f"Executed {language} code",
         "code": code,
         "language": language,
-        "error": None
+        "error": None,
     }
 
 
 # Perplexity tools
-async def perplexity_sonar_pro(query: str, search_filter: str = None, search_domain_filter: List[str] = None) -> Dict[str, Any]:
+async def perplexity_sonar_pro(
+    query: str, search_filter: str = None, search_domain_filter: List[str] = None
+) -> Dict[str, Any]:
     """Search using Perplexity Sonar Pro for complex multi-criteria analysis"""
     import os
     import aiohttp
-    
-    api_key = os.getenv('PERPLEXITY_API_KEY')
+
+    api_key = os.getenv("PERPLEXITY_API_KEY")
     if not api_key:
         return {"error": "PERPLEXITY_API_KEY not configured"}
-    
+
     try:
         headers = {
             "Authorization": f"Bearer {api_key}",
-            "Content-Type": "application/json"
+            "Content-Type": "application/json",
         }
-        
+
         payload = {
             "model": "sonar-pro",
-            "messages": [
-                {"role": "user", "content": query}
-            ],
-            "stream": False
+            "messages": [{"role": "user", "content": query}],
+            "stream": False,
         }
-        
+
         # Add optional search filters
         if search_filter:
             payload["search_filter"] = search_filter
         if search_domain_filter:
             payload["search_domain_filter"] = search_domain_filter
-        
+
         # No timeout - let Perplexity handle it
-        
+
         async with aiohttp.ClientSession() as session:
             async with session.post(
                 "https://api.perplexity.ai/chat/completions",
                 headers=headers,
-                json=payload
+                json=payload,
             ) as response:
                 if response.status == 200:
                     data = await response.json()
                     return {
                         "success": True,
-                        "result": data.get("choices", [{}])[0].get("message", {}).get("content", ""),
+                        "result": data.get("choices", [{}])[0]
+                        .get("message", {})
+                        .get("content", ""),
                         "query": query,
-                        "model": "sonar-pro"
+                        "model": "sonar-pro",
                     }
                 else:
                     error_text = await response.text()
                     return {
                         "success": False,
                         "error": f"API error {response.status}: {error_text}",
-                        "query": query
+                        "query": query,
                     }
-                    
+
     except Exception as e:
         logger.error(f"Perplexity Sonar Pro error: {str(e)}")
-        return {
-            "success": False,
-            "error": str(e),
-            "query": query
-        }
+        return {"success": False, "error": str(e), "query": query}
 
 
-async def perplexity_reasoning_pro(query: str, search_filter: str = None, search_domain_filter: List[str] = None) -> Dict[str, Any]:
+async def perplexity_reasoning_pro(
+    query: str, search_filter: str = None, search_domain_filter: List[str] = None
+) -> Dict[str, Any]:
     """Use Perplexity Reasoning Pro for complex reasoning and multi-criteria analysis"""
     import os
     import aiohttp
-    
-    api_key = os.getenv('PERPLEXITY_API_KEY')
+
+    api_key = os.getenv("PERPLEXITY_API_KEY")
     if not api_key:
         return {"error": "PERPLEXITY_API_KEY not configured"}
-    
+
     try:
         headers = {
             "Authorization": f"Bearer {api_key}",
-            "Content-Type": "application/json"
+            "Content-Type": "application/json",
         }
-        
+
         payload = {
             "model": "sonar-reasoning",
-            "messages": [
-                {"role": "user", "content": query}
-            ],
-            "stream": False
+            "messages": [{"role": "user", "content": query}],
+            "stream": False,
         }
-        
+
         # Add optional search filters
         if search_filter:
             payload["search_filter"] = search_filter
         if search_domain_filter:
             payload["search_domain_filter"] = search_domain_filter
-        
+
         # No timeout - let Perplexity handle it
-        
+
         async with aiohttp.ClientSession() as session:
             async with session.post(
                 "https://api.perplexity.ai/chat/completions",
                 headers=headers,
-                json=payload
+                json=payload,
             ) as response:
                 if response.status == 200:
                     data = await response.json()
                     return {
                         "success": True,
-                        "result": data.get("choices", [{}])[0].get("message", {}).get("content", ""),
+                        "result": data.get("choices", [{}])[0]
+                        .get("message", {})
+                        .get("content", ""),
                         "query": query,
-                        "model": "sonar-reasoning"
+                        "model": "sonar-reasoning",
                     }
                 else:
                     error_text = await response.text()
                     return {
                         "success": False,
                         "error": f"API error {response.status}: {error_text}",
-                        "query": query
+                        "query": query,
                     }
-                    
+
     except Exception as e:
         logger.error(f"Perplexity Reasoning Pro error: {str(e)}")
-        return {
-            "success": False,
-            "error": str(e),
-            "query": query
-        }
+        return {"success": False, "error": str(e), "query": query}
 
 
-async def perplexity_deep_research(query: str, reasoning_effort: str = None) -> Dict[str, Any]:
+async def perplexity_deep_research(
+    query: str, reasoning_effort: str = None
+) -> Dict[str, Any]:
     """Use Perplexity Deep Research for exhaustive single-topic research"""
     import os
     import aiohttp
-    
-    api_key = os.getenv('PERPLEXITY_API_KEY')
+
+    api_key = os.getenv("PERPLEXITY_API_KEY")
     if not api_key:
         return {"error": "PERPLEXITY_API_KEY not configured"}
-    
+
     try:
         headers = {
             "Authorization": f"Bearer {api_key}",
-            "Content-Type": "application/json"
+            "Content-Type": "application/json",
         }
-        
+
         payload = {
             "model": "sonar-deep-research",
-            "messages": [
-                {"role": "user", "content": query}
-            ],
+            "messages": [{"role": "user", "content": query}],
             "stream": False,
-            "reasoning_effort": reasoning_effort  # Let Claude decide
+            "reasoning_effort": reasoning_effort,  # Let Claude decide
         }
-        
+
         # Log the start of deep research
-        logger.info(f"Starting Perplexity Deep Research with effort: {reasoning_effort}")
-        
+        logger.info(
+            f"Starting Perplexity Deep Research with effort: {reasoning_effort}"
+        )
+
         # No timeout - let Perplexity handle it
-        
+
         async with aiohttp.ClientSession() as session:
             async with session.post(
                 "https://api.perplexity.ai/chat/completions",
                 headers=headers,
-                json=payload
+                json=payload,
             ) as response:
                 if response.status == 200:
                     data = await response.json()
                     logger.info(f"Perplexity Deep Research completed successfully")
                     return {
                         "success": True,
-                        "result": data.get("choices", [{}])[0].get("message", {}).get("content", ""),
+                        "result": data.get("choices", [{}])[0]
+                        .get("message", {})
+                        .get("content", ""),
                         "query": query,
                         "model": "sonar-deep-research",
-                        "reasoning_effort": reasoning_effort
+                        "reasoning_effort": reasoning_effort,
                     }
                 else:
                     error_text = await response.text()
                     return {
                         "success": False,
                         "error": f"API error {response.status}: {error_text}",
-                        "query": query
+                        "query": query,
                     }
-                    
+
     except Exception as e:
         logger.error(f"Perplexity Deep Research error: {str(e)}")
-        return {
-            "success": False,
-            "error": str(e),
-            "query": query
-        }
+        return {"success": False, "error": str(e), "query": query}
+
+
+# Subagent session management functions
+async def get_agent_sessions() -> Dict[str, Any]:
+    """Get status of all active agent sessions for monitoring."""
+    return await orchestrator.get_all_sessions()
+
+
+async def end_all_agent_sessions() -> Dict[str, Any]:
+    """Emergency cleanup - end all active agent sessions."""
+    return await orchestrator.end_all_sessions()
 
 
 # Claude Code SDK: Generate healthcare tool and return LiveURL
-async def claude_code_generate_tool(message: str, patient_id: str, patient_data: Dict[str, Any] = None) -> Dict[str, Any]:
+async def claude_code_generate_tool(
+    message: str, patient_id: str, patient_data: Dict[str, Any] = None
+) -> Dict[str, Any]:
     """Generate a healthcare tool using Claude Code SDK and return a LiveURL for preview."""
     try:
-        from backend.agents.claudeAgent.claude_tools.claude_code_sdk.patient_handler import patient_request_handler
+        from backend.agents.claudeAgent.claude_tools.claude_code_sdk.patient_handler import (
+            patient_request_handler,
+        )
+
         result = await patient_request_handler.handle_request(
             message=message,
             patient_id=patient_id,
@@ -702,42 +844,90 @@ TOOLS = {
             "query": {
                 "type": "string",
                 "description": "The clinical question or request (e.g., prior authorization requirements, care coordination considerations, clinical guidelines)",
-                "required": True
+                "required": True,
             },
             "patient_context": {
                 "type": "string",
                 "description": "Optional de-identified patient context including conditions, medications, procedures, or relevant clinical information",
-                "required": False
-            }
-        }
+                "required": False,
+            },
+        },
     },
     "list_subagents": {
         "function": list_subagents,
         "description": "List the preconfigured subagents available to assist the main agent.",
-        "parameters": {}
+        "parameters": {},
     },
     "run_subagent": {
         "function": run_subagent,
         "description": "Run a single subagent on a task with optional context and tool overrides. Returns structured JSON.",
         "parameters": {
-            "name": {"type": "string", "description": "Subagent name (e.g., InsuranceNavigator)", "required": True},
-            "task": {"type": "string", "description": "Task for the subagent", "required": True},
-            "context": {"type": "object", "description": "Optional JSON context for the task", "required": False},
-            "allowed_tools_override": {"type": "array", "description": "Optional list of tool names to restrict this run", "required": False},
-            "disable_mcp": {"type": "boolean", "description": "When true, disable all MCP servers (e.g., Telnyx) for this subagent run", "required": False, "default": True}
-        }
+            "name": {
+                "type": "string",
+                "description": "Subagent name (e.g., InsuranceNavigator)",
+                "required": True,
+            },
+            "task": {
+                "type": "string",
+                "description": "Task for the subagent",
+                "required": True,
+            },
+            "context": {
+                "type": "object",
+                "description": "Optional JSON context for the task",
+                "required": False,
+            },
+            "allowed_tools_override": {
+                "type": "array",
+                "description": "Optional list of tool names to restrict this run",
+                "required": False,
+            },
+            "disable_mcp": {
+                "type": "boolean",
+                "description": "When true, disable all MCP servers (e.g., Telnyx) for this subagent run",
+                "required": False,
+                "default": True,
+            },
+        },
     },
     "run_subagents": {
         "function": run_subagents,
         "description": "Run a team of subagents in parallel and aggregate findings/actions/next_steps with a recommendation.",
         "parameters": {
-            "task": {"type": "string", "description": "Task for the team", "required": True},
-            "team": {"type": "array", "description": "Optional list of subagent names to use", "required": False},
-            "context": {"type": "object", "description": "Optional JSON context shared to all subagents", "required": False},
-            "parallel": {"type": "boolean", "description": "Run subagents in parallel (default true)", "required": False, "default": True},
-            "aggregation": {"type": "string", "description": "Aggregation strategy: 'consensus' | 'best_savings' | 'speed'", "required": False, "default": "consensus"},
-            "disable_mcp": {"type": "boolean", "description": "When true, disable all MCP servers for all subagent runs in this team call", "required": False, "default": True}
-        }
+            "task": {
+                "type": "string",
+                "description": "Task for the team",
+                "required": True,
+            },
+            "team": {
+                "type": "array",
+                "description": "Optional list of subagent names to use",
+                "required": False,
+            },
+            "context": {
+                "type": "object",
+                "description": "Optional JSON context shared to all subagents",
+                "required": False,
+            },
+            "parallel": {
+                "type": "boolean",
+                "description": "Run subagents in parallel (default true)",
+                "required": False,
+                "default": True,
+            },
+            "aggregation": {
+                "type": "string",
+                "description": "Aggregation strategy: 'consensus' | 'best_savings' | 'speed'",
+                "required": False,
+                "default": "consensus",
+            },
+            "disable_mcp": {
+                "type": "boolean",
+                "description": "When true, disable all MCP servers for all subagent runs in this team call",
+                "required": False,
+                "default": True,
+            },
+        },
     },
     "create_browser_session": {
         "function": create_browser_session,
@@ -747,9 +937,9 @@ TOOLS = {
                 "type": "string",
                 "description": "Initial URL to navigate to (default: about:blank)",
                 "required": False,
-                "default": "about:blank"
+                "default": "about:blank",
             }
-        }
+        },
     },
     "browser_use": {
         "function": browser_use,
@@ -758,14 +948,14 @@ TOOLS = {
             "task": {
                 "type": "string",
                 "description": "The browser automation task to perform",
-                "required": True
+                "required": True,
             },
             "session_id": {
-                "type": "string", 
+                "type": "string",
                 "description": "Optional session ID to reuse existing session",
-                "required": False
-            }
-        }
+                "required": False,
+            },
+        },
     },
     "provider_search": {
         "function": provider_search,
@@ -774,85 +964,167 @@ TOOLS = {
             "specialty": {
                 "type": "string",
                 "description": "Provider specialty (e.g., 'Primary Care', 'Rheumatology')",
-                "required": True
+                "required": True,
             },
             "location": {
                 "type": "string",
                 "description": "City, state or address to search near",
-                "required": True
+                "required": True,
             },
             "insurance": {
                 "type": "string",
                 "description": "Insurance plan or payer name (optional)",
-                "required": False
+                "required": False,
             },
             "preferences": {
                 "type": "object",
                 "description": "Optional preferences (languages, gender_preference, telehealth, accepting_new_patients, distance_miles)",
-                "required": False
+                "required": False,
             },
             "top_n": {
                 "type": "integer",
                 "description": "Number of providers to return (default 5)",
                 "required": False,
-                "default": 5
-            }
-        }
+                "default": 5,
+            },
+        },
     },
     "list_subagents": {
         "function": list_subagents,
         "description": "List the preconfigured subagents available to assist the main agent.",
-        "parameters": {}
+        "parameters": {},
     },
     "run_subagent": {
         "function": run_subagent,
         "description": "Run a single subagent on a task with optional context and tool overrides. Returns structured JSON.",
         "parameters": {
-            "name": {"type": "string", "description": "Subagent name (e.g., InsuranceNavigator)", "required": True},
-            "task": {"type": "string", "description": "Task for the subagent", "required": True},
-            "context": {"type": "object", "description": "Optional JSON context for the task", "required": False},
-            "allowed_tools_override": {"type": "array", "description": "Optional list of tool names to restrict this run", "required": False}
-        }
+            "name": {
+                "type": "string",
+                "description": "Subagent name (e.g., InsuranceNavigator)",
+                "required": True,
+            },
+            "task": {
+                "type": "string",
+                "description": "Task for the subagent",
+                "required": True,
+            },
+            "context": {
+                "type": "object",
+                "description": "Optional JSON context for the task",
+                "required": False,
+            },
+            "allowed_tools_override": {
+                "type": "array",
+                "description": "Optional list of tool names to restrict this run",
+                "required": False,
+            },
+        },
     },
     "run_subagents": {
         "function": run_subagents,
         "description": "Run a team of subagents in parallel and aggregate findings/actions/next_steps with a recommendation.",
         "parameters": {
-            "task": {"type": "string", "description": "Task for the team", "required": True},
-            "team": {"type": "array", "description": "Optional list of subagent names to use", "required": False},
-            "context": {"type": "object", "description": "Optional JSON context shared to all subagents", "required": False},
-            "parallel": {"type": "boolean", "description": "Run subagents in parallel (default true)", "required": False, "default": True},
-            "aggregation": {"type": "string", "description": "Aggregation strategy: 'consensus' | 'best_savings' | 'speed'", "required": False, "default": "consensus"}
-        }
+            "task": {
+                "type": "string",
+                "description": "Task for the team",
+                "required": True,
+            },
+            "team": {
+                "type": "array",
+                "description": "Optional list of subagent names to use",
+                "required": False,
+            },
+            "context": {
+                "type": "object",
+                "description": "Optional JSON context shared to all subagents",
+                "required": False,
+            },
+            "parallel": {
+                "type": "boolean",
+                "description": "Run subagents in parallel (default true)",
+                "required": False,
+                "default": True,
+            },
+            "aggregation": {
+                "type": "string",
+                "description": "Aggregation strategy: 'consensus' | 'best_savings' | 'speed'",
+                "required": False,
+                "default": "consensus",
+            },
+        },
     },
     "register_subagent": {
         "function": register_subagent,
         "description": "Create a new custom subagent at runtime and persist it to the registry.",
         "parameters": {
-            "name": {"type": "string", "description": "Unique subagent name (cannot collide with core)", "required": True},
-            "description": {"type": "string", "description": "Short description of the agent's role", "required": True},
-            "role_goal": {"type": "string", "description": "Primary goal for the agent", "required": True},
-            "allowed_tools": {"type": "array", "description": "Allowed custom tool names for this agent", "required": True},
-            "instruction_suffix": {"type": "string", "description": "Optional system prompt suffix; defaults to JSON-output instruction", "required": False}
-        }
+            "name": {
+                "type": "string",
+                "description": "Unique subagent name (cannot collide with core)",
+                "required": True,
+            },
+            "description": {
+                "type": "string",
+                "description": "Short description of the agent's role",
+                "required": True,
+            },
+            "role_goal": {
+                "type": "string",
+                "description": "Primary goal for the agent",
+                "required": True,
+            },
+            "allowed_tools": {
+                "type": "array",
+                "description": "Allowed custom tool names for this agent",
+                "required": True,
+            },
+            "instruction_suffix": {
+                "type": "string",
+                "description": "Optional system prompt suffix; defaults to JSON-output instruction",
+                "required": False,
+            },
+        },
     },
     "update_subagent": {
         "function": update_subagent,
         "description": "Update a custom subagent's metadata or allowed tools.",
         "parameters": {
-            "name": {"type": "string", "description": "Existing custom subagent name", "required": True},
-            "description": {"type": "string", "description": "New description", "required": False},
-            "role_goal": {"type": "string", "description": "New role goal", "required": False},
-            "allowed_tools": {"type": "array", "description": "New allowed tool names", "required": False},
-            "instruction_suffix": {"type": "string", "description": "New instruction suffix", "required": False}
-        }
+            "name": {
+                "type": "string",
+                "description": "Existing custom subagent name",
+                "required": True,
+            },
+            "description": {
+                "type": "string",
+                "description": "New description",
+                "required": False,
+            },
+            "role_goal": {
+                "type": "string",
+                "description": "New role goal",
+                "required": False,
+            },
+            "allowed_tools": {
+                "type": "array",
+                "description": "New allowed tool names",
+                "required": False,
+            },
+            "instruction_suffix": {
+                "type": "string",
+                "description": "New instruction suffix",
+                "required": False,
+            },
+        },
     },
     "delete_subagent": {
         "function": delete_subagent,
         "description": "Delete a custom subagent from the registry.",
         "parameters": {
-            "name": {"type": "string", "description": "Custom subagent name to delete", "required": True}
-        }
+            "name": {
+                "type": "string",
+                "description": "Custom subagent name to delete",
+                "required": True,
+            }
+        },
     },
     "web_search": {
         "function": web_search,
@@ -861,15 +1133,15 @@ TOOLS = {
             "query": {
                 "type": "string",
                 "description": "The search query",
-                "required": True
+                "required": True,
             },
             "num_results": {
                 "type": "integer",
                 "description": "Number of results to return",
                 "required": False,
-                "default": 5
-            }
-        }
+                "default": 5,
+            },
+        },
     },
     "execute_code": {
         "function": execute_code,
@@ -878,15 +1150,15 @@ TOOLS = {
             "code": {
                 "type": "string",
                 "description": "The code to execute",
-                "required": True
+                "required": True,
             },
             "language": {
                 "type": "string",
                 "description": "Programming language",
                 "required": False,
-                "default": "python"
-            }
-        }
+                "default": "python",
+            },
+        },
     },
     "perplexity_sonar_pro": {
         "function": perplexity_sonar_pro,
@@ -895,19 +1167,19 @@ TOOLS = {
             "query": {
                 "type": "string",
                 "description": "The search query",
-                "required": True
+                "required": True,
             },
             "search_filter": {
                 "type": "string",
                 "description": "Optional search filter: 'academic' for academic sources",
-                "required": False
+                "required": False,
             },
             "search_domain_filter": {
                 "type": "array",
                 "description": "Optional list of domains to search within (e.g., ['arxiv.org'])",
-                "required": False
-            }
-        }
+                "required": False,
+            },
+        },
     },
     "perplexity_reasoning_pro": {
         "function": perplexity_reasoning_pro,
@@ -916,19 +1188,19 @@ TOOLS = {
             "query": {
                 "type": "string",
                 "description": "The complex query requiring reasoning",
-                "required": True
+                "required": True,
             },
             "search_filter": {
                 "type": "string",
                 "description": "Optional search filter: 'academic' for academic sources",
-                "required": False
+                "required": False,
             },
             "search_domain_filter": {
                 "type": "array",
                 "description": "Optional list of domains to search within",
-                "required": False
-            }
-        }
+                "required": False,
+            },
+        },
     },
     "perplexity_deep_research": {
         "function": perplexity_deep_research,
@@ -937,14 +1209,14 @@ TOOLS = {
             "query": {
                 "type": "string",
                 "description": "The specific topic for deep research",
-                "required": True
+                "required": True,
             },
             "reasoning_effort": {
                 "type": "string",
                 "description": "Reasoning effort: 'low' for quick overview, 'medium' for balanced research, 'high' for exhaustive analysis. DEFAULT TO 'low' unless user explicitly requests more depth.",
-                "required": False
-            }
-        }
+                "required": False,
+            },
+        },
     },
     "claude_code_generate_tool": {
         "function": claude_code_generate_tool,
@@ -953,19 +1225,19 @@ TOOLS = {
             "message": {
                 "type": "string",
                 "description": "Patient's natural language request",
-                "required": True
+                "required": True,
             },
             "patient_id": {
                 "type": "string",
                 "description": "Patient identifier",
-                "required": True
+                "required": True,
             },
             "patient_data": {
                 "type": "object",
                 "description": "Optional structured patient context (conditions, meds, etc.)",
-                "required": False
-            }
-        }
+                "required": False,
+            },
+        },
     },
     # FDA Drug Tools
     "searchDrugLabel": {
@@ -975,14 +1247,14 @@ TOOLS = {
             "drugName": {
                 "type": "string",
                 "description": "Name of the drug to look up (brand name or generic name)",
-                "required": True
+                "required": True,
             },
             "fields": {
                 "type": "array",
                 "description": "Optional specific fields to retrieve from the drug label. If not provided, returns all fields.",
-                "required": False
-            }
-        }
+                "required": False,
+            },
+        },
     },
     "searchAdverseEffects": {
         "function": searchAdverseEffects,
@@ -991,15 +1263,15 @@ TOOLS = {
             "drugName": {
                 "type": "string",
                 "description": "Name of the drug to search for",
-                "required": True
+                "required": True,
             },
             "limit": {
                 "type": "integer",
                 "description": "Maximum number of adverse effects to return (default: 10)",
                 "required": False,
-                "default": 10
-            }
-        }
+                "default": 10,
+            },
+        },
     },
     "getSpecialPopulations": {
         "function": getSpecialPopulations,
@@ -1008,9 +1280,9 @@ TOOLS = {
             "drugName": {
                 "type": "string",
                 "description": "Name of the drug to look up",
-                "required": True
+                "required": True,
             }
-        }
+        },
     },
     "getBoxedWarning": {
         "function": getBoxedWarning,
@@ -1019,9 +1291,9 @@ TOOLS = {
             "drugName": {
                 "type": "string",
                 "description": "Name of the drug to look up",
-                "required": True
+                "required": True,
             }
-        }
+        },
     },
     "getDrugInteractions": {
         "function": getDrugInteractions,
@@ -1030,9 +1302,9 @@ TOOLS = {
             "drugName": {
                 "type": "string",
                 "description": "Name of the drug to look up",
-                "required": True
+                "required": True,
             }
-        }
+        },
     },
     "getAbuse": {
         "function": getAbuse,
@@ -1041,9 +1313,9 @@ TOOLS = {
             "drugName": {
                 "type": "string",
                 "description": "Name of the drug to look up (brand name or generic name)",
-                "required": True
+                "required": True,
             }
-        }
+        },
     },
     "getAbuseTable": {
         "function": getAbuseTable,
@@ -1052,9 +1324,9 @@ TOOLS = {
             "drugName": {
                 "type": "string",
                 "description": "Name of the drug to look up (brand name or generic name)",
-                "required": True
+                "required": True,
             }
-        }
+        },
     },
     "getActiveIngredient": {
         "function": getActiveIngredient,
@@ -1063,9 +1335,9 @@ TOOLS = {
             "drugName": {
                 "type": "string",
                 "description": "Name of the drug to look up (brand name or generic name)",
-                "required": True
+                "required": True,
             }
-        }
+        },
     },
     "getAdverseReactions": {
         "function": getAdverseReactions,
@@ -1074,9 +1346,9 @@ TOOLS = {
             "drugName": {
                 "type": "string",
                 "description": "Name of the drug to look up (brand name or generic name)",
-                "required": True
+                "required": True,
             }
-        }
+        },
     },
     "getClinicalPharmacology": {
         "function": getClinicalPharmacology,
@@ -1085,9 +1357,9 @@ TOOLS = {
             "drugName": {
                 "type": "string",
                 "description": "Name of the drug to look up (brand name or generic name)",
-                "required": True
+                "required": True,
             }
-        }
+        },
     },
     "getContraindications": {
         "function": getContraindications,
@@ -1096,9 +1368,9 @@ TOOLS = {
             "drugName": {
                 "type": "string",
                 "description": "Name of the drug to look up (brand name or generic name)",
-                "required": True
+                "required": True,
             }
-        }
+        },
     },
     "getDescription": {
         "function": getDescription,
@@ -1107,9 +1379,9 @@ TOOLS = {
             "drugName": {
                 "type": "string",
                 "description": "Name of the drug to look up (brand name or generic name)",
-                "required": True
+                "required": True,
             }
-        }
+        },
     },
     "getDosageAndAdministration": {
         "function": getDosageAndAdministration,
@@ -1118,9 +1390,9 @@ TOOLS = {
             "drugName": {
                 "type": "string",
                 "description": "Name of the drug to look up (brand name or generic name)",
-                "required": True
+                "required": True,
             }
-        }
+        },
     },
     "getWarnings": {
         "function": getWarnings,
@@ -1129,9 +1401,9 @@ TOOLS = {
             "drugName": {
                 "type": "string",
                 "description": "Name of the drug to look up (brand name or generic name)",
-                "required": True
+                "required": True,
             }
-        }
+        },
     },
     "getPregnancy": {
         "function": getPregnancy,
@@ -1140,9 +1412,9 @@ TOOLS = {
             "drugName": {
                 "type": "string",
                 "description": "Name of the drug to look up (brand name or generic name)",
-                "required": True
+                "required": True,
             }
-        }
+        },
     },
     "getPediatricUse": {
         "function": getPediatricUse,
@@ -1151,9 +1423,9 @@ TOOLS = {
             "drugName": {
                 "type": "string",
                 "description": "Name of the drug to look up (brand name or generic name)",
-                "required": True
+                "required": True,
             }
-        }
+        },
     },
     "getGeriatricUse": {
         "function": getGeriatricUse,
@@ -1162,9 +1434,9 @@ TOOLS = {
             "drugName": {
                 "type": "string",
                 "description": "Name of the drug to look up (brand name or generic name)",
-                "required": True
+                "required": True,
             }
-        }
+        },
     },
     "getIndicationsAndUsage": {
         "function": getIndicationsAndUsage,
@@ -1173,9 +1445,9 @@ TOOLS = {
             "drugName": {
                 "type": "string",
                 "description": "Name of the drug to look up (brand name or generic name)",
-                "required": True
+                "required": True,
             }
-        }
+        },
     },
     "getMechanismOfAction": {
         "function": getMechanismOfAction,
@@ -1184,9 +1456,9 @@ TOOLS = {
             "drugName": {
                 "type": "string",
                 "description": "Name of the drug to look up (brand name or generic name)",
-                "required": True
+                "required": True,
             }
-        }
+        },
     },
     "getOverdosage": {
         "function": getOverdosage,
@@ -1195,9 +1467,9 @@ TOOLS = {
             "drugName": {
                 "type": "string",
                 "description": "Name of the drug to look up (brand name or generic name)",
-                "required": True
+                "required": True,
             }
-        }
+        },
     },
     "getPharmacokinetics": {
         "function": getPharmacokinetics,
@@ -1206,9 +1478,9 @@ TOOLS = {
             "drugName": {
                 "type": "string",
                 "description": "Name of the drug to look up (brand name or generic name)",
-                "required": True
+                "required": True,
             }
-        }
+        },
     },
     "getControlledSubstance": {
         "function": getControlledSubstance,
@@ -1217,9 +1489,9 @@ TOOLS = {
             "drugName": {
                 "type": "string",
                 "description": "Name of the drug to look up (brand name or generic name)",
-                "required": True
+                "required": True,
             }
-        }
+        },
     },
     "getNursingMothers": {
         "function": getNursingMothers,
@@ -1228,9 +1500,9 @@ TOOLS = {
             "drugName": {
                 "type": "string",
                 "description": "Name of the drug to look up (brand name or generic name)",
-                "required": True
+                "required": True,
             }
-        }
+        },
     },
     # Commented out until function ordering is fixed
     # "create_browser_ccsdk": {
@@ -1243,7 +1515,7 @@ TOOLS = {
     #             "required": True
     #         },
     #         "tool_name": {
-    #             "type": "string", 
+    #             "type": "string",
     #             "description": "Name of the tool being generated (e.g., 'Medication Tracker')",
     #             "required": True
     #         }
@@ -1257,26 +1529,26 @@ TOOLS = {
             "query": {
                 "type": "string",
                 "description": "Search query using PubMed syntax (e.g., 'diabetes AND metformin', 'Smith J[Author]')",
-                "required": True
+                "required": True,
             },
             "max_results": {
                 "type": "integer",
                 "description": "Maximum number of results to return (default: 20, max: 10000)",
                 "required": False,
-                "default": 20
+                "default": 20,
             },
             "sort_order": {
                 "type": "string",
                 "description": "Sort order: 'relevance', 'pub_date', 'Author', 'JournalName'",
                 "required": False,
-                "default": "relevance"
+                "default": "relevance",
             },
             "date_filter": {
                 "type": "object",
                 "description": "Optional date filter with mindate, maxdate (YYYY/MM/DD format), and datetype (pdat, edat, crdt)",
-                "required": False
-            }
-        }
+                "required": False,
+            },
+        },
     },
     "pubmed_fetch_abstracts": {
         "function": pubmed_fetch_abstracts,
@@ -1285,15 +1557,15 @@ TOOLS = {
             "pmids": {
                 "type": "array",
                 "description": "List of PubMed IDs (PMIDs) to fetch abstracts for",
-                "required": True
+                "required": True,
             },
             "include_full_text": {
                 "type": "boolean",
                 "description": "Whether to attempt to include full text when available",
                 "required": False,
-                "default": False
-            }
-        }
+                "default": False,
+            },
+        },
     },
     "pubmed_fetch_summaries": {
         "function": pubmed_fetch_summaries,
@@ -1302,9 +1574,9 @@ TOOLS = {
             "pmids": {
                 "type": "array",
                 "description": "List of PubMed IDs (PMIDs) to fetch summaries for",
-                "required": True
+                "required": True,
             }
-        }
+        },
     },
     "pubmed_fetch_related": {
         "function": pubmed_fetch_related,
@@ -1313,15 +1585,15 @@ TOOLS = {
             "pmid": {
                 "type": "string",
                 "description": "PubMed ID (PMID) of the source article",
-                "required": True
+                "required": True,
             },
             "max_results": {
                 "type": "integer",
                 "description": "Maximum number of related articles to return",
                 "required": False,
-                "default": 20
-            }
-        }
+                "default": 20,
+            },
+        },
     },
     "pubmed_fetch_citations": {
         "function": pubmed_fetch_citations,
@@ -1330,15 +1602,15 @@ TOOLS = {
             "pmid": {
                 "type": "string",
                 "description": "PubMed ID (PMID) of the article",
-                "required": True
+                "required": True,
             },
             "citation_type": {
                 "type": "string",
                 "description": "Type of citations to fetch: 'references', 'citations', or 'both'",
                 "required": False,
-                "default": "both"
-            }
-        }
+                "default": "both",
+            },
+        },
     },
     "pubmed_search_clinical_trials": {
         "function": pubmed_search_clinical_trials,
@@ -1347,25 +1619,25 @@ TOOLS = {
             "condition": {
                 "type": "string",
                 "description": "Medical condition or disease to search for",
-                "required": True
+                "required": True,
             },
             "intervention": {
                 "type": "string",
                 "description": "Treatment or intervention being studied",
-                "required": False
+                "required": False,
             },
             "status": {
                 "type": "string",
                 "description": "Trial status (e.g., 'recruiting', 'completed')",
-                "required": False
+                "required": False,
             },
             "max_results": {
                 "type": "integer",
                 "description": "Maximum number of results to return",
                 "required": False,
-                "default": 20
-            }
-        }
+                "default": 20,
+            },
+        },
     },
     "pubmed_mesh_search": {
         "function": pubmed_mesh_search,
@@ -1374,21 +1646,21 @@ TOOLS = {
             "mesh_terms": {
                 "type": "array",
                 "description": "List of MeSH terms to search for",
-                "required": True
+                "required": True,
             },
             "combine_with": {
                 "type": "string",
                 "description": "How to combine MeSH terms: 'AND' or 'OR'",
                 "required": False,
-                "default": "AND"
+                "default": "AND",
             },
             "max_results": {
                 "type": "integer",
                 "description": "Maximum number of results to return",
                 "required": False,
-                "default": 20
-            }
-        }
+                "default": 20,
+            },
+        },
     },
     # Multi-Agent Orchestration Tools (Anthropic-style)
     "spawn_healthcare_agent": {
@@ -1398,29 +1670,29 @@ TOOLS = {
             "agent_id": {
                 "type": "string",
                 "description": "Unique identifier for this agent instance",
-                "required": True
+                "required": True,
             },
             "specialty": {
-                "type": "string", 
+                "type": "string",
                 "description": "Agent specialty: 'insurance_researcher', 'clinical_researcher', 'patient_advocate', 'pharmacy_specialist', or 'appeals_specialist'",
-                "required": True
+                "required": True,
             },
             "task": {
                 "type": "string",
                 "description": "Specific task for this agent to accomplish",
-                "required": True
+                "required": True,
             },
             "allowed_tools": {
                 "type": "array",
                 "description": "List of tool names this agent is allowed to use",
-                "required": True
+                "required": True,
             },
             "context": {
                 "type": "object",
                 "description": "Optional context information for the agent",
-                "required": False
-            }
-        }
+                "required": False,
+            },
+        },
     },
     "execute_spawned_agent": {
         "function": execute_spawned_agent,
@@ -1429,9 +1701,9 @@ TOOLS = {
             "agent_id": {
                 "type": "string",
                 "description": "ID of the agent to execute",
-                "required": True
+                "required": True,
             }
-        }
+        },
     },
     "execute_agent_team": {
         "function": execute_agent_team,
@@ -1440,9 +1712,9 @@ TOOLS = {
             "agent_ids": {
                 "type": "array",
                 "description": "List of agent IDs to execute in parallel",
-                "required": True
+                "required": True,
             }
-        }
+        },
     },
     "execute_agent_pipeline": {
         "function": execute_agent_pipeline,
@@ -1451,19 +1723,19 @@ TOOLS = {
             "chain_name": {
                 "type": "string",
                 "description": "Name of the pipeline to execute: 'research_chain', 'analysis_chain', 'medical_chain', or 'simple_chain'",
-                "required": True
+                "required": True,
             },
             "initial_task": {
                 "type": "string",
                 "description": "The task to start the pipeline with",
-                "required": True
+                "required": True,
             },
             "context": {
                 "type": "object",
                 "description": "Optional context to pass to the pipeline",
-                "required": False
-            }
-        }
+                "required": False,
+            },
+        },
     },
     "orchestrate_healthcare_task": {
         "function": orchestrate_healthcare_task,
@@ -1472,25 +1744,25 @@ TOOLS = {
             "task": {
                 "type": "string",
                 "description": "The healthcare task to orchestrate across multiple agents",
-                "required": True
+                "required": True,
             },
             "specialties": {
                 "type": "array",
                 "description": "List of agent specialties to use (e.g., ['insurance_researcher', 'clinical_researcher'])",
-                "required": True
+                "required": True,
             },
             "context": {
                 "type": "object",
                 "description": "Optional context to share across all agents",
-                "required": False
+                "required": False,
             },
             "parallel": {
                 "type": "boolean",
                 "description": "Whether to execute agents in parallel (default: true)",
                 "required": False,
-                "default": True
-            }
-        }
+                "default": True,
+            },
+        },
     },
     "check_agent_status": {
         "function": check_agent_status,
@@ -1499,25 +1771,34 @@ TOOLS = {
             "agent_id": {
                 "type": "string",
                 "description": "ID of the agent to check",
-                "required": True
+                "required": True,
             }
-        }
+        },
     },
     "cleanup_completed_agent": {
         "function": cleanup_completed_agent,
-        "description": "Clean up a completed agent from memory",
+        "description": "Clean up a completed agent from memory and end its session",
         "parameters": {
             "agent_id": {
-                "type": "string", 
+                "type": "string",
                 "description": "ID of the agent to clean up",
-                "required": True
+                "required": True,
             }
-        }
-    }
+        },
+    },
+    "get_agent_sessions": {
+        "function": get_agent_sessions,
+        "description": "Get status of all active agent sessions for monitoring and debugging",
+        "parameters": {},
+    },
+    "end_all_agent_sessions": {
+        "function": end_all_agent_sessions,
+        "description": "Emergency cleanup - end all active agent sessions. Use when sessions are stuck or need mass cleanup.",
+        "parameters": {},
+    },
     # Brave Search tools removed - accessed through MCP server
     # computer_use removed - should be enabled as native Claude capability, not a recursive tool
 }
-
 
 
 # Claude Code SDK Tool for Healthcare Tool Generation
@@ -1527,64 +1808,63 @@ async def create_browser_ccsdk(tool_html: str, tool_name: str) -> Dict[str, Any]
     Returns LiveURL immediately for inline chat display.
     """
     try:
-        from backend.agents.claudeAgent.claude_tools.claude_code_sdk.claude_code_sdk_browserless import claude_code_sdk_browserless
-        
+        from backend.agents.claudeAgent.claude_tools.claude_code_sdk.claude_code_sdk_browserless import (
+            claude_code_sdk_browserless,
+        )
+
         logger.info(f"Creating Claude Code SDK tool preview for: {tool_name}")
-        
+
         # Create session and get LiveURL
         result = await claude_code_sdk_browserless.create_browser_ccsdk(
-            tool_html=tool_html,
-            tool_name=tool_name
+            tool_html=tool_html, tool_name=tool_name
         )
-        
+
         logger.info(f"Tool preview created with LiveURL: {result['live_url']}")
-        
+
         return {
             "success": True,
-            "session_id": result['session_id'],
-            "live_url": result['live_url'],
-            "tool_name": result['tool_name'],
-            "message": f"Your {tool_name} is ready!"
+            "session_id": result["session_id"],
+            "live_url": result["live_url"],
+            "tool_name": result["tool_name"],
+            "message": f"Your {tool_name} is ready!",
         }
-        
+
     except Exception as e:
         logger.error(f"Failed to create tool preview: {str(e)}")
         return {
             "success": False,
             "error": str(e),
-            "message": "Unable to display tool preview. Please try again."
+            "message": "Unable to display tool preview. Please try again.",
         }
 
 
 def get_tool_definitions_for_claude():
     """Get tool definitions in Claude's expected format"""
     definitions = []
-    
+
     for name, meta in TOOLS.items():
         tool_def = {
             "name": name,
             "description": meta["description"],
-            "input_schema": {
-                "type": "object",
-                "properties": {},
-                "required": []
-            }
+            "input_schema": {"type": "object", "properties": {}, "required": []},
         }
-        
+
         # Add parameters
         for param_name, param_info in meta["parameters"].items():
             tool_def["input_schema"]["properties"][param_name] = {
                 "type": param_info["type"],
-                "description": param_info["description"]
+                "description": param_info["description"],
             }
             if param_info.get("default"):
-                tool_def["input_schema"]["properties"][param_name]["default"] = param_info["default"]
-            
+                tool_def["input_schema"]["properties"][param_name]["default"] = (
+                    param_info["default"]
+                )
+
             if param_info.get("required", False):
                 tool_def["input_schema"]["required"].append(param_name)
-        
+
         definitions.append(tool_def)
-    
+
     return definitions
 
 
@@ -1592,16 +1872,20 @@ async def execute_tool(tool_name: str, tool_input: Dict[str, Any]) -> Dict[str, 
     """Execute a tool by name with given input"""
     if tool_name not in TOOLS:
         return {"error": f"Unknown tool: {tool_name}"}
-    
+
     # Ensure tool_input is a dictionary (handle empty string or None cases)
     if not isinstance(tool_input, dict):
-        logger.warning(f"Tool {tool_name} received non-dict input: {type(tool_input)} - {tool_input}")
-        tool_input = {} if (tool_input == "" or tool_input is None) else {"input": tool_input}
-    
+        logger.warning(
+            f"Tool {tool_name} received non-dict input: {type(tool_input)} - {tool_input}"
+        )
+        tool_input = (
+            {} if (tool_input == "" or tool_input is None) else {"input": tool_input}
+        )
+
     # computer_use is handled as a native Claude capability, not through this tool system
-    
+
     tool_func = TOOLS[tool_name]["function"]
-    
+
     try:
         # Execute the tool function
         result = await tool_func(**tool_input)
@@ -1611,5 +1895,5 @@ async def execute_tool(tool_name: str, tool_input: Dict[str, Any]) -> Dict[str, 
         return {
             "error": f"Tool execution failed: {str(e)}",
             "tool": tool_name,
-            "input": tool_input
+            "input": tool_input,
         }
