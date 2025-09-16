@@ -46,7 +46,12 @@ class BrowserUseCloudClient:
     def __init__(self, api_key: Optional[str] = None):
         self.api_key = api_key or os.getenv("BROWSER_USE_API_KEY")
         if not self.api_key:
-            raise ValueError("BROWSER_USE_API_KEY environment variable or api_key parameter required")
+            raise ValueError(
+                "BROWSER_USE_API_KEY not found. Please add it to your .env file:\n"
+                "1. Get your API key from: https://cloud.browser-use.com/billing\n"
+                "2. Add to .env file: BROWSER_USE_API_KEY=your_api_key_here\n"
+                "3. Restart the application"
+            )
 
         self.base_url = "https://api.browser-use.com"
         self.timeout = httpx.Timeout(30.0, connect=5.0)
