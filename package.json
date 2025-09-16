@@ -12,7 +12,8 @@
     "dev:all": "npm run kill-ports && docker-compose -f docker-compose.brave.yml up -d && concurrently \"npm run dev\" \"npm run dev:backend\"",
     "kill-ports": "node scripts/kill-ports.js",
     "lint": "next lint",
-    "start": "next start"
+    "start": "next start",
+    "test": "echo \"No tests configured yet\" && exit 0"
   },
   "dependencies": {
     "@emotion/is-prop-valid": "latest",
