@@ -75,14 +75,27 @@ async def clinical_operations_query(
         response = await client.chat.completions.create(
             model="gpt-5-mini",
             messages=messages,
-            temperature=0.3,  # Lower temperature for more consistent clinical responses
-            max_completion_tokens=2000,  # Use max_completion_tokens for newer models
+            # GPT-5 models only support default temperature of 1.0
+            # temperature=0.3,  # Commented out - not supported by GPT-5
+            max_completion_tokens=32000,  # GPT-5-mini supports up to 128K output tokens
             stream=False,  # Set explicitly for non-streaming mode
         )
 
+        # Log the raw response for debugging
+        logger.info(f"Raw OpenAI response: {response}")
+        logger.info(f"Response choices: {response.choices}")
+
+        # Get the response content - check if it exists
+        response_content = ""
+        if response.choices and len(response.choices) > 0:
+            response_content = response.choices[0].message.content or ""
+
+        if not response_content:
+            logger.warning("OpenAI returned empty response content")
+
         return {
             "success": True,
-            "response": response.choices[0].message.content,
+            "response": response_content,
             "model": "gpt-5-mini",
             "usage": {
                 "prompt_tokens": response.usage.prompt_tokens,

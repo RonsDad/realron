@@ -76,8 +76,9 @@ async def clinical_operations_query_stream(
         stream = await client.chat.completions.create(
             model="gpt-5-mini",
             messages=messages,
-            temperature=0.3,  # Lower temperature for more consistent clinical responses
-            max_completion_tokens=2000,  # Use max_completion_tokens for newer models
+            # GPT-5 models only support default temperature of 1.0
+            # temperature=0.3,  # Commented out - not supported by GPT-5
+            max_completion_tokens=32000,  # GPT-5-mini supports up to 128K output tokens
             stream=True,  # Enable streaming
             stream_options={"include_usage": True},  # Include token usage in stream
         )
@@ -181,8 +182,9 @@ async def clinical_operations_query(
         response = await client.chat.completions.create(
             model="gpt-5-mini",
             messages=messages,
-            temperature=0.3,  # Lower temperature for more consistent clinical responses
-            max_completion_tokens=2000,  # Use max_completion_tokens for newer models
+            # GPT-5 models only support default temperature of 1.0
+            # temperature=0.3,  # Commented out - not supported by GPT-5
+            max_completion_tokens=32000,  # GPT-5-mini supports up to 128K output tokens
             stream=False,  # Set explicitly for non-streaming mode
         )
 

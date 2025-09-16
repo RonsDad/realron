@@ -3,7 +3,7 @@ Tool handlers for Claude to use
 Based on the browser-use integration
 """
 
-from typing import Any, Dict, List
+from typing import Any, Dict, List, Optional
 import logging
 import asyncio
 from datetime import datetime
@@ -807,20 +807,44 @@ async def end_all_agent_sessions() -> Dict[str, Any]:
 
 # Claude Code SDK: Generate healthcare tool and return LiveURL
 async def claude_code_generate_tool(
-    message: str, patient_id: str, patient_data: Dict[str, Any] = None
+    message: str,
+    patient_id: Optional[str] = None,
+    patient_data: Dict[str, Any] = None,
+    session_id: Optional[str] = None
 ) -> Dict[str, Any]:
-    """Generate a healthcare tool using Claude Code SDK and return a LiveURL for preview."""
+    """
+    Generate a healthcare tool using Claude Code SDK and return a LiveURL for preview.
+
+    Args:
+        message: The patient's request for a healthcare tool
+        patient_id: Optional patient identifier (auto-generated if not provided)
+        patient_data: Optional structured patient context (conditions, meds, etc.)
+        session_id: Optional session ID for tracking (auto-generated if not provided)
+
+    Returns:
+        Dictionary with tool generation results including LiveURL for preview
+    """
     try:
         from backend.agents.claudeAgent.claude_tools.claude_code_sdk.patient_handler import (
             patient_request_handler,
         )
 
+        # Log the request
+        logger.info(f"Claude Code SDK tool generation requested: {message[:100]}...")
+        if patient_id:
+            logger.info(f"Using provided patient_id: {patient_id}")
+        else:
+            logger.info("No patient_id provided - will generate anonymous session")
+
         result = await patient_request_handler.handle_request(
             message=message,
             patient_id=patient_id,
             patient_data=patient_data,
+            session_id=session_id
         )
-        return {
+
+        # Extract and format the response
+        response = {
             "success": bool(result.get("success")),
             "tool_id": result.get("tool_id"),
             "live_url": result.get("live_url") or result.get("tool_url"),
@@ -828,11 +852,25 @@ async def claude_code_generate_tool(
             "message": result.get("message"),
             "timestamp": result.get("timestamp"),
             "session_id": result.get("session_id"),
+            "patient_id": result.get("patient_id"),  # Include the generated patient_id
+            "browser_session_id": result.get("browser_session_id"),
             "error": result.get("error"),
         }
+
+        if response["success"]:
+            logger.info(f"Tool generation successful - LiveURL: {response.get('live_url')}")
+        else:
+            logger.error(f"Tool generation failed: {response.get('error')}")
+
+        return response
+
     except Exception as e:
-        logger.error(f"Claude Code SDK generation failed: {str(e)}")
-        return {"success": False, "error": str(e)}
+        logger.error(f"Claude Code SDK generation failed with exception: {str(e)}")
+        return {
+            "success": False,
+            "error": str(e),
+            "message": "Failed to generate healthcare tool. Please try again."
+        }
 
 
 # Tool registry
@@ -1220,21 +1258,26 @@ TOOLS = {
     },
     "claude_code_generate_tool": {
         "function": claude_code_generate_tool,
-        "description": "Generate a personalized healthcare tool using Claude Code SDK and return a LiveURL for instant preview.",
+        "description": "Generate a personalized healthcare tool using Claude Code SDK and return a LiveURL for instant preview. Works for both registered patients and anonymous users.",
         "parameters": {
             "message": {
                 "type": "string",
-                "description": "Patient's natural language request",
+                "description": "Patient's natural language request for a healthcare tool",
                 "required": True,
             },
             "patient_id": {
                 "type": "string",
-                "description": "Patient identifier",
-                "required": True,
+                "description": "Optional patient identifier (auto-generated anonymous ID if not provided)",
+                "required": False,
             },
             "patient_data": {
                 "type": "object",
                 "description": "Optional structured patient context (conditions, meds, etc.)",
+                "required": False,
+            },
+            "session_id": {
+                "type": "string",
+                "description": "Optional session ID for tracking (auto-generated if not provided)",
                 "required": False,
             },
         },

@@ -57,7 +57,8 @@ class BrowserbaseConfig:
     model_name: str = "google/gemini-2.0-flash"  # Default per documentation
     model_api_key: Optional[str] = None
     proxies: bool = False
-    advanced_stealth: bool = False    context_id: Optional[str] = None
+    advanced_stealth: bool = False
+    context_id: Optional[str] = None
     browser_width: int = 1024
     browser_height: int = 768
 
@@ -138,7 +139,8 @@ class BrowserbaseMCPServer:
             if self.config.model_api_key:
                 # Set appropriate API key based on model provider
                 if "gemini" in self.config.model_name.lower():
-                    env["GEMINI_API_KEY"] = self.config.model_api_key
+                    env["GOOGLE_GENERATIVE_AI_API_KEY"] = self.config.model_api_key
+                    env["GEMINI_API_KEY"] = self.config.model_api_key  # Fallback
                 elif "anthropic" in self.config.model_name.lower():
                     env["ANTHROPIC_API_KEY"] = self.config.model_api_key
                 elif "openai" in self.config.model_name.lower():
@@ -222,7 +224,9 @@ class BrowserbaseMCPIntegration:
         
         # Optional configuration
         model_name = os.environ.get("BROWSERBASE_MODEL_NAME", "google/gemini-2.0-flash")
-        model_api_key = os.environ.get("GEMINI_API_KEY") or os.environ.get("ANTHROPIC_API_KEY")
+        model_api_key = (os.environ.get("GOOGLE_GENERATIVE_AI_API_KEY") or
+                        os.environ.get("GEMINI_API_KEY") or
+                        os.environ.get("ANTHROPIC_API_KEY"))
         
         # Boolean flags
         proxies = os.environ.get("BROWSERBASE_PROXIES", "").lower() == "true"
@@ -265,7 +269,8 @@ class BrowserbaseMCPIntegration:
         try:
             return self.server.get_mcp_server_config()
         except ValueError as e:
-            logger.error(f"Cannot get MCP config: {e}")            return None
+            logger.error(f"Cannot get MCP config: {e}")
+            return None
     
     async def start_local_server_if_needed(self) -> bool:
         """
@@ -295,7 +300,8 @@ class BrowserbaseMCPIntegration:
 
 def add_browserbase_to_mcp_servers(
     mcp_servers: List[Dict[str, Any]]
-) -> List[Dict[str, Any]]:    """
+) -> List[Dict[str, Any]]:
+    """
     Add Browserbase MCP server to the list of MCP servers
     This function integrates with the existing Ron AI backend
     """
@@ -325,7 +331,8 @@ def add_browserbase_to_mcp_servers(
 
 async def test_browserbase_integration():
     """Test the Browserbase MCP integration"""
-    integration = BrowserbaseMCPIntegration()    
+    integration = BrowserbaseMCPIntegration()
+
     # Initialize from environment
     if not integration.initialize_from_env():
         print("❌ Failed to initialize Browserbase MCP")

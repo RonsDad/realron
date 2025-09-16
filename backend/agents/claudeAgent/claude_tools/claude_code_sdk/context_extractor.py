@@ -46,27 +46,31 @@ class ContextExtractor:
         ]
     
     async def extract(
-        self, 
-        message: str, 
+        self,
+        message: str,
         patient_id: str,
         patient_data: Optional[Dict[str, Any]] = None
     ) -> PatientContext:
         """
         Extract context from message and patient data
-        
+
         Args:
             message: User's message
-            patient_id: Patient identifier
+            patient_id: Patient identifier (can be anonymous)
             patient_data: Optional existing patient data
-            
+
         Returns:
             Structured PatientContext
         """
         # Initialize with defaults
         patient_data = patient_data or {}
-        
+
         # Extract from patient data
-        patient_name = patient_data.get("name", "Patient")
+        # For anonymous sessions, use "Anonymous Patient" instead of just "Patient"
+        if patient_id and patient_id.startswith("anon_"):
+            patient_name = patient_data.get("name", "Anonymous Patient")
+        else:
+            patient_name = patient_data.get("name", "Patient")
         age = self._extract_age(message, patient_data)
         
         # Extract medical information

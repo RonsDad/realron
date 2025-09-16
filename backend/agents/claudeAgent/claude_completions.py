@@ -331,6 +331,14 @@ class ClaudeCompletions:
                                 server['authorization_token'] = token
                     mcp_servers = servers
                     logger.info(f"MCP Configuration cached: {len(mcp_servers)} server(s)")
+
+            # Add Browserbase MCP server dynamically if configured
+            try:
+                from backend.integrations.browserbase_mcp import add_browserbase_to_mcp_servers
+                mcp_servers = add_browserbase_to_mcp_servers(mcp_servers)
+            except Exception as browserbase_error:
+                logger.warning(f"Failed to load Browserbase MCP integration: {browserbase_error}")
+
         except Exception as e:
             logger.warning(f"MCP servers unavailable: {e}")
         return mcp_servers
