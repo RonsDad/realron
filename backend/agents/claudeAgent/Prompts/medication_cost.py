@@ -4,7 +4,9 @@ import os
 
 import sys
 
-sys.path.append(os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))))
+sys.path.append(
+    os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+)
 
 from dotenv import load_dotenv
 
@@ -18,14 +20,19 @@ from browser_use import Agent
 
 from browser_use.llm import ChatOpenAI
 
-openai_api_key = os.getenv('OPENAI_API_KEY')
+openai_api_key = os.getenv("OPENAI_API_KEY")
 if not openai_api_key:
+<<<<<<< HEAD
 	raise ValueError("OPENAI_API_KEY environment variable is required")
 llm = ChatOpenAI(model='gpt-5', api_key=openai_api_key, temperature=1)
+=======
+    raise ValueError("OPENAI_API_KEY environment variable is required")
+# GPT-5 models only support default temperature of 1.0
+llm = ChatOpenAI(model="gpt-5", api_key=openai_api_key)  # temperature=0.0 not supported
+>>>>>>> option2-merge
 
 agent = Agent(
-
-	task='''**Objective:** Enroll {{FIRST_NAME}} {{LAST_NAME}} in [Program Name] for {{MEDICATION}}
+    task="""**Objective:** Enroll {{FIRST_NAME}} {{LAST_NAME}} in [Program Name] for {{MEDICATION}}
 
 **Starting point:** {{solution_url}}
 
@@ -85,14 +92,14 @@ agent = Agent(
 
 - Downloadable/printable discount card
 
-- Clear instructions for pharmacy use''',
-
-	llm=llm,
-
+- Clear instructions for pharmacy use""",
+    llm=llm,
 )
+
 
 async def main():
 
-	await agent.run(max_steps=100)  # Increased to 100
+    await agent.run(max_steps=100)  # Increased to 100
+
 
 asyncio.run(main())

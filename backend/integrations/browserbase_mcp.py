@@ -143,7 +143,18 @@ class BrowserbaseMCPServer:
             
             # Pass the GEMINI_API_KEY to the MCP server
             if self.config.model_api_key:
+<<<<<<< HEAD
                 env["GEMINI_API_KEY"] = self.config.model_api_key
+=======
+                # Set appropriate API key based on model provider
+                if "gemini" in self.config.model_name.lower():
+                    env["GOOGLE_GENERATIVE_AI_API_KEY"] = self.config.model_api_key
+                    env["GEMINI_API_KEY"] = self.config.model_api_key  # Fallback
+                elif "anthropic" in self.config.model_name.lower():
+                    env["ANTHROPIC_API_KEY"] = self.config.model_api_key
+                elif "openai" in self.config.model_name.lower():
+                    env["OPENAI_API_KEY"] = self.config.model_api_key
+>>>>>>> option2-merge
             
             # Start the server process
             logger.info(f"Starting Browserbase MCP server: {' '.join(cmd)}")
@@ -225,7 +236,9 @@ class BrowserbaseMCPIntegration:
         
         # Optional configuration
         model_name = os.environ.get("BROWSERBASE_MODEL_NAME", "google/gemini-2.0-flash")
-        model_api_key = os.environ.get("GEMINI_API_KEY") or os.environ.get("ANTHROPIC_API_KEY")
+        model_api_key = (os.environ.get("GOOGLE_GENERATIVE_AI_API_KEY") or
+                        os.environ.get("GEMINI_API_KEY") or
+                        os.environ.get("ANTHROPIC_API_KEY"))
         
         # Boolean flags
         proxies = os.environ.get("BROWSERBASE_PROXIES", "").lower() == "true"
@@ -332,6 +345,10 @@ def add_browserbase_to_mcp_servers(
 async def test_browserbase_integration():
     """Test the Browserbase MCP integration"""
     integration = BrowserbaseMCPIntegration()
+<<<<<<< HEAD
+=======
+
+>>>>>>> option2-merge
     # Initialize from environment
     if not integration.initialize_from_env():
         print("❌ Failed to initialize Browserbase MCP")
