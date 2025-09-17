@@ -1016,7 +1016,7 @@ class ClaudeCompletions:
                             if tool_blocks:
                                 # Check if we have browser tools
                                 has_browser_tools = any(
-                                    block.get('name') in ['browser_use', 'reuse_browser_session'] 
+                                    block.get('name') in ['browser_use', 'reuse_browser_session', 'browser_use_cloud_automation']
                                     for block in tool_blocks
                                 )
                                 
@@ -1089,6 +1089,31 @@ class ClaudeCompletions:
                                                     'live_url': tool_result['live_url'],
                                                     'session_id': tool_result.get('session_id')
                                                 }
+
+                                            # Yield live URL from Browser-Use Cloud results
+                                            if tool_name == 'browser_use_cloud_automation' and isinstance(tool_result, dict):
+                                                # Check all possible live URL fields from Browser-Use Cloud API
+                                                live_url = (tool_result.get('result', {}).get('browser_url') or
+                                                           tool_result.get('result', {}).get('liveUrl') or
+                                                           tool_result.get('result', {}).get('live_url') or
+                                                           tool_result.get('browser_url') or
+                                                           tool_result.get('liveUrl') or
+                                                           tool_result.get('live_url'))
+
+                                                if live_url:
+                                                    logger.info(f"🚀 Browser-Use Cloud LiveURL detected (sequential): {live_url}")
+                                                    yield json.dumps({
+                                                        'type': 'browser_live_url',
+                                                        'live_url': live_url,
+                                                        'session_id': (tool_result.get('result', {}).get('session_id') or
+                                                                     tool_result.get('session_id')),
+                                                        'task_id': (tool_result.get('result', {}).get('task_id') or
+                                                                  tool_result.get('task_id')),
+                                                        'source': 'browser_use_cloud'
+                                                    }) + '\n'
+                                                else:
+                                                    logger.warning(f"⚠️ Browser-Use Cloud tool executed but no live URL found (sequential)")
+                                                    logger.debug(f"Result structure: {json.dumps(tool_result, indent=2)}")
                                             
                                             # Yield tool result
                                             yield {
@@ -1142,6 +1167,32 @@ class ClaudeCompletions:
                                                 'tool_id': result['tool_id'],
                                                 'result': result['result']
                                             }
+
+                                            # Check for Browser-Use Cloud automation results and emit live URL
+                                            if result['tool_name'] == 'browser_use_cloud_automation' and isinstance(result['result'], dict):
+                                                tool_result_data = result['result']
+                                                # Check all possible live URL fields from Browser-Use Cloud API
+                                                live_url = (tool_result_data.get('result', {}).get('browser_url') or
+                                                           tool_result_data.get('result', {}).get('liveUrl') or
+                                                           tool_result_data.get('result', {}).get('live_url') or
+                                                           tool_result_data.get('browser_url') or
+                                                           tool_result_data.get('liveUrl') or
+                                                           tool_result_data.get('live_url'))
+
+                                                if live_url:
+                                                    logger.info(f"🚀 Browser-Use Cloud LiveURL detected: {live_url}")
+                                                    yield json.dumps({
+                                                        'type': 'browser_live_url',
+                                                        'live_url': live_url,
+                                                        'session_id': (tool_result_data.get('result', {}).get('session_id') or
+                                                                     tool_result_data.get('session_id')),
+                                                        'task_id': (tool_result_data.get('result', {}).get('task_id') or
+                                                                  tool_result_data.get('task_id')),
+                                                        'source': 'browser_use_cloud'
+                                                    }) + '\n'
+                                                else:
+                                                    logger.warning(f"⚠️ Browser-Use Cloud tool executed but no live URL found in result")
+                                                    logger.debug(f"Result structure: {json.dumps(tool_result_data, indent=2)}")
                                         else:
                                             yield {
                                                 'type': 'tool_error',
@@ -1149,12 +1200,12 @@ class ClaudeCompletions:
                                                 'tool_id': result['tool_id'],
                                                 'error': result['error']
                                             }
-                                        
+
                                         # Ensure content is string
                                         content_str = result['content']
                                         if not isinstance(content_str, str):
                                             content_str = json.dumps(content_str) if isinstance(content_str, dict) else str(content_str)
-                                        
+
                                         tool_results.append({
                                             'type': 'tool_result',
                                             'tool_use_id': result['tool_id'],
