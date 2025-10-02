@@ -1,0 +1,51 @@
+{
+  "model": "sonnet-4",
+  "hooks": {
+    "PreToolUse": [
+      {
+        "matcher": "execute_spawned_agent|spawn_healthcare_agent|orchestrate_healthcare_task",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "python3 /Users/timhunter/ron-ai/.claude/hooks/agent_capture_hook.py"
+          }
+        ]
+      }
+    ],
+    "PostToolUse": [
+      {
+        "matcher": "execute_spawned_agent|spawn_healthcare_agent|orchestrate_healthcare_task",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "python3 /Users/timhunter/ron-ai/.claude/hooks/agent_output_persistence.py"
+          },
+          {
+            "type": "command",
+            "command": "python3 /Users/timhunter/ron-ai/.claude/hooks/frontend_stream_hook.py"
+          }
+        ]
+      }
+    ],
+    "Stop": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "python3 /Users/timhunter/ron-ai/.claude/hooks/session_extension_hook.py"
+          }
+        ]
+      }
+    ],
+    "SessionStart": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "python3 /Users/timhunter/ron-ai/.claude/hooks/agent_visibility_setup.py"
+          }
+        ]
+      }
+    ]
+  }
+}

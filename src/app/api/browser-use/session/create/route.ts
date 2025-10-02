@@ -1,30 +1,42 @@
-import { NextRequest, NextResponse } from 'next/server'
+import { NextRequest, NextResponse } from "next/server";
 
 export async function POST(request: NextRequest) {
   try {
-    const body = await request.json()
-    
-    // Proxy request to Python backend browser-use service
-    const response = await fetch('http://localhost:8765/browser-use/session/create', {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
+    const body = await request.json();
+
+    // Use browser-use Cloud API through backend tool system
+    const toolRequest = {
+      tool_name: "browser_use_cloud_automation",
+      tool_input: {
+        task:
+          body.task || "Navigate to the web and prepare for user interaction",
+        use_case: body.use_case || "ultra-fast",
+        stealth_mode: body.stealth_mode !== false, // Default to true
       },
-      body: JSON.stringify(body),
-    })
-    
+    };
+
+    const response = await fetch(
+      "http://localhost:8765/execute-agent-tool-stream",
+      {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify(toolRequest),
+      },
+    );
+
     if (!response.ok) {
-      throw new Error(`Backend responded with ${response.status}`)
+      throw new Error(`Backend responded with ${response.status}`);
     }
-    
-    const data = await response.json()
-    return NextResponse.json(data)
-    
+
+    const data = await response.json();
+    return NextResponse.json(data);
   } catch (error) {
-    console.error('Error creating browser-use session:', error)
+    console.error("Error creating browser-use Cloud session:", error);
     return NextResponse.json(
-      { error: 'Failed to create browser-use session' },
-      { status: 500 }
-    )
+      { error: "Failed to create browser-use Cloud session" },
+      { status: 500 },
+    );
   }
 }
